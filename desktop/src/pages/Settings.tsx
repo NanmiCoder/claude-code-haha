@@ -339,7 +339,6 @@ function ProviderFormModal({ open, onClose, mode, provider }: ProviderFormProps)
     setTestResult(null)
   }
 
-  const isCustom = selectedPreset.id === 'custom'
   const canSubmit = name.trim() && baseUrl.trim() && (mode === 'edit' || apiKey.trim()) && models.main.trim() && !settingsJsonError
 
   const handleSubmit = async () => {
@@ -453,43 +452,25 @@ function ProviderFormModal({ open, onClose, mode, provider }: ProviderFormProps)
 
         <Input label={t('settings.providers.notes')} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t('settings.providers.notesPlaceholder')} />
 
-        {/* Base URL */}
-        {isCustom || mode === 'edit' ? (
-          <Input label={t('settings.providers.baseUrl')} required value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={t('settings.providers.baseUrlPlaceholder')} />
-        ) : (
-          <div>
-            <label className="text-sm font-medium text-[var(--color-text-primary)] mb-1 block">{t('settings.providers.baseUrl')}</label>
-            <div className="text-xs text-[var(--color-text-tertiary)] px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-surface-container-low)] border border-[var(--color-border)]">
-              {baseUrl}
-            </div>
-          </div>
-        )}
+        {/* Base URL — always editable so users can change localhost to their LAN IP */}
+        <Input label={t('settings.providers.baseUrl')} required value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={t('settings.providers.baseUrlPlaceholder')} />
 
-        {/* API Format */}
-        {(isCustom || mode === 'edit') ? (
-          <div>
-            <label className="text-sm font-medium text-[var(--color-text-primary)] mb-1 block">{t('settings.providers.apiFormat')}</label>
-            <select
-              value={apiFormat}
-              onChange={(e) => setApiFormat(e.target.value as ApiFormat)}
-              className="w-full text-sm px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-surface-container-low)] border border-[var(--color-border)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-border-focus)]"
-            >
-              <option value="anthropic">{t('settings.providers.apiFormatAnthropic')}</option>
-              <option value="openai_chat">{t('settings.providers.apiFormatOpenaiChat')}</option>
-              <option value="openai_responses">{t('settings.providers.apiFormatOpenaiResponses')}</option>
-            </select>
-            {apiFormat !== 'anthropic' && (
-              <p className="text-[11px] text-[var(--color-text-tertiary)] mt-1">{t('settings.providers.proxyHint')}</p>
-            )}
-          </div>
-        ) : apiFormat !== 'anthropic' ? (
-          <div>
-            <label className="text-sm font-medium text-[var(--color-text-primary)] mb-1 block">{t('settings.providers.apiFormat')}</label>
-            <div className="text-xs text-[var(--color-text-tertiary)] px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-surface-container-low)] border border-[var(--color-border)]">
-              {apiFormat === 'openai_chat' ? t('settings.providers.apiFormatOpenaiChat') : t('settings.providers.apiFormatOpenaiResponses')}
-            </div>
-          </div>
-        ) : null}
+        {/* API Format — always editable */}
+        <div>
+          <label className="text-sm font-medium text-[var(--color-text-primary)] mb-1 block">{t('settings.providers.apiFormat')}</label>
+          <select
+            value={apiFormat}
+            onChange={(e) => setApiFormat(e.target.value as ApiFormat)}
+            className="w-full text-sm px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-surface-container-low)] border border-[var(--color-border)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-border-focus)]"
+          >
+            <option value="anthropic">{t('settings.providers.apiFormatAnthropic')}</option>
+            <option value="openai_chat">{t('settings.providers.apiFormatOpenaiChat')}</option>
+            <option value="openai_responses">{t('settings.providers.apiFormatOpenaiResponses')}</option>
+          </select>
+          {apiFormat !== 'anthropic' && (
+            <p className="text-[11px] text-[var(--color-text-tertiary)] mt-1">{t('settings.providers.proxyHint')}</p>
+          )}
+        </div>
 
         <Input
           label={mode === 'edit' ? t('settings.providers.apiKeyKeep') : t('settings.providers.apiKey')}
