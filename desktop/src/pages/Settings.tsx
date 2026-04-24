@@ -46,6 +46,7 @@ export function Settings() {
             <TabButton icon="chat" label={t('settings.tab.adapters')} active={activeTab === 'adapters'} onClick={() => setActiveTab('adapters')} />
             <TabButton icon="smart_toy" label={t('settings.tab.agents')} active={activeTab === 'agents'} onClick={() => setActiveTab('agents')} />
             <TabButton icon="auto_awesome" label={t('settings.tab.skills')} active={activeTab === 'skills'} onClick={() => setActiveTab('skills')} />
+            <TabButton icon="build" label={t('settings.tab.tools')} active={activeTab === 'tools'} onClick={() => setActiveTab('tools')} />
             <TabButton icon="mouse" label={t('settings.tab.computerUse')} active={activeTab === 'computerUse'} onClick={() => setActiveTab('computerUse')} />
           </div>
           <div className="border-t border-[var(--color-border)]/40 pt-1">
@@ -61,6 +62,7 @@ export function Settings() {
           {activeTab === 'adapters' && <AdapterSettings />}
           {activeTab === 'agents' && <AgentsSettings />}
           {activeTab === 'skills' && <SkillSettings />}
+          {activeTab === 'tools' && <ToolsSettings />}
           {activeTab === 'computerUse' && <ComputerUseSettings />}
           {activeTab === 'about' && <AboutSettings />}
         </div>
@@ -1235,6 +1237,158 @@ function DetailStat({
     </div>
   )
 }
+// ─── Tools Settings ──────────────────────────────────────
+
+type ToolEntry = {
+  name: string
+  icon: string
+  description: string
+  gated?: string
+}
+
+type ToolCategory = {
+  id: string
+  icon: string
+  label: string
+  tools: ToolEntry[]
+}
+
+const TOOL_CATEGORIES: ToolCategory[] = [
+  {
+    id: 'file',
+    icon: 'folder_open',
+    label: '文件操作',
+    tools: [
+      { name: 'Read', icon: 'description', description: '读取文件系统中的文件内容' },
+      { name: 'Write', icon: 'edit_document', description: '创建或覆写文件' },
+      { name: 'Edit', icon: 'edit', description: '对已有文件进行精准字符串替换式编辑' },
+      { name: 'Glob', icon: 'filter_list', description: '通过 glob 模式匹配查找文件' },
+      { name: 'Grep', icon: 'search', description: '在文件内容中用正则表达式搜索' },
+      { name: 'NotebookEdit', icon: 'book', description: '编辑 Jupyter Notebook 单元格' },
+    ],
+  },
+  {
+    id: 'execution',
+    icon: 'terminal',
+    label: '执行',
+    tools: [
+      { name: 'Bash', icon: 'terminal', description: '在 Shell 中执行命令' },
+      { name: 'PowerShell', icon: 'terminal', description: '在 PowerShell 中执行命令', gated: 'Windows' },
+      { name: 'REPL', icon: 'code', description: '启动交互式 REPL 会话（Node / Python / Ruby 等）', gated: 'ant' },
+    ],
+  },
+  {
+    id: 'web',
+    icon: 'public',
+    label: '网络',
+    tools: [
+      { name: 'WebFetch', icon: 'language', description: '获取网页或 URL 的内容' },
+      { name: 'WebSearch', icon: 'travel_explore', description: '通过 Anthropic web_search_20250305 API 搜索互联网' },
+    ],
+  },
+  {
+    id: 'agent',
+    icon: 'smart_toy',
+    label: 'Agent & 规划',
+    tools: [
+      { name: 'Agent', icon: 'smart_toy', description: '派遣子 Agent 处理复杂子任务' },
+      { name: 'Skill', icon: 'auto_awesome', description: '调用已安装的技能文档作为上下文提示' },
+      { name: 'ToolSearch', icon: 'manage_search', description: '在延迟加载工具中搜索可用工具', gated: 'feature' },
+      { name: 'EnterPlanMode', icon: 'architecture', description: '进入只规划不执行的规划模式' },
+      { name: 'ExitPlanMode', icon: 'done_all', description: '退出规划模式并执行计划' },
+      { name: 'EnterWorktree', icon: 'account_tree', description: '进入 Git Worktree 隔离环境', gated: 'feature' },
+      { name: 'ExitWorktree', icon: 'logout', description: '退出 Git Worktree 环境', gated: 'feature' },
+    ],
+  },
+  {
+    id: 'task',
+    icon: 'task',
+    label: '任务管理',
+    tools: [
+      { name: 'TodoWrite', icon: 'checklist', description: '管理当前会话的 Todo 列表' },
+      { name: 'TaskOutput', icon: 'output', description: '获取异步任务的输出内容' },
+      { name: 'TaskStop', icon: 'stop_circle', description: '停止正在运行的任务' },
+      { name: 'TaskCreate', icon: 'add_task', description: '创建新的异步后台任务', gated: 'feature' },
+      { name: 'TaskGet', icon: 'task_alt', description: '获取任务状态与详情', gated: 'feature' },
+      { name: 'TaskUpdate', icon: 'edit_note', description: '更新任务的状态或内容', gated: 'feature' },
+      { name: 'TaskList', icon: 'format_list_bulleted', description: '列出所有任务', gated: 'feature' },
+    ],
+  },
+  {
+    id: 'team',
+    icon: 'group',
+    label: '团队 & 调度',
+    tools: [
+      { name: 'SendMessage', icon: 'send', description: '向其他 Agent 或频道发送消息' },
+      { name: 'TeamCreate', icon: 'group_add', description: '创建并行 Agent 团队', gated: 'feature' },
+      { name: 'TeamDelete', icon: 'group_remove', description: '解散 Agent 团队', gated: 'feature' },
+      { name: 'CronCreate', icon: 'schedule', description: '创建定时触发器', gated: 'feature' },
+      { name: 'CronUpdate', icon: 'schedule', description: '更新定时触发器', gated: 'feature' },
+      { name: 'CronDelete', icon: 'schedule', description: '删除定时触发器', gated: 'feature' },
+      { name: 'CronList', icon: 'schedule', description: '列出所有定时触发器', gated: 'feature' },
+      { name: 'RemoteTrigger', icon: 'webhook', description: '通过远程 Webhook 触发 Agent', gated: 'feature' },
+    ],
+  },
+  {
+    id: 'system',
+    icon: 'settings',
+    label: '系统',
+    tools: [
+      { name: 'AskUserQuestion', icon: 'help', description: '向用户提问以获取信息或确认' },
+      { name: 'SendUserMessage', icon: 'chat_bubble', description: '向用户发送简短进度消息（Brief）' },
+      { name: 'StructuredOutput', icon: 'data_object', description: '产出结构化 JSON 格式的响应' },
+      { name: 'ListMcpResourcesTool', icon: 'storage', description: '列出 MCP 服务器的可用资源' },
+      { name: 'ReadMcpResourceTool', icon: 'open_in_browser', description: '读取 MCP 服务器资源的内容' },
+      { name: 'Sleep', icon: 'bedtime', description: '暂停执行若干毫秒', gated: 'feature' },
+      { name: 'LSP', icon: 'code_blocks', description: '通过 Language Server Protocol 分析代码', gated: 'env' },
+      { name: 'Config', icon: 'tune', description: '读写 Claude 配置文件', gated: 'ant' },
+    ],
+  },
+]
+
+function ToolsSettings() {
+  const t = useTranslation()
+
+  return (
+    <div className="max-w-2xl">
+      <h2 className="text-base font-semibold text-[var(--color-text-primary)] mb-1">{t('settings.tools.title')}</h2>
+      <p className="text-sm text-[var(--color-text-tertiary)] mb-6">{t('settings.tools.description')}</p>
+
+      <div className="flex flex-col gap-6">
+        {TOOL_CATEGORIES.map((category) => (
+          <section key={category.id}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-[15px] text-[var(--color-text-tertiary)]">{category.icon}</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">{category.label}</h3>
+            </div>
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+              {category.tools.map((tool) => (
+                <div
+                  key={tool.name}
+                  className="flex items-start gap-3 px-3 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-container-low)]"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-[var(--color-brand)] mt-0.5 flex-shrink-0">{tool.icon}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-sm font-semibold text-[var(--color-text-primary)] font-mono">{tool.name}</span>
+                      {tool.gated && (
+                        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-[var(--color-surface-container-high)] text-[var(--color-text-tertiary)] leading-none">
+                          {tool.gated === 'feature' ? '功能开关' : tool.gated === 'ant' ? '内部' : tool.gated === 'env' ? '环境变量' : tool.gated}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-[var(--color-text-tertiary)] mt-0.5 leading-4">{tool.description}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Skill Settings ──────────────────────────────────────
 
 function SkillSettings() {

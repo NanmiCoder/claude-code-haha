@@ -250,6 +250,11 @@ export const zh: Record<TranslationKey, string> = {
   'settings.about.updates': '应用更新',
   'settings.about.updatesDesc': '检查 GitHub Releases，下载安装包，并在安装后自动重启。',
 
+  // Settings > Tools
+  'settings.tab.tools': '工具',
+  'settings.tools.title': '可用工具',
+  'settings.tools.description': '当前环境中 Claude 可以使用的所有工具。带有条件标签的工具仅在对应的环境变量或功能开关启用时才会生效。',
+
   // Settings > Computer Use
   'settings.tab.computerUse': 'Computer Use',
   'settings.computerUse.title': 'Computer Use',

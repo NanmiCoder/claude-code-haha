@@ -374,7 +374,7 @@ const TabItem = forwardRef<HTMLDivElement, {
       onMouseDown={onMouseDown}
       onContextMenu={onContextMenu}
       className={`
-        tab-bar-hit-area flex-shrink-0 flex items-center gap-1.5 px-3 min-h-[37px] relative
+        group tab-bar-hit-area flex-shrink-0 flex items-center gap-1.5 px-3 min-h-[37px] relative
         ${isDragging ? 'z-20 cursor-grabbing' : 'cursor-grab'}
         transition-[background-color,box-shadow,opacity,transform] duration-150 ease-out
         ${isActive

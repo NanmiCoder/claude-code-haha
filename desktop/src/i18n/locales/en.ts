@@ -248,6 +248,11 @@ export const en = {
   'settings.about.updates': 'App Updates',
   'settings.about.updatesDesc': 'Check GitHub Releases, download the installer, and relaunch after install.',
 
+  // Settings > Tools
+  'settings.tab.tools': 'Tools',
+  'settings.tools.title': 'Available Tools',
+  'settings.tools.description': 'All tools available to Claude. Feature-gated tools are only active when the corresponding environment variable or feature flag is enabled.',
+
   // Settings > Computer Use
   'settings.tab.computerUse': 'Computer Use',
   'settings.computerUse.title': 'Computer Use',

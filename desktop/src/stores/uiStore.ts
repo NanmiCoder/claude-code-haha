@@ -28,7 +28,7 @@ export type Toast = {
   duration?: number
 }
 
-export type SettingsTab = 'providers' | 'permissions' | 'general' | 'adapters' | 'agents' | 'skills' | 'computerUse' | 'about'
+export type SettingsTab = 'providers' | 'permissions' | 'general' | 'adapters' | 'agents' | 'skills' | 'tools' | 'computerUse' | 'about'
 
 type ActiveView = 'code' | 'scheduled' | 'terminal' | 'history' | 'settings'
 
