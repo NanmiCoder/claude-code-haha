@@ -83,20 +83,38 @@ function findExecutable(executable: string): string | null {
  * If Windows, set the SHELL environment variable to git-bash path.
  * This is used by BashTool and Shell.ts for user shell commands.
  * COMSPEC is left unchanged for system process execution.
+ *
+ * Bash is a core capability — if Git Bash is not found, the process exits
+ * with a clear message guiding the user to configure CLAUDE_CODE_GIT_BASH_PATH.
  */
 export function setShellIfWindows(): void {
   if (getPlatform() === 'windows') {
-    const gitBashPath = tryFindGitBashPath()
-    if (!gitBashPath) {
-      logForDebugging(
-        'Git Bash not found on Windows; leaving SHELL unset for lazy fallback handling',
-        { level: 'warn' },
-      )
-      return
-    }
+    const gitBashPath = findGitBashPath()
     process.env.SHELL = gitBashPath
     logForDebugging(`Using bash path: "${gitBashPath}"`)
   }
+}
+
+/**
+ * Returns a diagnostic warning if Git Bash is not available on Windows.
+ * Used by the Doctor screen and startup validation to guide the user.
+ */
+export function getBashDiagnosticWarning(): string | null {
+  if (getPlatform() !== 'windows') {
+    return null
+  }
+  const bashPath = tryFindGitBashPath()
+  if (bashPath) {
+    return null
+  }
+  if (process.env.CLAUDE_CODE_GIT_BASH_PATH) {
+    return `CLAUDE_CODE_GIT_BASH_PATH is set to "${process.env.CLAUDE_CODE_GIT_BASH_PATH}" but bash.exe was not found at that path. Please verify the path is correct.`
+  }
+  return (
+    'Git Bash was not found. Claude Code on Windows requires a bash environment. ' +
+    'If Git is installed, set the CLAUDE_CODE_GIT_BASH_PATH environment variable pointing to your bash.exe, e.g.:\n' +
+    '  CLAUDE_CODE_GIT_BASH_PATH=C:\\Program Files\\Git\\bin\\bash.exe'
+  )
 }
 
 /**
@@ -113,12 +131,19 @@ export const tryFindGitBashPath = memoize((): string | null => {
     return null
   }
 
+  // Try to find bash via git's installation path
   const gitPath = findExecutable('git')
   if (gitPath) {
     const bashPath = pathWin32.join(gitPath, '..', '..', 'bin', 'bash.exe')
     if (checkPathExists(bashPath)) {
       return bashPath
     }
+  }
+
+  // Fallback: try where.exe bash directly (covers running inside Git Bash)
+  const bashFromWhere = findExecutable('bash')
+  if (bashFromWhere) {
+    return bashFromWhere
   }
 
   return null

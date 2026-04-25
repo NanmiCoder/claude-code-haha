@@ -42,6 +42,7 @@ import {
 } from './shellConfig.js'
 import { jsonParse } from './slowOperations.js'
 import { which } from './which.js'
+import { getBashDiagnosticWarning } from './windowsPaths.js'
 
 export type InstallationType =
   | 'npm-global'
@@ -364,6 +365,15 @@ async function detectConfigurationIssues(
   }
 
   const config = getGlobalConfig()
+
+  // Check if Git Bash is available on Windows
+  const bashWarning = getBashDiagnosticWarning()
+  if (bashWarning) {
+    warnings.push({
+      issue: 'Git Bash environment not configured',
+      fix: bashWarning,
+    })
+  }
 
   // Skip most warnings for development mode
   if (type === 'development') {
