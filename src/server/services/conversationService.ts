@@ -44,6 +44,7 @@ type SessionStartOptions = {
   permissionMode?: string
   model?: string
   effort?: string
+  runtimeRevision?: number
 }
 
 export class ConversationStartupError extends Error {
@@ -64,6 +65,7 @@ export class ConversationStartupError extends Error {
 
 export class ConversationService {
   private sessions = new Map<string, SessionProcess>()
+  private runtimeRevision = 0
 
   async startSession(
     sessionId: string,
@@ -307,6 +309,19 @@ export class ConversationService {
     return !!session && session.runtimeOptionsKey !== this.getRuntimeOptionsKey(options)
   }
 
+  invalidateRuntimeOptions(reason?: string): void {
+    this.runtimeRevision += 1
+    console.log(
+      `[ConversationService] Runtime options invalidated (${this.runtimeRevision})${
+        reason ? `: ${reason}` : ''
+      }`,
+    )
+  }
+
+  getRuntimeRevision(): number {
+    return this.runtimeRevision
+  }
+
   authorizeSdkConnection(
     sessionId: string,
     token: string | null | undefined,
@@ -486,6 +501,7 @@ export class ConversationService {
       permissionMode: options?.permissionMode || 'default',
       model: options?.model || '',
       effort: options?.effort || '',
+      runtimeRevision: options?.runtimeRevision || 0,
     })
   }
 
@@ -689,7 +705,15 @@ export class ConversationService {
       )
       return !hasProviderEnv
     } catch {
-      return true
+      return ![
+        'ANTHROPIC_API_KEY',
+        'ANTHROPIC_AUTH_TOKEN',
+        'ANTHROPIC_BASE_URL',
+      ].some(
+        (key) =>
+          typeof process.env[key] === 'string' &&
+          process.env[key]!.trim().length > 0,
+      )
     }
   }
 

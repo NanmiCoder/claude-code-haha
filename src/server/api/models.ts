@@ -10,6 +10,7 @@
 
 import { SettingsService } from '../services/settingsService.js'
 import { ProviderService } from '../services/providerService.js'
+import { conversationService } from '../services/conversationService.js'
 import {
   modelEnvMatches,
   normalizeModelRouting,
@@ -102,6 +103,7 @@ async function reconcileXiaomuCurrentModel(
     catalog.routingById[currentModelId] || normalizeModelRouting(undefined, currentModelId)
   if (!modelEnvMatches(env, desiredRouting)) {
     await syncSelectedModelRouting(currentModelId, { catalog })
+    conversationService.invalidateRuntimeOptions('xiaomu model routing reconciled')
   }
 
   return {
@@ -196,6 +198,7 @@ async function handleCurrentModel(req: Request): Promise<Response> {
       })
       if (!modelEnvMatches(env, desiredRouting)) {
         await syncSelectedModelRouting(currentModelId, { activeProvider })
+        conversationService.invalidateRuntimeOptions('provider model routing reconciled')
       }
     } else {
       const reconciled = await reconcileXiaomuCurrentModel(explicitModel, env)
@@ -250,6 +253,7 @@ async function handleCurrentModel(req: Request): Promise<Response> {
       modelContext: contextTier || undefined,
     })
     await syncSelectedModelRouting(baseId, { activeProvider, catalog })
+    conversationService.invalidateRuntimeOptions('model changed')
 
     return Response.json({ ok: true, model: normalizedModelId })
   }
@@ -276,6 +280,7 @@ async function handleEffort(req: Request): Promise<Response> {
       )
     }
     await settingsService.updateUserSettings({ effort: level })
+    conversationService.invalidateRuntimeOptions('effort changed')
     return Response.json({ ok: true, level })
   }
 

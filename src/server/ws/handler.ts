@@ -878,6 +878,7 @@ async function getRuntimeSettings(): Promise<{
   permissionMode?: string
   model?: string
   effort?: string
+  runtimeRevision?: number
 }> {
   const userSettings = await settingsService.getUserSettings()
   const modelContext =
@@ -929,6 +930,7 @@ async function getRuntimeSettings(): Promise<{
     permissionMode: await settingsService.getPermissionMode().catch(() => undefined),
     model,
     effort,
+    runtimeRevision: conversationService.getRuntimeRevision(),
   }
 }
 

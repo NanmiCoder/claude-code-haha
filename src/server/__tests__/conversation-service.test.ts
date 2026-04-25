@@ -73,6 +73,7 @@ describe('ConversationService', () => {
     expect(env.ANTHROPIC_AUTH_TOKEN).toBe('test-token')
     expect(env.ANTHROPIC_BASE_URL).toBe('https://example.invalid/anthropic')
     expect(env.ANTHROPIC_MODEL).toBe('test-model')
+    expect(env.CLAUDE_CODE_OAUTH_TOKEN).toBeUndefined()
   })
 
   test('strips inherited provider env when desktop provider config exists', async () => {
@@ -194,6 +195,27 @@ describe('ConversationService', () => {
     expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('gemini-3.1-pro-preview')
     expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('gemini-3.1-pro-preview')
     expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('gemini-3.1-pro-preview')
+  })
+
+  test('runtime invalidation changes the restart key even when model is unchanged', () => {
+    const service = new ConversationService() as any
+    const before = service.getRuntimeOptionsKey({
+      permissionMode: 'bypassPermissions',
+      model: 'gpt-5.4',
+      effort: 'high',
+      runtimeRevision: service.getRuntimeRevision(),
+    })
+
+    service.invalidateRuntimeOptions('test')
+
+    const after = service.getRuntimeOptionsKey({
+      permissionMode: 'bypassPermissions',
+      model: 'gpt-5.4',
+      effort: 'high',
+      runtimeRevision: service.getRuntimeRevision(),
+    })
+
+    expect(after).not.toBe(before)
   })
 
   test('uses bun entrypoint fallback on Windows dev mode', () => {
