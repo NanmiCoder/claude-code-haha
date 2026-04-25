@@ -104,6 +104,12 @@ function cleanupTerminalModes(): void {
     // saved cursor position. Safe to skip full unmount: this function already
     // sends all the terminal-reset sequences, and the process is exiting.
     inst?.detachForShutdown()
+    // Clear any residual content from cursor to end of screen.
+    // On some terminals (e.g., Git Bash/MinTTY), Ink's last rendered frame
+    // may leak from the alt screen onto the main buffer after exit, leaving
+    // texts like "(esc to interrupt)" visible. Clearing the display area
+    // below the cursor removes these artifacts without affecting scrollback.
+    writeSync(1, '\x1b[0J')
     // Disable extended key reporting — always send both since terminals
     // silently ignore whichever they don't implement
     writeSync(1, DISABLE_MODIFY_OTHER_KEYS)
@@ -172,9 +178,7 @@ function printResumeHint(): void {
 
       writeSync(
         1,
-        chalk.dim(
-          `\nResume this session with:\nclaude --resume ${resumeArg}\n`,
-        ),
+        chalk.dim(`\nclaude --resume ${resumeArg}\n`),
       )
       resumeHintPrinted = true
     } catch {
