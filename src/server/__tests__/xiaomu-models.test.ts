@@ -28,7 +28,7 @@ function makeRequest(
   return { req, url, segments }
 }
 
-function installAiapiMock(): void {
+function installAiapiMock(statusOverrides: Record<string, unknown> = {}): void {
   const statusPayload = {
     success: true,
     data: {
@@ -56,6 +56,7 @@ function installAiapiMock(): void {
           },
         ],
       }),
+      ...statusOverrides,
     },
   }
 
@@ -65,6 +66,13 @@ function installAiapiMock(): void {
       {
         model_name: 'gpt-5.4',
         display_name: '灵感引擎Pro',
+        quota_type: 0,
+        model_ratio: 0.8,
+        completion_ratio: 8,
+      },
+      {
+        model_name: 'gpt-5.5',
+        display_name: 'GPT-5.5',
         quota_type: 0,
         model_ratio: 0.8,
         completion_ratio: 8,
@@ -141,6 +149,21 @@ describe('xiaomu remote model management', () => {
       'gemini-3.1-pro-preview',
       'gpt-5.4',
     ])
+  })
+
+  test('GET /api/models keeps gpt-5.5 visible when remote whitelist omits it', async () => {
+    resetXiaomuModelCatalogCache()
+    installAiapiMock({
+      desktop_models_config: '',
+      desktop_visible_models: 'gpt-5.4,gemini-3.1-pro-preview',
+    })
+
+    const { req, url, segments } = makeRequest('GET', '/api/models')
+    const res = await handleModelsApi(req, url, segments)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.models.map((model: { id: string }) => model.id)).toContain('gpt-5.5')
   })
 
   test('GET /api/models/current falls back to remote default and syncs routing env', async () => {

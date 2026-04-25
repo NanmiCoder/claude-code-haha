@@ -21,6 +21,7 @@ const XIAOMU_CACHE_TTL_MS = 15 * 1000
 
 const DEFAULT_MODELS: XiaomuModel[] = [
   { id: 'gpt-5.4', name: 'GPT-5.4', description: '默认推荐，稳定好用', context: '200k' },
+  { id: 'gpt-5.5', name: 'GPT-5.5', description: 'OpenAI GPT new model', context: '200k' },
   { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro', description: '长文本和写作表现强', context: '1m' },
   { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', description: '综合均衡，速度快', context: '200k' },
   { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', description: '创作和理解能力强', context: '200k' },
@@ -47,6 +48,7 @@ const REMOTE_VISIBLE_MODEL_KEYS = ['desktop_visible_models', 'desktop_model_whit
 const REMOTE_ORDER_KEYS = ['desktop_model_order', 'desktop_models_order']
 const REMOTE_DEFAULT_MODEL_KEYS = ['desktop_default_model', 'desktop_default_model_id']
 const REMOTE_ROUTING_KEYS = ['desktop_model_routing', 'desktop_models_routing']
+const PINNED_VISIBLE_MODEL_IDS = ['gpt-5.5']
 
 let modelCatalogCache: { at: number; catalog: XiaomuModelCatalog } | null = null
 
@@ -405,7 +407,16 @@ export async function getXiaomuModelCatalog(): Promise<XiaomuModelCatalog> {
 
     const visibleIds = firstStringArray(statusData, REMOTE_VISIBLE_MODEL_KEYS)
     if (visibleIds.length > 0) {
-      models = materializeModelsById(visibleIds, new Map(models.map((model) => [model.id, model])))
+      const pinnedVisibleIds = [...visibleIds]
+      for (const id of PINNED_VISIBLE_MODEL_IDS) {
+        if (!pinnedVisibleIds.includes(id)) pinnedVisibleIds.push(id)
+      }
+      models = materializeModelsById(
+        pinnedVisibleIds,
+        new Map(
+          [...DEFAULT_MODELS, ...pricingModels, ...models].map((model) => [model.id, model]),
+        ),
+      )
       remoteManaged = true
     }
 
