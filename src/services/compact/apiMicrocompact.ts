@@ -79,10 +79,17 @@ export function getAPIContextManagement(options?: {
   // When clearAllThinking is set (>1h idle = cache miss), keep only the last
   // thinking turn — the API schema requires value >= 1, and omitting the edit
   // falls back to the model-policy default (often "all"), which wouldn't clear.
+  // CLAUDE_CODE_PRESERVE_HISTORICAL_THINKING overrides this to keep all thinking.
   if (hasThinking && !isRedactThinkingActive) {
+    const preserveHistoricalThinking = isEnvTruthy(
+      process.env.CLAUDE_CODE_PRESERVE_HISTORICAL_THINKING,
+    )
     strategies.push({
       type: 'clear_thinking_20251015',
-      keep: clearAllThinking ? { type: 'thinking_turns', value: 1 } : 'all',
+      keep:
+        clearAllThinking && !preserveHistoricalThinking
+          ? { type: 'thinking_turns', value: 1 }
+          : 'all',
     })
   }
 
