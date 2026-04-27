@@ -66,6 +66,7 @@ describe('AskUserQuestion', () => {
           slashCommands: [],
           agentTaskNotifications: {},
           elapsedTimer: null,
+          showFullConversation: false,
         },
       },
     })

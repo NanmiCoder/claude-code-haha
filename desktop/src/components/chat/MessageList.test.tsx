@@ -29,6 +29,7 @@ function makeSessionState(overrides: Partial<PerSessionState> = {}): PerSessionS
     agentTaskNotifications: {},
     elapsedTimer: null,
     composerPrefill: null,
+    showFullConversation: false,
     ...overrides,
   }
 }

@@ -34,6 +34,7 @@ function createMemberSessionState() {
     slashCommands: [],
     agentTaskNotifications: {},
     elapsedTimer: null,
+    showFullConversation: false,
   }
 }
 

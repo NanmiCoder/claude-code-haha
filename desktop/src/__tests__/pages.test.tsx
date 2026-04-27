@@ -128,6 +128,7 @@ describe('Content-only pages render without errors', () => {
           slashCommands: [],
           agentTaskNotifications: {},
           elapsedTimer: null,
+          showFullConversation: false,
         },
       },
     })
@@ -172,6 +173,7 @@ describe('Content-only pages render without errors', () => {
           slashCommands: [],
           agentTaskNotifications: {},
           elapsedTimer: null,
+          showFullConversation: false,
         },
       },
     })
@@ -222,6 +224,7 @@ describe('Content-only pages render without errors', () => {
           slashCommands: [],
           agentTaskNotifications: {},
           elapsedTimer: null,
+          showFullConversation: false,
         },
       },
     })
@@ -289,6 +292,7 @@ describe('Content-only pages render without errors', () => {
           slashCommands: [],
           agentTaskNotifications: {},
           elapsedTimer: null,
+          showFullConversation: false,
         },
       },
       sendMessage,
@@ -361,6 +365,7 @@ describe('Content-only pages render without errors', () => {
           slashCommands: [],
           agentTaskNotifications: {},
           elapsedTimer: null,
+          showFullConversation: false,
         },
       },
       sendMessage,
@@ -419,6 +424,7 @@ describe('Content-only pages render without errors', () => {
           slashCommands: [],
           agentTaskNotifications: {},
           elapsedTimer: null,
+          showFullConversation: false,
         },
       },
       sendMessage,

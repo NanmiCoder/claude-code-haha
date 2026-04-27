@@ -124,6 +124,7 @@ describe('chat blocks', () => {
           slashCommands: [],
           agentTaskNotifications: {},
           elapsedTimer: null,
+          showFullConversation: false,
         },
       },
     })

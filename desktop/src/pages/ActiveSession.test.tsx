@@ -86,6 +86,7 @@ describe('ActiveSession task polling', () => {
           slashCommands: [],
           agentTaskNotifications: {},
           elapsedTimer: null,
+          showFullConversation: false,
         },
       },
     })
@@ -165,6 +166,7 @@ describe('ActiveSession task polling', () => {
           slashCommands: [],
           agentTaskNotifications: {},
           elapsedTimer: null,
+          showFullConversation: false,
         },
       },
     })
