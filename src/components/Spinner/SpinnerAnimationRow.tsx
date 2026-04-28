@@ -6,6 +6,9 @@ import { stringWidth } from '../../ink/stringWidth.js';
 import { Box, Text, useAnimationFrame } from '../../ink.js';
 import type { InProcessTeammateTaskState } from '../../tasks/InProcessTeammateTask/types.js';
 import { formatDuration, formatNumber } from '../../utils/format.js';
+import { getInitialMainLoopModel } from '../../bootstrap/state.js';
+import { getModelCosts, toCNY, type ModelCosts } from '../../utils/modelCost.js';
+import { formatCost } from '../../cost-tracker.js';
 import { toInkColor } from '../../utils/ink.js';
 import type { Theme } from '../../utils/theme.js';
 import { Byline } from '../design-system/Byline.js';
@@ -168,6 +171,33 @@ export function SpinnerAnimationRow({
   const tokensText = hasRunningTeammates ? `${tokenCount} tokens` : `${figures.arrowDown} ${tokenCount} tokens`;
   const tokensWidth = stringWidth(tokensText);
 
+  // === Real-time cost (computed from token estimates, same as tokens) ===
+  const modelCosts = useMemo((): ModelCosts | null => {
+    const modelSetting = getInitialMainLoopModel()
+    const modelName = (modelSetting as { model?: string })?.model
+      ?? process.env.ANTHROPIC_MODEL
+      ?? 'claude-sonnet-4-20250514'
+    try {
+      return getModelCosts(modelName, { input_tokens: 0, output_tokens: 0 } as Parameters<typeof getModelCosts>[1])
+    } catch {
+      return null
+    }
+  }, [])
+  const costText = useMemo(() => {
+    if (!modelCosts || totalTokens <= 0) return ''
+    let costEstimate: number
+    if (foregroundedTeammate && !foregroundedTeammate.isIdle) {
+      // Foregrounded teammate tokens are input+output from API — use input pricing
+      costEstimate = totalTokens * modelCosts.inputTokens
+    } else {
+      // leaderTokens = estimated output, teammateTokens = input+output (input dominates)
+      costEstimate = leaderTokens * modelCosts.outputTokens + teammateTokens * modelCosts.inputTokens
+    }
+    if (costEstimate <= 0) return ''
+    return formatCost(toCNY(costEstimate / 1_000_000, modelCosts.currency))
+  }, [modelCosts, totalTokens, leaderTokens, teammateTokens, foregroundedTeammate])
+  const costWidth = costText ? stringWidth(costText) + SEP_WIDTH : 0
+
   // === Thinking text (may shrink to fit) ===
   let thinkingText = thinkingStatus === 'thinking' ? `thinking${effortSuffix}` : typeof thinkingStatus === 'number' ? `thought for ${Math.max(1, Math.round(thinkingStatus / 1000))}s` : null;
   let thinkingWidthValue = thinkingText ? stringWidth(thinkingText) : 0;
@@ -190,7 +220,10 @@ export function SpinnerAnimationRow({
   const showTimer = wantsTimerAndTokens && availableSpace > usedAfterThinking + timerWidth;
   const usedAfterTimer = usedAfterThinking + (showTimer ? timerWidth + sep : 0);
   const showTokens = wantsTimerAndTokens && totalTokens > 0 && availableSpace > usedAfterTimer + tokensWidth;
-  const thinkingOnly = showThinking && thinkingStatus === 'thinking' && !spinnerSuffix && !showTimer && !showTokens && true;
+  const usedAfterTokens = usedAfterTimer + (showTokens ? tokensWidth + sep : 0);
+  const showCost = wantsTimerAndTokens && !!costText && availableSpace > usedAfterTokens + costWidth;
+
+  const thinkingOnly = showThinking && thinkingStatus === 'thinking' && !spinnerSuffix && !showTimer && !showTokens && !showCost && true;
 
   // === Thinking shimmer color (formerly ThinkingShimmerText's own timer) ===
   // Same sine-wave opacity, but derived from our shared `time` instead of a
@@ -207,7 +240,9 @@ export function SpinnerAnimationRow({
           </Text>] : []), ...(showTokens ? [<Box flexDirection="row" key="tokens">
             {!hasRunningTeammates && <SpinnerModeGlyph mode={mode} />}
             <Text dimColor>{tokenCount} tokens</Text>
-          </Box>] : []), ...(showThinking && thinkingText ? [thinkingStatus === 'thinking' && !reducedMotion ? <Text key="thinking" color={thinkingShimmerColor}>
+          </Box>] : []), ...(showCost ? [<Text dimColor key="cost">
+            {costText}
+          </Text>] : []), ...(showThinking && thinkingText ? [thinkingStatus === 'thinking' && !reducedMotion ? <Text key="thinking" color={thinkingShimmerColor}>
               {thinkingOnly ? `(${thinkingText})` : thinkingText}
             </Text> : <Text dimColor key="thinking">
               {thinkingText}
