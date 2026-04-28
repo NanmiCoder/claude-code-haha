@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/nanmicoder-cc-haha-badge.png)](https://mseep.ai/app/nanmicoder-cc-haha)
+
 # Claude Code Haha
 
 <p align="center">
