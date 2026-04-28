@@ -48,9 +48,8 @@ type State = {
   // never updated by mid-session EnterWorktreeTool.
   // Use for project identity (history, skills, sessions) not file operations.
   projectRoot: string
-  // NOTE: 虽然字段名为 USD，但实际存储的是统一转换为人民币(CNY)后的金额
-  // 转换逻辑在 cost-tracker.ts 的 addToTotalSessionCost() 中
-  totalCostUSD: number
+  // 统一存储为人民币(CNY)，转换逻辑在 cost-tracker.ts 的 addToTotalSessionCost() 中
+  totalCostCNY: number
   totalAPICalls: number
   totalAPIDuration: number
   totalAPIDurationWithoutRetries: number
@@ -280,7 +279,7 @@ function getInitialState(): State {
   const state: State = {
     originalCwd: resolvedCwd,
     projectRoot: resolvedCwd,
-    totalCostUSD: 0,
+    totalCostCNY: 0,
     totalAPICalls: 0,
     totalAPIDuration: 0,
     totalAPIDurationWithoutRetries: 0,
@@ -555,7 +554,7 @@ export function addToTotalDurationState(
 export function resetTotalDurationStateAndCost_FOR_TESTS_ONLY(): void {
   STATE.totalAPIDuration = 0
   STATE.totalAPIDurationWithoutRetries = 0
-  STATE.totalCostUSD = 0
+  STATE.totalCostCNY = 0
 }
 
 export function addToTotalCostState(
@@ -564,11 +563,11 @@ export function addToTotalCostState(
   model: string,
 ): void {
   STATE.modelUsage[model] = modelUsage
-  STATE.totalCostUSD += cost
+  STATE.totalCostCNY += cost
 }
 
-export function getTotalCostUSD(): number {
-  return STATE.totalCostUSD
+export function getTotalCostCNY(): number {
+  return STATE.totalCostCNY
 }
 
 export function getTotalAPICalls(): number {
@@ -874,7 +873,7 @@ export function setSdkBetas(betas: string[] | undefined): void {
 }
 
 export function resetCostState(): void {
-  STATE.totalCostUSD = 0
+  STATE.totalCostCNY = 0
   STATE.totalAPICalls = 0
   STATE.totalAPIDuration = 0
   STATE.totalAPIDurationWithoutRetries = 0
@@ -892,7 +891,7 @@ export function resetCostState(): void {
  * Called by restoreCostStateForSession in cost-tracker.ts.
  */
 export function setCostStateForRestore({
-  totalCostUSD,
+  totalCostCNY,
   totalAPICalls,
   totalAPIDuration,
   totalAPIDurationWithoutRetries,
@@ -902,7 +901,7 @@ export function setCostStateForRestore({
   lastDuration,
   modelUsage,
 }: {
-  totalCostUSD: number
+  totalCostCNY: number
   totalAPICalls: number
   totalAPIDuration: number
   totalAPIDurationWithoutRetries: number
@@ -912,7 +911,7 @@ export function setCostStateForRestore({
   lastDuration: number | undefined
   modelUsage: { [modelName: string]: ModelUsage } | undefined
 }): void {
-  STATE.totalCostUSD = totalCostUSD
+  STATE.totalCostCNY = totalCostCNY
   STATE.totalAPICalls = totalAPICalls
   STATE.totalAPIDuration = totalAPIDuration
   STATE.totalAPIDurationWithoutRetries = totalAPIDurationWithoutRetries

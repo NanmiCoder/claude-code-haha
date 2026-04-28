@@ -5,7 +5,7 @@ import isPlainObject from 'lodash-es/isPlainObject.js'
 import mapValues from 'lodash-es/mapValues.js'
 import { dirname, join } from 'path'
 import { addToTotalSessionCost } from 'src/cost-tracker.js'
-import { calculateUSDCost } from 'src/utils/modelCost.js'
+import { calculateModelCost } from 'src/utils/modelCost.js'
 import type {
   AssistantMessage,
   Message,
@@ -168,7 +168,7 @@ function addCachedCostToTotalSessionCost(
   }
   const model = message.message.model
   const usage = message.message.usage
-  const costUSD = calculateUSDCost(model, usage)
+  const costUSD = calculateModelCost(model, usage)
   addToTotalSessionCost(costUSD, usage, model)
 }
 

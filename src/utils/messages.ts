@@ -4077,7 +4077,7 @@ You have exited auto mode. The user may now want to interact more directly. You 
       return [
         createUserMessage({
           content: wrapInSystemReminder(
-            `USD budget: $${attachment.used}/$${attachment.total}; $${attachment.remaining} remaining`,
+            `Budget: ¥${attachment.used}/¥${attachment.total}; ¥${attachment.remaining} remaining`,
           ),
           isMeta: true,
         }),

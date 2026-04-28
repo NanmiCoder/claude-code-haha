@@ -144,7 +144,7 @@ import {
   getOriginalCwd,
   getSessionId,
   getSdkBetas,
-  getTotalCostUSD,
+  getTotalCostCNY,
   getTotalOutputTokens,
   getCurrentTurnTokenBudget,
   getTurnOutputTokens,
@@ -970,7 +970,7 @@ export async function getAttachments(
         ),
         maybe('budget_usd', async () =>
           Promise.resolve(
-            getMaxBudgetUsdAttachment(toolUseContext.options.maxBudgetUsd),
+            getMaxBudgetAttachment(toolUseContext.options.maxBudget),
           ),
         ),
         maybe('output_token_usage', async () =>
@@ -3839,19 +3839,19 @@ function getOutputTokenUsageAttachment(): Attachment[] {
   return []
 }
 
-function getMaxBudgetUsdAttachment(maxBudgetUsd?: number): Attachment[] {
-  if (maxBudgetUsd === undefined) {
+function getMaxBudgetAttachment(maxBudget?: number): Attachment[] {
+  if (maxBudget === undefined) {
     return []
   }
 
-  const usedCost = getTotalCostUSD()
-  const remainingBudget = maxBudgetUsd - usedCost
+  const usedCost = getTotalCostCNY()
+  const remainingBudget = maxBudget - usedCost
 
   return [
     {
       type: 'budget_usd',
       used: usedCost,
-      total: maxBudgetUsd,
+      total: maxBudget,
       remaining: remainingBudget,
     },
   ]

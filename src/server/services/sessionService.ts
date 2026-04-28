@@ -11,7 +11,7 @@ import * as os from 'node:os'
 import { ApiError } from '../middleware/errorHandler.js'
 import { sanitizePath as sanitizePortablePath } from '../../utils/sessionStoragePortable.js'
 import type { FileHistorySnapshot } from '../../utils/fileHistory.js'
-import { calculateUSDCost, MODEL_COSTS } from '../../utils/modelCost.js'
+import { calculateModelCost, MODEL_COSTS } from '../../utils/modelCost.js'
 import {
   MODEL_CONTEXT_WINDOW_DEFAULT,
   getContextWindowForModel,
@@ -910,8 +910,8 @@ export class SessionService {
         cache_creation_input_tokens: cacheCreationInputTokens,
         server_tool_use: { web_search_requests: webSearchRequests },
         speed: usage.speed,
-      } as Parameters<typeof calculateUSDCost>[1]
-      const costUSD = calculateUSDCost(model, costUsage)
+      } as Parameters<typeof calculateModelCost>[1]
+      const costUSD = calculateModelCost(model, costUsage)
 
       let modelUsage = models.get(model)
       if (!modelUsage) {

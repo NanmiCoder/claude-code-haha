@@ -167,7 +167,7 @@ export type ToolUseContext = {
     mcpResources: Record<string, ServerResource[]>
     isNonInteractiveSession: boolean
     agentDefinitions: AgentDefinitionsResult
-    maxBudgetUsd?: number
+    maxBudget?: number
     /** Custom system prompt that replaces the default system prompt */
     customSystemPrompt?: string
     /** Additional system prompt appended after the main system prompt */

@@ -190,6 +190,7 @@ const QWEN3_MAX: ModelCosts = {
 }
 
 // GLM-5.1 (via OpenRouter, USD pricing)
+// NOTE: 此定价基于 OpenRouter，通过智谱官方 API 使用时价格和币种可能不同
 const GLM51: ModelCosts = {
   inputTokens: 1.26,
   outputTokens: 3.96,
@@ -336,6 +337,54 @@ function tokensToUSDCost(modelCosts: ModelCosts, usage: Usage): number {
   )
 }
 
+// 缓存 settings.json 中的 modelPricing，避免每次 API 调用都 require 读取
+type CustomPricingCache = {
+  exact: Record<string, ModelCosts>
+  patterns: [RegExp, ModelCosts][]
+} | null
+
+let _cachedCustomPricing: CustomPricingCache = undefined as unknown as CustomPricingCache
+
+function getCustomPricingCache(): CustomPricingCache {
+  if (_cachedCustomPricing !== (undefined as unknown as CustomPricingCache)) {
+    return _cachedCustomPricing
+  }
+
+  _cachedCustomPricing = null
+  try {
+    const { getInitialSettings } = require('./settings/settings.js') as typeof import('./settings/settings.js')
+    const settings = getInitialSettings()
+    const customPricing = (settings as Record<string, unknown>)?.modelPricing as
+      | Record<string, { inputPrice: number; outputPrice: number; cacheReadPrice?: number; cacheWritePrice?: number; currency?: 'USD' | 'CNY' }>
+      | undefined
+    if (customPricing) {
+      const exact: Record<string, ModelCosts> = {}
+      const patterns: [RegExp, ModelCosts][] = []
+      for (const [key, p] of Object.entries(customPricing)) {
+        const costs: ModelCosts = {
+          inputTokens: p.inputPrice,
+          outputTokens: p.outputPrice,
+          promptCacheWriteTokens: p.cacheWritePrice ?? 0,
+          promptCacheReadTokens: p.cacheReadPrice ?? 0,
+          webSearchRequests: 0,
+          currency: p.currency ?? 'CNY',
+        }
+        try {
+          patterns.push([new RegExp(key, 'i'), costs])
+        } catch {
+          // key 不是合法正则，作为精确匹配
+          exact[key] = costs
+        }
+      }
+      _cachedCustomPricing = { exact, patterns }
+    }
+  } catch {
+    // settings 读取失败，缓存为空
+  }
+
+  return _cachedCustomPricing
+}
+
 export function getModelCosts(model: string, usage: Usage): ModelCosts {
   const shortName = getCanonicalName(model)
 
@@ -351,46 +400,19 @@ export function getModelCosts(model: string, usage: Usage): ModelCosts {
   const costs = MODEL_COSTS[shortName]
   if (costs) return costs
 
-  // 2. settings.json modelPricing（精确匹配 + 关键词匹配）
-  try {
-    const { getInitialSettings } = require('./settings/settings.js') as typeof import('./settings/settings.js')
-    const settings = getInitialSettings()
-    const customPricing = (settings as Record<string, unknown>)?.modelPricing as
-      | Record<string, { inputPrice: number; outputPrice: number; cacheReadPrice?: number; cacheWritePrice?: number; currency?: 'USD' | 'CNY' }>
-      | undefined
-    if (customPricing) {
-      // 精确匹配
-      if (customPricing[model]) {
-        const p = customPricing[model]
-        return {
-          inputTokens: p.inputPrice,
-          outputTokens: p.outputPrice,
-          promptCacheWriteTokens: p.cacheWritePrice ?? 0,
-          promptCacheReadTokens: p.cacheReadPrice ?? 0,
-          webSearchRequests: 0,
-          currency: p.currency ?? 'CNY',
-        }
-      }
-      // 关键词匹配
-      for (const [key, p] of Object.entries(customPricing)) {
-        try {
-          if (new RegExp(key, 'i').test(model)) {
-            return {
-              inputTokens: p.inputPrice,
-              outputTokens: p.outputPrice,
-              promptCacheWriteTokens: p.cacheWritePrice ?? 0,
-              promptCacheReadTokens: p.cacheReadPrice ?? 0,
-              webSearchRequests: 0,
-              currency: p.currency ?? 'CNY',
-            }
-          }
-        } catch {
-          // key 不是合法正则，跳过
-        }
+  // 2. settings.json modelPricing（精确匹配 + 关键词匹配，缓存避免重复 I/O）
+  const cachedPricing = getCustomPricingCache()
+  if (cachedPricing) {
+    // 精确匹配
+    if (cachedPricing.exact[model]) {
+      return cachedPricing.exact[model]
+    }
+    // 关键词匹配（正则已预编译）
+    for (const [regex, pricing] of cachedPricing.patterns) {
+      if (regex.test(model)) {
+        return pricing
       }
     }
-  } catch {
-    // settings 读取失败，继续后续匹配
   }
 
   // 3. 关键词模糊匹配（中国大模型等第三方模型内置定价）
@@ -424,7 +446,7 @@ function trackUnknownModelCost(model: string, shortName: ModelShortName): void {
  * Caller should use toCNY() to normalize to display currency.
  * If the model's costs are not found, use the default model's costs.
  */
-export function calculateUSDCost(resolvedModel: string, usage: Usage): number {
+export function calculateModelCost(resolvedModel: string, usage: Usage): number {
   const modelCosts = getModelCosts(resolvedModel, usage)
   return tokensToUSDCost(modelCosts, usage)
 }
@@ -448,7 +470,7 @@ export function calculateCostFromTokens(
     cache_read_input_tokens: tokens.cacheReadInputTokens,
     cache_creation_input_tokens: tokens.cacheCreationInputTokens,
   } as Usage
-  return calculateUSDCost(model, usage)
+  return calculateModelCost(model, usage)
 }
 
 /** 默认 USD → CNY 汇率，可通过 settings.json 的 exchangeRate 覆盖 */

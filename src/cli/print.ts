@@ -472,7 +472,7 @@ export async function runHeadless(
     allowedTools: string[] | undefined
     thinkingConfig: ThinkingConfig | undefined
     maxTurns: number | undefined
-    maxBudgetUsd: number | undefined
+    maxBudget: number | undefined
     taskBudget: { total: number } | undefined
     systemPrompt: string | undefined
     appendSystemPrompt: string | undefined
@@ -948,7 +948,7 @@ export async function runHeadless(
           writeToStdout(`Error: Reached max turns (${options.maxTurns})`)
           break
         case 'error_max_budget_usd':
-          writeToStdout(`Error: Exceeded USD budget (${options.maxBudgetUsd})`)
+          writeToStdout(`Error: Exceeded budget (${options.maxBudget})`)
           break
         case 'error_max_structured_output_retries':
           writeToStdout(
@@ -992,7 +992,7 @@ function runHeadlessStreaming(
     allowedTools: string[] | undefined
     thinkingConfig: ThinkingConfig | undefined
     maxTurns: number | undefined
-    maxBudgetUsd: number | undefined
+    maxBudget: number | undefined
     taskBudget: { total: number } | undefined
     systemPrompt: string | undefined
     appendSystemPrompt: string | undefined
@@ -2159,7 +2159,7 @@ function runHeadlessStreaming(
               mcpClients: allMcpClients,
               thinkingConfig: options.thinkingConfig,
               maxTurns: options.maxTurns,
-              maxBudgetUsd: options.maxBudgetUsd,
+              maxBudget: options.maxBudget,
               taskBudget: options.taskBudget,
               canUseTool,
               userSpecifiedModel: activeUserSpecifiedModel,

@@ -144,7 +144,7 @@ export type QueryEngineConfig = {
   fallbackModel?: string
   thinkingConfig?: ThinkingConfig
   maxTurns?: number
-  maxBudgetUsd?: number
+  maxBudget?: number
   taskBudget?: { total: number }
   jsonSchema?: Record<string, unknown>
   verbose?: boolean
@@ -218,7 +218,7 @@ export class QueryEngine {
       verbose = false,
       thinkingConfig,
       maxTurns,
-      maxBudgetUsd,
+      maxBudget,
       taskBudget,
       canUseTool,
       customSystemPrompt,
@@ -361,7 +361,7 @@ export class QueryEngine {
         appendSystemPrompt,
         agentDefinitions: { activeAgents: agents, allAgents: [] },
         theme: resolveThemeSetting(getGlobalConfig().theme),
-        maxBudgetUsd,
+        maxBudget,
       },
       getAppState,
       setAppState,
@@ -509,7 +509,7 @@ export class QueryEngine {
         appendSystemPrompt,
         theme: resolveThemeSetting(getGlobalConfig().theme),
         agentDefinitions: { activeAgents: agents, allAgents: [] },
-        maxBudgetUsd,
+        maxBudget,
       },
       getAppState,
       setAppState,
@@ -968,8 +968,8 @@ export class QueryEngine {
           break
       }
 
-      // Check if USD budget has been exceeded
-      if (maxBudgetUsd !== undefined && getTotalCost() >= maxBudgetUsd) {
+      // Check if budget has been exceeded
+      if (maxBudget !== undefined && getTotalCost() >= maxBudget) {
         if (persistSession) {
           if (
             isEnvTruthy(process.env.CLAUDE_CODE_EAGER_FLUSH) ||
@@ -996,7 +996,7 @@ export class QueryEngine {
             initialAppState.fastMode,
           ),
           uuid: randomUUID(),
-          errors: [`Reached maximum budget ($${maxBudgetUsd})`],
+          errors: [`Reached maximum budget ($${maxBudget})`],
         }
         return
       }
@@ -1194,7 +1194,7 @@ export async function* ask({
   verbose = false,
   thinkingConfig,
   maxTurns,
-  maxBudgetUsd,
+  maxBudget,
   taskBudget,
   canUseTool,
   mutableMessages = [],
@@ -1225,7 +1225,7 @@ export async function* ask({
   mcpClients: MCPServerConnection[]
   thinkingConfig?: ThinkingConfig
   maxTurns?: number
-  maxBudgetUsd?: number
+  maxBudget?: number
   taskBudget?: { total: number }
   canUseTool: CanUseToolFn
   mutableMessages?: Message[]
@@ -1263,7 +1263,7 @@ export async function* ask({
     fallbackModel,
     thinkingConfig,
     maxTurns,
-    maxBudgetUsd,
+    maxBudget,
     taskBudget,
     jsonSchema,
     verbose,
