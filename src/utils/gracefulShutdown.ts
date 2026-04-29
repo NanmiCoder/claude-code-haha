@@ -210,7 +210,8 @@ function forceExit(exitCode: number): never {
       markCostOutputDone,
     } = require('../cost-tracker.js') as typeof import('../cost-tracker.js')
     const { hasConsoleBillingAccess } = require('./billing.js') as typeof import('./billing.js')
-    if (!isCostOutputDone() && hasConsoleBillingAccess()) {
+    const { getGlobalConfig } = require('./config.js') as typeof import('./config.js')
+    if (!isCostOutputDone() && hasConsoleBillingAccess() && getGlobalConfig().verbose) {
       markCostOutputDone()
       writeSync(1, '\n' + formatTotalCost() + '\n')
     }

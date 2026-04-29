@@ -6,6 +6,7 @@ import {
   saveCurrentSessionCosts,
 } from './cost-tracker.js'
 import { hasConsoleBillingAccess } from './utils/billing.js'
+import { getGlobalConfig } from './utils/config.js'
 import type { FpsMetrics } from './utils/fpsTracker.js'
 
 export function useCostSummary(
@@ -13,7 +14,7 @@ export function useCostSummary(
 ): void {
   useEffect(() => {
     const f = () => {
-      if (!isCostOutputDone() && hasConsoleBillingAccess()) {
+      if (!isCostOutputDone() && hasConsoleBillingAccess() && getGlobalConfig().verbose) {
         markCostOutputDone()
         process.stdout.write('\n' + formatTotalCost() + '\n')
       }

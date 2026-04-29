@@ -32,6 +32,7 @@ import { MemoryUsageIndicator } from '../MemoryUsageIndicator.js';
 import { SentryErrorBoundary } from '../SentryErrorBoundary.js';
 import { TokenWarning } from '../TokenWarning.js';
 import { SandboxPromptFooterHint } from './SandboxPromptFooterHint.js';
+import { getTotalCost, formatCost } from '../../cost-tracker.js';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const VoiceIndicator: typeof import('./VoiceIndicator.js').VoiceIndicator = feature('VOICE_MODE') ? require('./VoiceIndicator.js').VoiceIndicator : () => null;
@@ -315,7 +316,7 @@ function NotificationContent({
         </Box>}
       {apiKeyStatus !== 'invalid' && apiKeyStatus !== 'missing' && verbose && <Box>
           <Text dimColor wrap="truncate">
-            {tokenUsage} tokens
+            {tokenUsage} tokens · {formatCost(getTotalCost())}
           </Text>
         </Box>}
       {!isBriefOnly && <TokenWarning tokenUsage={tokenUsage} model={mainLoopModel} />}

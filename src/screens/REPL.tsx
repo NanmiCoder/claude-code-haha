@@ -2207,7 +2207,7 @@ export function REPL({
       // access). Otherwise this effect re-fires on every message change for
       // the rest of the session — 200k+ spurious events observed.
       setHaveShownCostDialog(true);
-      if (hasConsoleBillingAccess()) {
+      if (hasConsoleBillingAccess() && verbose) {
         setShowCostDialog(true);
       }
     }
@@ -2844,7 +2844,7 @@ export function REPL({
     resetLoadingState();
 
     // 每轮对话结束后输出费用统计（用 isMeta 消息通过 Ink 渲染，不发送给 API）
-    if (hasConsoleBillingAccess()) {
+    if (hasConsoleBillingAccess() && verbose) {
       setMessages(prev => [...prev, {
         type: 'system' as const,
         subtype: 'informational' as const,
