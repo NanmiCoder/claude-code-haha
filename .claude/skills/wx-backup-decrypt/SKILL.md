@@ -164,7 +164,7 @@ If the key varies per byte, try:
 ### 4.1 Decrypt messages
 
 ```python
-XOR_KEY = 0x00  # Replace with discovered key
+XOR_KEY = discovered_key  # Auto-discovered via known-plaintext attack
 
 def decrypt_content(content_hex):
     if not content_hex or len(content_hex) % 2 != 0:
