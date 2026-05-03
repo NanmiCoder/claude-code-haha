@@ -303,7 +303,7 @@ export function addLineNumbers({
 
   if (isCompactLinePrefixEnabled()) {
     return lines
-      .map((line, index) => `${index + startLine}\t${line}`)
+      .map((line, index) => `${index + startLine}│${line}`)
       .join('\n')
   }
 
@@ -319,11 +319,11 @@ export function addLineNumbers({
 }
 
 /**
- * Inverse of addLineNumbers — strips the `N→` or `N\t` prefix from a single
+ * Inverse of addLineNumbers — strips the `N→`, `N│` or `N\t` prefix from a single
  * line. Co-located so format changes here and in addLineNumbers stay in sync.
  */
 export function stripLineNumberPrefix(line: string): string {
-  const match = line.match(/^\s*\d+[\u2192\t](.*)$/)
+  const match = line.match(/^\s*\d+[\u2192\u2502\t](.*)$/)
   return match?.[1] ?? line
 }
 
