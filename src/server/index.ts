@@ -1,8 +1,8 @@
 /**
- * Claude Code Desktop App — HTTP + WebSocket Server
+ * Claude Code Haha local HTTP + WebSocket server.
  *
- * 为桌面端 UI 提供 REST API 和 WebSocket 实时通信。
- * 读写与 CLI 完全相同的文件系统，确保 CLI/UI 数据互通。
+ * Provides REST APIs, WebSocket sessions, adapter bridges, and local CLI
+ * subprocess orchestration.
  */
 
 import { handleApiRequest } from './router.js'
@@ -15,7 +15,6 @@ import { handleProxyRequest } from './proxy/handler.js'
 import { ProviderService } from './services/providerService.js'
 import { handleHahaOAuthCallback } from './api/haha-oauth.js'
 import { handleHahaOpenAIOAuthCallback } from './api/haha-openai-oauth.js'
-import { ensureDesktopCliLauncherInstalled } from './services/desktopCliLauncherService.js'
 import { enableConfigs } from '../utils/config.js'
 import { diagnosticsService } from './services/diagnosticsService.js'
 
@@ -240,13 +239,6 @@ export function startServer(port = PORT, host = HOST) {
 
   // Start the cron scheduler to execute scheduled tasks
   cronScheduler.start()
-
-  void ensureDesktopCliLauncherInstalled().catch((error) => {
-    console.error(
-      '[desktop-cli-launcher] failed to install bundled launcher:',
-      error instanceof Error ? error.message : error,
-    )
-  })
 
   console.log(`[Server] Claude Code API server running at http://${host}:${port}`)
   return server

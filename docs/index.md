@@ -38,14 +38,10 @@ features:
     link: /guide/third-party-models
   - icon: "\U0001F4AC"
     title: IM 接入
-    details: 在桌面端 webapp 配置 Telegram / 飞书，并通过独立 adapter 进程远程对话 Claude Code
+    details: 通过独立 adapter 进程远程对话 Claude Code
     link: /im/
   - icon: "\U0001F4BB"
     title: Computer Use
     details: 桌面控制功能 — 截屏、鼠标、键盘操作（Python Bridge 实现）
     link: /features/computer-use
-  - icon: "\U0001F5A5"
-    title: 桌面端
-    details: 基于 Tauri 2 + React 的图形化客户端，多标签、多会话、IM 适配器接入，支持 macOS 和 Windows
-    link: /desktop/
 ---

@@ -1,9 +1,8 @@
 /**
  * ConversationService — CLI subprocess manager
  *
- * Each desktop session owns one CLI subprocess. The subprocess talks back to
- * the desktop server over the SDK WebSocket bridge, while the desktop UI talks
- * to the server over its own client WebSocket.
+ * Each local server session owns one CLI subprocess. The subprocess talks back
+ * over the SDK WebSocket bridge, while clients use the session WebSocket.
  */
 
 import * as fs from 'node:fs'
@@ -12,10 +11,6 @@ import * as path from 'node:path'
 import { ProviderService } from './providerService.js'
 import { sessionService } from './sessionService.js'
 import { diagnosticsService } from './diagnosticsService.js'
-import {
-  buildClaudeCliArgs,
-  resolveClaudeCliLauncher,
-} from '../../utils/desktopBundledCli.js'
 
 type AttachmentRef = {
   type: 'file' | 'image'
@@ -155,16 +150,9 @@ export class ConversationService {
       `[ConversationService] Starting CLI for ${sessionId}, cwd: ${workDir} (process.cwd()=${process.cwd()}, CALLER_DIR will be pinned to workDir)`,
     )
 
-    // IMPORTANT (Bug#5): 必须覆盖子进程继承的 CALLER_DIR / PWD。
-    // preload.ts 顶层读 process.env.CALLER_DIR 并调用 process.chdir(CALLER_DIR)。
-    // 在 bundled 桌面端里，server sidecar 被 Tauri 从 cwd=/ 启动，claude-sidecar.ts
-    // 在 server/cli 模式入口把 CALLER_DIR 默认设成 process.cwd()（即 '/'），
-    // 随后这个 env 被完整继承到 Bun.spawn 的 CLI 子进程；即使这里显式传了
-    // cwd: workDir，CLI 子进程里 preload.ts 还是会 chdir('/')，结果把
-    // STATE.cwd / "Primary working directory" 打回根目录，IM 会话里 AI 感知的
-    // 工作目录就变成 `/`。把 CALLER_DIR / PWD 显式覆盖成 workDir，preload.ts
-    // chdir 后落到正确目录。
-    //
+    // IMPORTANT: override inherited CALLER_DIR / PWD. preload.ts reads
+    // CALLER_DIR at module load and chdirs there, so the child environment
+    // must pin both values to the requested session workDir.
     const childEnv = await this.buildChildEnv(workDir, sdkUrl, options)
 
     let proc: ReturnType<typeof Bun.spawn>
@@ -893,25 +881,24 @@ export class ConversationService {
   }
 
   private resolveCliArgs(baseArgs: string[]): string[] {
-    const launcher = resolveClaudeCliLauncher({
-      cliPath: process.env.CLAUDE_CLI_PATH,
-      execPath: process.execPath,
-    })
-
-    if (!launcher) {
-      if (process.platform === 'win32') {
-        return [
-          process.execPath,
-          '--preload',
-          path.resolve(import.meta.dir, '../../../preload.ts'),
-          path.resolve(import.meta.dir, '../../entrypoints/cli.tsx'),
-          ...baseArgs,
-        ]
+    if (process.env.CLAUDE_CLI_PATH) {
+      const cliPath = process.env.CLAUDE_CLI_PATH
+      if (/\.(?:[cm]?[jt]s|tsx?)$/i.test(cliPath)) {
+        return ['bun', cliPath, ...baseArgs]
       }
-      return [path.resolve(import.meta.dir, '../../../bin/claude-haha'), ...baseArgs]
+      return [cliPath, ...baseArgs]
     }
 
-    return buildClaudeCliArgs(launcher, baseArgs, process.env.CLAUDE_APP_ROOT)
+    if (process.platform === 'win32') {
+      return [
+        process.execPath,
+        '--preload',
+        path.resolve(import.meta.dir, '../../../preload.ts'),
+        path.resolve(import.meta.dir, '../../entrypoints/cli.tsx'),
+        ...baseArgs,
+      ]
+    }
+    return [path.resolve(import.meta.dir, '../../../bin/claude-haha'), ...baseArgs]
   }
 
   private clearStaleLock(sessionId: string): boolean {

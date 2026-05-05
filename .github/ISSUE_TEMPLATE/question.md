@@ -1,6 +1,6 @@
 ---
 name: 使用问题咨询
-about: 咨询桌面端或 CLI 使用过程中遇到的问题
+about: 咨询 CLI 使用过程中遇到的问题
 title: '[问题] '
 labels: question
 assignees: ''
@@ -19,15 +19,14 @@ assignees: ''
 
 
 ## 使用环境
-<!-- 桌面端问题请优先填写前 4 项；CLI 问题再补充 Bun / Node 信息 -->
+<!-- 请填写运行环境信息 -->
 
-- 使用方式: 桌面端 / CLI / 其他:
+- 使用方式: CLI / 其他:
 - 操作系统: Windows / macOS / Linux:
 - 系统版本: 例如 Windows 11 23H2 / macOS 15.4:
-- 桌面端版本: 例如 v0.1.8（设置页 -> 关于 中可查看）:
 - 安装来源: GitHub Release / 源码本地构建 / 其他:
-- Bun 版本（CLI 问题填写，`bun --version`）:
-- Node 版本（CLI 问题填写，`node --version`）:
+- Bun 版本（`bun --version`）:
+- Node 版本（`node --version`）:
 
 ## 使用场景
 <!-- 描述你在使用哪个功能时遇到的问题 -->

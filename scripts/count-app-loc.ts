@@ -14,7 +14,7 @@ type FileStat = Bucket & {
 
 const root = process.cwd()
 
-const targetRoots = ['adapters', 'desktop', 'runtime', 'src/server']
+const targetRoots = ['adapters', 'runtime', 'src/server']
 
 const codeExtensions = new Set([
   '.css',
@@ -54,10 +54,7 @@ const excludedDirectoryNames = new Set([
   'target',
 ])
 
-const excludedRelativePaths = new Set([
-  'desktop/src-tauri/binaries',
-  'desktop/src-tauri/icons',
-])
+const excludedRelativePaths = new Set<string>()
 
 const files: FileStat[] = []
 
@@ -176,18 +173,6 @@ function areaForPath(path: string) {
     return 'server'
   }
 
-  if (path.startsWith('desktop/src/')) {
-    return 'desktop frontend'
-  }
-
-  if (path.startsWith('desktop/src-tauri/')) {
-    return 'desktop tauri'
-  }
-
-  if (path.startsWith('desktop/')) {
-    return 'desktop support'
-  }
-
   if (path.startsWith('adapters/')) {
     return 'adapters'
   }
@@ -228,7 +213,7 @@ const sortedByPath = [...files].sort((left, right) =>
   left.path.localeCompare(right.path),
 )
 
-console.log('Desktop app source line count')
+console.log('Application source line count')
 console.log('')
 console.log(`Targets: ${targetRoots.join(', ')}`)
 console.log(`Included extensions: ${[...codeExtensions].sort().join(', ')}`)

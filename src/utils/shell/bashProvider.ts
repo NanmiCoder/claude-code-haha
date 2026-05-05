@@ -22,7 +22,6 @@ import {
   hasTmuxToolBeenUsed,
 } from '../tmuxSocket.js'
 import { windowsPathToPosixPath } from '../windowsPaths.js'
-import { resolveClaudeCliLauncher } from '../desktopBundledCli.js'
 import type { ShellProvider } from './shellProvider.js'
 
 /**
@@ -56,30 +55,16 @@ function getDisableExtglobCommand(shellPath: string): string | null {
   return null
 }
 
-function buildBundledClaudeShellWrapper(): string | null {
-  const launcher = resolveClaudeCliLauncher({
-    cliPath: process.env.CLAUDE_CLI_PATH,
-    execPath: process.execPath,
-  })
-
-  if (!launcher) {
+function buildCustomClaudeShellWrapper(): string | null {
+  const cliPath = process.env.CLAUDE_CLI_PATH
+  if (!cliPath) {
     return null
   }
 
-  const quotedCommand = quote([launcher.command])
-  let invoke = ''
-
-  if (launcher.kind === 'script') {
-    invoke = `command bun ${quotedCommand} "$@"`
-  } else if (launcher.kind === 'sidecar') {
-    invoke = launcher.requiresAppRoot
-      ? `if [ -z "$CLAUDE_APP_ROOT" ]; then echo "bundled claude wrapper requires CLAUDE_APP_ROOT" >&2; return 1; fi; ${quotedCommand} cli --app-root "$CLAUDE_APP_ROOT" "$@"`
-      : `${quotedCommand} cli "$@"`
-  } else if (launcher.requiresAppRoot) {
-    invoke = `if [ -n "$CLAUDE_APP_ROOT" ]; then ${quotedCommand} --app-root "$CLAUDE_APP_ROOT" "$@"; else ${quotedCommand} "$@"; fi`
-  } else {
-    invoke = `${quotedCommand} "$@"`
-  }
+  const quotedCommand = quote([cliPath])
+  const invoke = /\.(?:[cm]?[jt]s|tsx?)$/i.test(cliPath)
+    ? `command bun ${quotedCommand} "$@"`
+    : `${quotedCommand} "$@"`
 
   return `claude() { ${invoke}; }`
 }
@@ -201,7 +186,7 @@ export async function createBashShellProvider(
         commandParts.push(sessionEnvScript)
       }
 
-      const bundledClaudeWrapper = buildBundledClaudeShellWrapper()
+      const bundledClaudeWrapper = buildCustomClaudeShellWrapper()
       if (bundledClaudeWrapper) {
         commandParts.push(bundledClaudeWrapper)
       }

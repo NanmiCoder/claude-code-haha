@@ -20,10 +20,8 @@ jobs:
       areas: ${{ steps.policy.outputs.areas }}
       area_labels: ${{ steps.policy.outputs.area_labels }}
       blocked: ${{ steps.policy.outputs.blocked }}
-      desktop_checks: ${{ steps.policy.outputs.desktop_checks }}
       server_checks: ${{ steps.policy.outputs.server_checks }}
       adapter_checks: ${{ steps.policy.outputs.adapter_checks }}
-      desktop_native_checks: ${{ steps.policy.outputs.desktop_native_checks }}
       docs_checks: ${{ steps.policy.outputs.docs_checks }}
     steps:
       - name: Checkout
@@ -49,30 +47,6 @@ jobs:
       - name: Evaluate change policy
         id: policy
         run: bun run scripts/pr/change-policy.ts --files changed-files.txt --labels-file labels.txt
-
-  desktop-checks:
-    name: desktop-checks
-    needs: change-policy
-    if: needs.change-policy.outputs.desktop_checks == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install root dependencies
-        run: bun install
-
-      - name: Install desktop dependencies
-        working-directory: desktop
-        run: bun install
-
-      - name: Run desktop checks
-        run: bun run check:desktop
 
   server-checks:
     name: server-checks
@@ -114,53 +88,6 @@ jobs:
 
       - name: Run adapter checks
         run: bun run check:adapters
-
-  desktop-native-checks:
-    name: desktop-native-checks
-    needs: change-policy
-    if: needs.change-policy.outputs.desktop_native_checks == 'true'
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential curl wget file \
-            libxdo-dev libssl-dev \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev patchelf \
-            libfuse2
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: 'desktop/src-tauri -> target'
-
-      - name: Install root dependencies
-        run: bun install
-
-      - name: Install desktop dependencies
-        working-directory: desktop
-        run: bun install
-
-      - name: Install adapter dependencies
-        working-directory: adapters
-        run: bun install
-
-      - name: Run desktop native checks
-        run: bun run check:native
 
   docs-checks:
     name: docs-checks

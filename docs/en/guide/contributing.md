@@ -10,21 +10,14 @@ Install root dependencies with Bun:
 bun install
 ```
 
-If your change touches `desktop/`, also install desktop dependencies:
-
-```bash
-cd desktop
-bun install
-```
-
-If your change touches `adapters/`, or if you run `check:adapters` / `check:native`, install adapter dependencies:
+If your change touches `adapters/`, or if you run `check:adapters`, install adapter dependencies:
 
 ```bash
 cd adapters
 bun install
 ```
 
-Do not commit local artifacts such as `artifacts/quality-runs/`, `node_modules/`, or `desktop/node_modules/`.
+Do not commit local artifacts such as `artifacts/quality-runs/` or `node_modules/`.
 
 ## Required PR Gate
 
@@ -49,9 +42,7 @@ Run the checks that match the files you changed:
 
 ```bash
 bun run check:server      # Server API, WebSocket, providers, sessions, and related tests
-bun run check:desktop     # Desktop lint, Vitest, and production build
 bun run check:adapters    # IM adapter tests
-bun run check:native      # Desktop sidecars and Tauri native checks
 bun run check:docs        # Docs build, using npm ci + docs:build
 ```
 
@@ -99,16 +90,16 @@ bun run quality:gate --mode baseline --allow-live \
   --provider-model minimax:main:minimax-main
 ```
 
-Provider selectors come from the providers saved in your local Desktop Settings > Providers page. Contributors do not need the maintainer's provider UUIDs or vendor accounts. They can add their own provider locally, run `bun run quality:providers`, and choose their own model.
+Provider selectors come from the providers saved in your local configuration. Contributors do not need the maintainer's provider UUIDs or vendor accounts. They can add their own provider locally, run `bun run quality:providers`, and choose their own model.
 
 ## When To Run The Baseline
 
 Run the live baseline for changes touching:
 
-- Desktop chat, session resume, WebSocket, or the CLI bridge
+- Session resume, WebSocket, or the CLI bridge
 - Provider, model, or runtime selection
 - Permissions, tool calls, file edits, and task execution
-- agent-browser smoke, Computer Use, Skills, or MCP
+- Computer Use, Skills, or MCP
 - Release preparation or broad cross-module refactors
 
 If you do not have model access, still run `bun run quality:pr` and state in the PR why the live baseline was not run.
@@ -121,7 +112,7 @@ Before a release, run release mode:
 bun run quality:gate --mode release --allow-live --provider-model <selector>:main
 ```
 
-Release mode composes PR checks, baseline catalog validation, live baseline cases, desktop smoke, and native checks. Reports are written to `artifacts/quality-runs/<timestamp>/`.
+Release mode composes PR checks, baseline catalog validation, and live baseline cases. Reports are written to `artifacts/quality-runs/<timestamp>/`.
 
 ## PR Workflow
 
@@ -143,7 +134,7 @@ Yes. Run the normal PR gate:
 bun run quality:pr
 ```
 
-Only the live baseline needs a real model. Add your provider in Desktop Settings > Providers, then run:
+Only the live baseline needs a real model. Configure your provider, then run:
 
 ```bash
 bun run quality:providers

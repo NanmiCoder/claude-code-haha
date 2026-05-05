@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 
-const DOSU_PROMPT = '@dosubot review this PR for changed-area risk, missing tests, docs impact, desktop startup risk, and CLI core impact.'
+const DOSU_PROMPT = '@dosubot review this PR for changed-area risk, missing tests, docs impact, and CLI core impact.'
 
 function extractCommentBodyEntries(workflow: string) {
   const match = workflow.match(/const body = \[([\s\S]*?)\n\s*\]\.join\('\\n'\)/)

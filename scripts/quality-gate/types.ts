@@ -1,6 +1,6 @@
 export type QualityGateMode = 'pr' | 'baseline' | 'release'
 
-export type LaneKind = 'command' | 'baseline-case' | 'desktop-smoke'
+export type LaneKind = 'command' | 'baseline-case'
 
 export type LaneDefinition = {
   id: string

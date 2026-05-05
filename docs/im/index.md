@@ -11,10 +11,7 @@
 
 ```mermaid
 flowchart TD
-    A["Desktop Webapp<br/>Settings -> IM 接入"] --> B["GET / PUT /api/adapters"]
-    B --> C["Desktop Server<br/>配置接口"]
-    C --> D["本地配置持久化"]
-    D --> E["~/.claude/adapters.json"]
+    A["编辑 ~/.claude/adapters.json"] --> E["平台配置"]
 
     E --> F["Telegram / 飞书 Adapter 进程"]
     F --> G["加载平台配置"]
@@ -35,7 +32,7 @@ flowchart TD
     Q --> R
 
     R --> S["adapters/common/ws-bridge.ts"]
-    S --> T["Desktop Server"]
+    S --> T["本地 Server"]
     T --> U["Claude Code session / CLI 子进程"]
 
     U --> V["流式消息 / 权限请求 / 状态事件"]
@@ -46,30 +43,27 @@ flowchart TD
 
 可以把这条链路理解成四层：
 
-- 配置层：桌面端 webapp 负责填写平台凭据、默认项目和配对码管理
-- 存储层：本地服务端把配置写入 `~/.claude/adapters.json`
+- 配置层：手动编辑 `~/.claude/adapters.json`，填写平台凭据、默认项目和配对码
+- 存储层：配置和会话映射保存在本机 `~/.claude/`
 - 适配层：Telegram / 飞书 adapter 进程负责接 IM 平台、做授权检查、恢复或创建会话
 - 会话层：adapter 通过 HTTP 创建 session，再通过 WebSocket 把 IM 消息桥接到 Claude Code 会话
 
 ## 用户怎么用
 
-### 1. 在 Desktop Webapp 里配置
+### 1. 写入本地配置
 
-打开桌面端设置页的 `IM 接入` 标签，填写：
+创建或更新 `~/.claude/adapters.json`，填写：
 
 - `serverUrl`
 - `defaultProjectDir`
 - Telegram 或飞书各自的凭据
 - 可选 `allowedUsers`
 
-这里的配置会通过 `GET /api/adapters` 和 `PUT /api/adapters` 读写到 `~/.claude/adapters.json`。
-
 ### 2. 生成配对码
 
-配对也在同一个设置页完成：
+在配置文件里写入一次性配对码：
 
-- 点击“生成配对码”
-- 前端生成 6 位码并写入 `pairing.code / expiresAt / createdAt`
+- 生成 6 位码并写入 `pairing.code / expiresAt / createdAt`
 - 码有效期 60 分钟
 - 配对成功后立即失效
 
@@ -77,7 +71,7 @@ flowchart TD
 
 ### 3. 启动对应 Adapter 进程
 
-Webapp 负责配置和配对，不负责代你启动 bot 进程。当前仍需要手动启动：
+当前需要手动启动 bot 进程：
 
 ```bash
 cd adapters

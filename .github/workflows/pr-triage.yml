@@ -27,7 +27,6 @@ jobs:
             const issue_number = context.payload.pull_request.number
 
             const managedLabels = {
-              'area:desktop': '1d76db',
               'area:server': '0e8a16',
               'area:adapters': '5319e7',
               'area:docs': '0075ca',
@@ -61,20 +60,13 @@ jobs:
             const releaseExact = new Set([
               '.github/workflows/pr-quality.yml',
               '.github/workflows/pr-triage.yml',
-              '.github/workflows/release-desktop.yml',
-              '.github/workflows/build-desktop-dev.yml',
               'scripts/pr/change-policy.ts',
               'scripts/pr/change-policy.test.ts',
               'scripts/pr/check-pr.ts',
               'scripts/pr/run-server-tests.ts',
-              'scripts/release.ts',
-              'desktop/src-tauri/tauri.conf.json',
-              'desktop/src-tauri/Cargo.toml',
-              'desktop/src-tauri/Cargo.lock',
             ])
 
             for (const filename of filenames) {
-              if (filename.startsWith('desktop/')) areas.add('area:desktop')
               if (filename.startsWith('src/server/')) areas.add('area:server')
               if (filename.startsWith('adapters/')) areas.add('area:adapters')
               if (filename.startsWith('docs/') || filename.startsWith('release-notes/') || docsExact.has(filename)) areas.add('area:docs')
@@ -98,7 +90,6 @@ jobs:
               !file.includes('/__tests__/') &&
               !file.includes('/fixtures/')
             )
-            const desktopProduct = changedProduct((file) => file.startsWith('desktop/src/'))
             const serverProduct = changedProduct((file) => file.startsWith('src/server/'))
             const adapterProduct = changedProduct((file) => file.startsWith('adapters/'))
             const agentRuntimeProduct = changedProduct((file) =>
@@ -109,23 +100,11 @@ jobs:
             )
 
             const requiredChecks = ['change-policy']
-            if (areas.has('area:desktop') || areas.has('area:server')) requiredChecks.push('desktop-checks')
             if (areas.has('area:server') || filenames.some((file) => file.startsWith('src/tools/') || file.startsWith('src/utils/'))) requiredChecks.push('server-checks')
             if (areas.has('area:adapters')) requiredChecks.push('adapter-checks')
-            if (
-              filenames.some((file) =>
-                file.startsWith('desktop/') ||
-                file.startsWith('adapters/') ||
-                file.startsWith('src/server/') ||
-                ['bun.lock', 'package.json', 'desktop/bun.lock', 'desktop/package.json', 'desktop/package-lock.json', 'desktop/src-tauri/Cargo.lock', 'desktop/src-tauri/Cargo.toml', 'desktop/src-tauri/tauri.conf.json'].includes(file)
-              )
-            ) requiredChecks.push('desktop-native-checks')
             if (areas.has('area:docs')) requiredChecks.push('docs-checks')
 
             const testSignals = []
-            if (desktopProduct.length > 0 && !hasTest('desktop/src/')) {
-              testSignals.push('Desktop product files changed without a desktop test file in the PR.')
-            }
             if (serverProduct.length > 0 && !hasTest('src/server/')) {
               testSignals.push('Server product files changed without a server test file in the PR.')
             }
@@ -140,12 +119,6 @@ jobs:
             }
 
             const riskNotes = []
-            if (filenames.some((file) => file.startsWith('desktop/src-tauri/'))) {
-              riskNotes.push('Tauri/native code changed: inspect sidecar build and cargo check.')
-            }
-            if (filenames.some((file) => file.startsWith('desktop/src/stores/') || file.startsWith('desktop/src/api/'))) {
-              riskNotes.push('Desktop state/API layer changed: verify store persistence, WebSocket behavior, and startup errors.')
-            }
             if (filenames.some((file) => file.startsWith('src/server/ws/') || file.startsWith('src/server/services/conversation'))) {
               riskNotes.push('Session runtime changed: review reconnect, startup diagnostics, provider selection, and thinking settings.')
             }
@@ -231,7 +204,7 @@ jobs:
               '',
               '**Dosu handoff:** Dosu can be used as the AI reviewer for risk explanation, missing-test prompts, and maintainer Q&A. If it does not comment automatically from the PR template, ask:',
               '',
-              '@dosubot review this PR for changed-area risk, missing tests, docs impact, desktop startup risk, and CLI core impact.',
+              '@dosubot review this PR for changed-area risk, missing tests, docs impact, and CLI core impact.',
             ].join('\n')
 
             const comments = await github.paginate(github.rest.issues.listComments, {

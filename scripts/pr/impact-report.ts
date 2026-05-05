@@ -73,17 +73,11 @@ async function changedFiles() {
 function commandList(result: ReturnType<typeof evaluateChangePolicy>) {
   const commands = ['bun run check:policy']
 
-  if (result.checks.desktop) {
-    commands.push('bun run check:desktop')
-  }
   if (result.checks.server) {
     commands.push('bun run check:server')
   }
   if (result.checks.adapters) {
     commands.push('bun run check:adapters')
-  }
-  if (result.checks.desktopNative) {
-    commands.push('bun run check:native')
   }
   if (result.checks.docs) {
     commands.push('bun run check:docs')
@@ -110,7 +104,6 @@ function changedProductionFiles(files: string[], predicate: (file: string) => bo
 
 function coverageWarnings(files: string[]) {
   const warnings: string[] = []
-  const desktopProd = changedProductionFiles(files, (file) => file.startsWith('desktop/src/'))
   const serverProd = changedProductionFiles(files, (file) => file.startsWith('src/server/'))
   const adapterProd = changedProductionFiles(files, (file) => file.startsWith('adapters/'))
   const agentRuntimeProd = changedProductionFiles(files, (file) => (
@@ -119,10 +112,6 @@ function coverageWarnings(files: string[]) {
     file.startsWith('src/tools/') ||
     file.startsWith('src/utils/')
   ))
-
-  if (desktopProd.length > 0 && !hasMatchingTest(files, (file) => file.startsWith('desktop/src/'))) {
-    warnings.push('Desktop product files changed without a desktop test file in the PR.')
-  }
 
   if (serverProd.length > 0 && !hasMatchingTest(files, (file) => file.startsWith('src/server/'))) {
     warnings.push('Server product files changed without a server test file in the PR.')
@@ -142,12 +131,6 @@ function coverageWarnings(files: string[]) {
 function riskNotes(files: string[]) {
   const notes: string[] = []
 
-  if (files.some((file) => file.startsWith('desktop/src-tauri/'))) {
-    notes.push('Tauri/native code changed: check sidecar build and cargo check output closely.')
-  }
-  if (files.some((file) => file.startsWith('desktop/src/stores/') || file.startsWith('desktop/src/api/'))) {
-    notes.push('Desktop state/API layer changed: verify store persistence, WebSocket behavior, and startup errors.')
-  }
   if (files.some((file) => file.startsWith('src/server/ws/') || file.startsWith('src/server/services/conversation'))) {
     notes.push('Session runtime changed: review reconnect, startup diagnostics, provider selection, and thinking settings.')
   }

@@ -60,31 +60,31 @@
 - `/new`：开启新对话
 - `/clear`：清空当前会话上下文
 
-## 3. 在 Claude Code Haha 桌面端填写
+## 3. 写入本地配置
 
 ### 3.1 填写 App ID / App Secret
 
-打开桌面端 `设置 → IM 接入 → 飞书`，把前面拿到的两把钥匙填进去：
+编辑 `~/.claude/adapters.json`，把前面拿到的两把钥匙填进去：
 
 ![填写 App ID / App Secret](../images/im/feishu/10-fill-app-credentials.png)
 
 ### 3.2 生成配对码
 
-点击「生成配对码」按钮，得到 6 位码：
+生成 6 位配对码并写入 `pairing.code / expiresAt / createdAt`：
 
 ![生成配对码](../images/im/feishu/11-generate-pairing-code.png)
 
 ![配对码详情](../images/im/feishu/12-pairing-code-detail.png)
 
-**记得点保存！！**
+**记得保存配置文件。**
 
-## 4. 飞书机器人与桌面端配对
+## 4. 飞书机器人配对
 
 随便给刚才创建的机器人发送一条消息，按提示把上一步的 6 位配对码发给它：
 
 ![在飞书里发配对码](../images/im/feishu/13-send-code-in-feishu.png)
 
-看到配对成功提示后，就可以用飞书在手机上远程驱动桌面端 Claude Code Haha 了：
+看到配对成功提示后，就可以用飞书在手机上远程驱动 Claude Code Haha 了：
 
 ![配对成功](../images/im/feishu/14-pair-success.png)
 
@@ -103,7 +103,7 @@
 
 ## 权限审批
 
-当 Claude 请求敏感权限时，adapter 会在飞书里发送交互卡片，点击「允许 / 拒绝」即可把结果回传给桌面端。
+当 Claude 请求敏感权限时，adapter 会在飞书里发送交互卡片，点击「允许 / 拒绝」即可把结果回传给本地 server。
 
 ## 返回消息的表现
 
@@ -114,7 +114,7 @@
 
 ## 启动 adapter
 
-桌面端会自动把 adapter 作为 sidecar 拉起。如果你在本地开发，需要手动启动：
+当前需要手动启动 adapter：
 
 ```bash
 cd adapters
@@ -150,12 +150,12 @@ OpenClaw 官方模板已预配 `im:message`、`im:message:send_as_bot`、`im:res
 ### 一直提示未授权
 
 - 配对码是否仍在 60 分钟有效期内
-- 发的是不是桌面端当前这一枚（重新生成后旧的立即失效）
+- 发的是不是当前配置文件里的这一枚（重新生成后旧的立即失效）
 - `feishu.pairedUsers` 里是否已经写入当前 `open_id`
 
 ### 会话没恢复
 
-检查 `~/.claude/adapter-sessions.json` 是否能正常写入，以及 Desktop server 里的 session 是否仍存在。
+检查 `~/.claude/adapter-sessions.json` 是否能正常写入，以及本地 server 里的 session 是否仍存在。
 
 ## 源码入口
 

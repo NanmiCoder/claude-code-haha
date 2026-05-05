@@ -1,6 +1,6 @@
 # IM Gateway 方案设计 `[历史设计稿]`
 
-> 像 OpenClaw 一样，让 Claude Code Desktop 快速接入任意 IM 平台
+> 像 OpenClaw 一样，让 Claude Code 快速接入任意 IM 平台
 >
 > 状态更新：当前实际可用的接入方式请看 [`docs/im/`](../im/)。
 > 本文保留为方案演进记录，不再作为接入说明。
@@ -33,11 +33,11 @@ Claude Code 源码中已有完整的 **Channel 系统**（详见 [01-channel-sys
 5. **会话白名单** — 需要 `--channels` CLI 参数指定
 6. **插件市场审批** — 插件必须通过 Anthropic 市场审批
 
-这些限制使得在我们自托管的桌面端 App 中无法直接使用 Channel 功能。
+这些限制使得在我们自托管的本地运行时中无法直接使用 Channel 功能。
 
 ### 目标
 
-参考 [OpenClaw](https://github.com/openclaw/openclaw) 的 IM Gateway 架构，在现有桌面端服务器基础上，以**最小改动量**实现 IM 平台接入，让用户可以从 Telegram、飞书、Slack、Discord 等 IM 直接与 Claude 对话并审批权限请求。
+参考 [OpenClaw](https://github.com/openclaw/openclaw) 的 IM Gateway 架构，在现有本地服务器基础上，以**最小改动量**实现 IM 平台接入，让用户可以从 Telegram、飞书、Slack、Discord 等 IM 直接与 Claude 对话并审批权限请求。
 
 ### 核心策略
 
@@ -113,7 +113,7 @@ Telegram / 飞书 / Slack / Discord / 微信 ...
 
 #### 为什么不直接解锁 MCP Channel 门控？
 
-MCP Channel 系统设计用于 CLI 交互模式（React/Ink 渲染），需要修改编译标志、GrowthBook 配置、OAuth 逻辑等 6 层代码。而我们的桌面端服务器有完全独立的架构（REST + WS + CLI 子进程），直接在服务端接入更简洁。
+MCP Channel 系统设计用于 CLI 交互模式（React/Ink 渲染），需要修改编译标志、GrowthBook 配置、OAuth 逻辑等 6 层代码。而本地服务器有独立的架构（REST + WS + CLI 子进程），直接在服务端接入更简洁。
 
 #### 为什么 Adapter 独立进程？
 

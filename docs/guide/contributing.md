@@ -10,21 +10,14 @@
 bun install
 ```
 
-如果改动涉及 `desktop/`，也安装桌面端依赖：
-
-```bash
-cd desktop
-bun install
-```
-
-如果改动涉及 `adapters/`，或者要运行 `check:adapters` / `check:native`，安装 adapter 依赖：
+如果改动涉及 `adapters/`，或者要运行 `check:adapters`，安装 adapter 依赖：
 
 ```bash
 cd adapters
 bun install
 ```
 
-不要提交本地运行产物，例如 `artifacts/quality-runs/`、`node_modules/`、`desktop/node_modules/`。
+不要提交本地运行产物，例如 `artifacts/quality-runs/`、`node_modules/`。
 
 ## 普通 PR 必跑门禁
 
@@ -49,9 +42,7 @@ PR 描述里请贴出你实际运行的命令和 summary。
 
 ```bash
 bun run check:server      # 服务端 API、WebSocket、provider、会话等测试
-bun run check:desktop     # 桌面端 lint、Vitest、生产构建
 bun run check:adapters    # IM adapter 测试
-bun run check:native      # 桌面 sidecar 与 Tauri native 检查
 bun run check:docs        # 文档构建，使用 npm ci + docs:build
 ```
 
@@ -99,16 +90,16 @@ bun run quality:gate --mode baseline --allow-live \
   --provider-model minimax:main:minimax-main
 ```
 
-`provider` selector 来自桌面端「Settings > Providers」里保存的本机配置。别人 clone 代码后不需要知道你的 provider UUID，也不需要使用你的供应商；他们可以在自己的桌面端添加 provider 后运行 `bun run quality:providers` 选择自己的模型。
+`provider` selector 来自本机保存的 provider 配置。别人 clone 代码后不需要知道你的 provider UUID，也不需要使用你的供应商；他们可以配置自己的 provider 后运行 `bun run quality:providers` 选择自己的模型。
 
 ## 什么时候必须跑 Baseline
 
 以下改动建议跑 live baseline：
 
-- 桌面聊天、会话恢复、WebSocket、CLI bridge
+- 会话恢复、WebSocket、CLI bridge
 - provider/model/runtime 选择
 - 权限、工具调用、文件编辑、任务执行
-- agent-browser smoke、Computer Use、Skills、MCP
+- Computer Use、Skills、MCP
 - release 前或风险较大的跨模块重构
 
 如果没有模型额度，至少运行 `bun run quality:pr`，并在 PR 里说明未跑 live baseline 的原因。
@@ -121,7 +112,7 @@ bun run quality:gate --mode baseline --allow-live \
 bun run quality:gate --mode release --allow-live --provider-model <selector>:main
 ```
 
-release 模式会组合 PR checks、baseline catalog、live baseline、desktop smoke 和 native checks。发版报告同样写入 `artifacts/quality-runs/<timestamp>/`。
+release 模式会组合 PR checks、baseline catalog 和 live baseline。发版报告同样写入 `artifacts/quality-runs/<timestamp>/`。
 
 ## PR 提交流程
 
@@ -143,7 +134,7 @@ release 模式会组合 PR checks、baseline catalog、live baseline、desktop s
 bun run quality:pr
 ```
 
-只有 live baseline 需要真实模型。先在桌面端 Settings > Providers 添加自己的 provider，再运行：
+只有 live baseline 需要真实模型。先配置自己的 provider，再运行：
 
 ```bash
 bun run quality:providers

@@ -1,8 +1,6 @@
 /**
- * HahaOAuthService — 桌面端自管 Claude OAuth token
+ * HahaOAuthService — cc-haha-managed Claude OAuth token
  *
- * 为什么存在: macOS Keychain ACL 在 .app 被打上 quarantine 属性后
- * 对无 UI sidecar 静默拒绝,导致 CLI 读不到 OAuth token → 403。
  * 这个 service 把 token 存到 haha 自己的目录,并通过 env 注入给 CLI。
  *
  * 复用 src/services/oauth/{crypto,client}.ts 里的 PKCE + token exchange 逻辑,

@@ -417,10 +417,6 @@ export type GlobalConfig = {
   bridgeOauthDeadExpiresAt?: number
   bridgeOauthDeadFailCount?: number
 
-  // Desktop upsell startup dialog tracking
-  desktopUpsellSeenCount?: number // Total showings (max 3)
-  desktopUpsellDismissed?: boolean // "Don't ask again" picked
-
   // Idle-return dialog tracking
   idleReturnDismissed?: boolean // "Don't ask again" picked
 

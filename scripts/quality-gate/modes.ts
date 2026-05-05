@@ -27,14 +27,6 @@ export function lanesForMode(mode: QualityGateMode, baselineTargets: BaselineTar
       command: ['bun', 'test', 'scripts/quality-gate/baseline/cases.test.ts'],
       requiredForModes: ['baseline', 'release'],
     },
-    {
-      id: 'native-checks',
-      title: 'Native desktop checks',
-      description: 'Build sidecars and run the Tauri native compile check.',
-      kind: 'command',
-      command: ['bun', 'run', 'check:native'],
-      requiredForModes: ['release'],
-    },
   ]
 
   const targets = baselineTargets.length > 0
@@ -55,19 +47,6 @@ export function lanesForMode(mode: QualityGateMode, baselineTargets: BaselineTar
         live: true,
       })
     }
-  }
-
-  for (const target of targets) {
-    const targetSlug = target.label.replace(/[^a-zA-Z0-9._-]+/g, '-')
-    lanes.push({
-      id: `desktop-smoke:agent-browser-chat:${targetSlug}`,
-      title: `Desktop agent-browser chat smoke (${target.label})`,
-      description: 'Open the desktop web app with agent-browser, send a real chat task, and verify the model edits a fixture project through the UI.',
-      kind: 'desktop-smoke',
-      baselineTarget: target,
-      requiredForModes: ['baseline', 'release'],
-      live: true,
-    })
   }
 
   return lanes.filter((lane) => lane.requiredForModes.includes(mode))

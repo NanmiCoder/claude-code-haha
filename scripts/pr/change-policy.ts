@@ -3,7 +3,6 @@
 import { existsSync, readFileSync, appendFileSync } from 'node:fs'
 
 export type ChangeArea =
-  | 'desktop'
   | 'server'
   | 'adapters'
   | 'docs'
@@ -19,10 +18,8 @@ export type ChangePolicyResult = {
   blockingReason: string | null
   cliCoreFiles: string[]
   checks: {
-    desktop: boolean
     server: boolean
     adapters: boolean
-    desktopNative: boolean
     docs: boolean
   }
 }
@@ -30,7 +27,6 @@ export type ChangePolicyResult = {
 const ALLOW_CLI_CORE_LABEL = 'allow-cli-core-change'
 
 const areaLabels: Record<ChangeArea, string> = {
-  desktop: 'area:desktop',
   server: 'area:server',
   adapters: 'area:adapters',
   docs: 'area:docs',
@@ -48,17 +44,6 @@ const cliCorePrefixes = [
   'src/utils/',
 ]
 
-const desktopNativeExactPaths = new Set([
-  'bun.lock',
-  'package.json',
-  'desktop/bun.lock',
-  'desktop/package.json',
-  'desktop/package-lock.json',
-  'desktop/src-tauri/Cargo.lock',
-  'desktop/src-tauri/Cargo.toml',
-  'desktop/src-tauri/tauri.conf.json',
-])
-
 const docsExactPaths = new Set([
   'README.md',
   'README.en.md',
@@ -70,16 +55,10 @@ const docsExactPaths = new Set([
 const releaseExactPaths = new Set([
   '.github/workflows/pr-quality.yml',
   '.github/workflows/pr-triage.yml',
-  '.github/workflows/release-desktop.yml',
-  '.github/workflows/build-desktop-dev.yml',
   'scripts/pr/change-policy.ts',
   'scripts/pr/change-policy.test.ts',
   'scripts/pr/check-pr.ts',
   'scripts/pr/run-server-tests.ts',
-  'scripts/release.ts',
-  'desktop/src-tauri/tauri.conf.json',
-  'desktop/src-tauri/Cargo.toml',
-  'desktop/src-tauri/Cargo.lock',
 ])
 
 function normalizePath(path: string) {
@@ -96,10 +75,6 @@ function isCliCorePath(path: string) {
 
 function areasForPath(path: string): ChangeArea[] {
   const areas = new Set<ChangeArea>()
-
-  if (path.startsWith('desktop/')) {
-    areas.add('desktop')
-  }
 
   if (path.startsWith('src/server/')) {
     areas.add('server')
@@ -147,13 +122,6 @@ export function evaluateChangePolicy(
   const hasCliCoreOverride = labels.includes(ALLOW_CLI_CORE_LABEL)
   const blocked = hasCliCoreChange && !hasCliCoreOverride
 
-  const touchesDesktopNative = files.some((file) => (
-    file.startsWith('desktop/') ||
-    file.startsWith('adapters/') ||
-    file.startsWith('src/server/') ||
-    desktopNativeExactPaths.has(file)
-  ))
-
   const touchesDocs = files.some((file) => (
     file.startsWith('docs/') ||
     file.startsWith('release-notes/') ||
@@ -173,10 +141,8 @@ export function evaluateChangePolicy(
       : null,
     cliCoreFiles,
     checks: {
-      desktop: areas.has('desktop') || areas.has('server'),
       server: areas.has('server') || files.some((file) => file.startsWith('src/tools/') || file.startsWith('src/utils/')),
       adapters: areas.has('adapters'),
-      desktopNative: touchesDesktopNative,
       docs: touchesDocs,
     },
   }
@@ -219,7 +185,7 @@ function formatSummary(result: ChangePolicyResult) {
     'PR change policy',
     `  Areas: ${result.areas.length ? result.areas.join(', ') : 'none'}`,
     `  Labels: ${result.labels.length ? result.labels.join(', ') : 'none'}`,
-    `  Checks: desktop=${result.checks.desktop}, server=${result.checks.server}, adapters=${result.checks.adapters}, desktopNative=${result.checks.desktopNative}, docs=${result.checks.docs}`,
+    `  Checks: server=${result.checks.server}, adapters=${result.checks.adapters}, docs=${result.checks.docs}`,
   ]
 
   if (result.cliCoreFiles.length > 0) {
@@ -246,10 +212,8 @@ function writeGithubOutputs(result: ChangePolicyResult) {
     areas: result.areas.join(','),
     area_labels: result.areaLabels.join(','),
     blocked: String(result.blocked),
-    desktop_checks: String(result.checks.desktop),
     server_checks: String(result.checks.server),
     adapter_checks: String(result.checks.adapters),
-    desktop_native_checks: String(result.checks.desktopNative),
     docs_checks: String(result.checks.docs),
   }
 

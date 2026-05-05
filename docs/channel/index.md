@@ -5,7 +5,7 @@
 
 ## 这组文档是干什么的
 
-这个仓库当前实际可用的 IM 接入方案，是 `Desktop Webapp + adapters/* + /api/adapters + /ws/:sessionId`。
+这个仓库当前实际可用的 IM 接入方案，是 `adapters/* + /api/adapters + /ws/:sessionId`。
 
 `docs/channel/` 保留的价值主要是：
 

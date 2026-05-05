@@ -2,7 +2,6 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { baselineCases } from './baseline/cases'
 import { executeBaselineCase } from './baseline/execute'
-import { executeDesktopSmoke } from './desktop-smoke/execute'
 import { lanesForMode } from './modes'
 import { writeReport } from './reporter'
 import type { LaneDefinition, LaneResult, QualityGateOptions, QualityGateReport } from './types'
@@ -107,29 +106,6 @@ async function runLane(lane: LaneDefinition, options: QualityGateOptions): Promi
   if (lane.kind === 'baseline-case') {
     return runBaselineCaseLane(lane, options)
   }
-  if (lane.kind === 'desktop-smoke') {
-    const started = Date.now()
-
-    if (!options.allowLive) {
-      return {
-        id: lane.id,
-        title: lane.title,
-        status: 'skipped',
-        durationMs: Date.now() - started,
-        skipReason: 'desktop agent-browser smoke requires --allow-live',
-      }
-    }
-
-    const artifactRoot = options.runOutputDir ?? join(options.rootDir, 'artifacts', 'quality-runs', options.runId ?? 'current')
-    return executeDesktopSmoke(
-      options.rootDir,
-      join(artifactRoot, 'cases', lane.id.replace(/[^a-zA-Z0-9._-]+/g, '-')),
-      lane.id,
-      lane.title,
-      lane.baselineTarget,
-    )
-  }
-
   return runCommandLane(lane, options)
 }
 

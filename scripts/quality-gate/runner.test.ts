@@ -20,16 +20,14 @@ describe('quality gate modes', () => {
     expect(lanes).toContain('baseline-catalog')
     expect(lanes).toContain('baseline:failing-unit:current-runtime')
     expect(lanes).toContain('baseline:multi-file-api:current-runtime')
-    expect(lanes).toContain('desktop-smoke:agent-browser-chat:current-runtime')
     expect(lanes).not.toContain('native-checks')
   })
 
-  test('release mode composes PR, baseline, and native lanes', () => {
+  test('release mode composes PR and baseline lanes', () => {
     const lanes = lanesForMode('release').map((lane) => lane.id)
     expect(lanes).toContain('pr-checks')
     expect(lanes).toContain('baseline:failing-unit:current-runtime')
-    expect(lanes).toContain('desktop-smoke:agent-browser-chat:current-runtime')
-    expect(lanes).toContain('native-checks')
+    expect(lanes).not.toContain('native-checks')
   })
 
   test('baseline mode expands cases across explicit provider/model targets', () => {
@@ -42,8 +40,6 @@ describe('quality gate modes', () => {
     expect(lanes).toContain('baseline:failing-unit:provider-b-model-b')
     expect(lanes).toContain('baseline:multi-file-api:provider-a-model-a')
     expect(lanes).toContain('baseline:multi-file-api:provider-b-model-b')
-    expect(lanes).toContain('desktop-smoke:agent-browser-chat:provider-a-model-a')
-    expect(lanes).toContain('desktop-smoke:agent-browser-chat:provider-b-model-b')
   })
 })
 

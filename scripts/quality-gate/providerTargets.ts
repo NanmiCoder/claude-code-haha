@@ -228,7 +228,7 @@ export function formatProviderTargets(index: ProviderIndex = loadProviderIndex()
   if (index.providers.length === 0) {
     lines.push('Saved providers: none')
     lines.push('')
-    lines.push('Add a provider in Desktop Settings > Providers, then run this command again.')
+    lines.push('Add a provider to your local configuration, then run this command again.')
     return lines.join('\n')
   }
 

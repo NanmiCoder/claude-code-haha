@@ -1,6 +1,6 @@
 ---
 name: Bug 反馈
-about: 提交桌面端或 CLI 的 Bug 报告
+about: 提交 CLI 的 Bug 报告
 title: '[BUG] '
 labels: bug
 assignees: ''
@@ -19,15 +19,14 @@ assignees: ''
 
 
 ## 运行环境
-<!-- 桌面端问题请优先填写前 4 项；CLI 问题再补充 Bun / Node 信息 -->
+<!-- 请填写运行环境信息 -->
 
-- 使用方式: 桌面端 / CLI / 其他:
+- 使用方式: CLI / 其他:
 - 操作系统: Windows / macOS / Linux:
 - 系统版本: 例如 Windows 11 23H2 / macOS 15.4:
-- 桌面端版本: 例如 v0.1.8（设置页 -> 关于 中可查看）:
 - 安装来源: GitHub Release / 源码本地构建 / 其他:
-- Bun 版本（CLI 问题填写，`bun --version`）:
-- Node 版本（CLI 问题填写，`node --version`）:
+- Bun 版本（`bun --version`）:
+- Node 版本（`node --version`）:
 
 ## Provider / 模型配置
 <!-- 请尽量提供配置截图；务必隐藏 API Key、Token 等敏感信息 -->
@@ -48,8 +47,7 @@ assignees: ''
 
 ## 错误信息与日志
 <!--
-请粘贴完整错误信息。桌面端启动失败时，请复制错误弹窗中的 Recent server logs；
-如果是对话、配置或模型调用失败，请粘贴页面上的错误、终端输出或相关日志。
+请粘贴完整错误信息。如果是对话、配置或模型调用失败，请粘贴终端输出或相关日志。
 -->
 
 ```shell

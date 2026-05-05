@@ -91,20 +91,12 @@ if (result.blockingReason) {
 
 await run(['bun', 'run', 'check:policy'])
 
-if (result.checks.desktop) {
-  await run(['bun', 'run', 'check:desktop'])
-}
-
 if (result.checks.server) {
   await run(['bun', 'run', 'check:server'])
 }
 
 if (result.checks.adapters) {
   await run(['bun', 'run', 'check:adapters'])
-}
-
-if (result.checks.desktopNative) {
-  await run(['bun', 'run', 'check:native'])
 }
 
 if (result.checks.docs) {

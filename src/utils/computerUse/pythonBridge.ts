@@ -9,9 +9,8 @@ import { getClaudeConfigHomeDir } from '../envUtils.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '../../..')
 
-// All runtime state lives in ~/.claude/.runtime — writable in both dev and
-// bundled (Tauri app) modes. The setup API (or ensureRuntimeFiles below)
-// populates requirements.txt and mac_helper.py here.
+// All runtime state lives in ~/.claude/.runtime. The setup API (or
+// ensureRuntimeFiles below) populates requirements.txt and mac_helper.py here.
 const runtimeStateRoot = path.join(getClaudeConfigHomeDir(), '.runtime')
 const venvRoot = path.join(runtimeStateRoot, 'venv')
 const installStampPath = path.join(runtimeStateRoot, 'requirements.sha256')

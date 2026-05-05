@@ -81,17 +81,6 @@ const zhSidebar = [
     ],
   },
   {
-    text: '桌面端',
-    collapsed: false,
-    items: [
-      { text: '概览', link: '/desktop/' },
-      { text: '快速上手', link: '/desktop/01-quick-start' },
-      { text: '架构设计', link: '/desktop/02-architecture' },
-      { text: '功能详解', link: '/desktop/03-features' },
-      { text: '安装与构建', link: '/desktop/04-installation' },
-    ],
-  },
-  {
     text: '参考',
     collapsed: true,
     items: [
@@ -155,17 +144,6 @@ const enSidebar = [
     items: [
       { text: 'Guide', link: '/en/features/computer-use' },
       { text: 'Architecture', link: '/en/features/computer-use-architecture' },
-    ],
-  },
-  {
-    text: 'Desktop',
-    collapsed: false,
-    items: [
-      { text: 'Overview', link: '/en/desktop/' },
-      { text: 'Quick Start', link: '/en/desktop/01-quick-start' },
-      { text: 'Architecture', link: '/en/desktop/02-architecture' },
-      { text: 'Features', link: '/en/desktop/03-features' },
-      { text: 'Installation & Build', link: '/en/desktop/04-installation' },
     ],
   },
   {
