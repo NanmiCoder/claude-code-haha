@@ -149,3 +149,40 @@ export const RARITY_COLORS = {
   epic: 'autoAccept',
   legendary: 'warning',
 } as const satisfies Record<Rarity, keyof import('../utils/theme.js').Theme>
+
+export const RARITY_CN = {
+  common: '普通',
+  uncommon: '优秀',
+  rare: '稀有',
+  epic: '史诗',
+  legendary: '传说',
+} as const satisfies Record<Rarity, string>
+
+export const SPECIES_CN: Record<Species, string> = {
+  duck: '鸭子',
+  goose: '鹅',
+  blob: '史莱姆',
+  cat: '猫咪',
+  dragon: '龙',
+  octopus: '章鱼',
+  owl: '猫头鹰',
+  penguin: '企鹅',
+  turtle: '乌龟',
+  snail: '蜗牛',
+  ghost: '幽灵',
+  axolotl: '美西螈',
+  capybara: '水豚',
+  cactus: '仙人掌',
+  robot: '机器人',
+  rabbit: '兔子',
+  mushroom: '蘑菇',
+  chonk: '胖墩',
+}
+
+export const STAT_NAMES_CN: Record<StatName, string> = {
+  DEBUGGING: '调试',
+  PATIENCE: '耐心',
+  CHAOS: '混沌',
+  WISDOM: '智慧',
+  SNARK: '毒舌',
+}

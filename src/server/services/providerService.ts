@@ -254,7 +254,9 @@ export class ProviderService {
     return {
       ...getPresetDefaultEnv(provider.presetId),
       ANTHROPIC_BASE_URL: baseUrl,
-      ANTHROPIC_API_KEY: needsProxy ? 'proxy-managed' : provider.apiKey,
+      ...(needsProxy
+        ? { ANTHROPIC_AUTH_TOKEN: 'proxy-managed' }
+        : { ANTHROPIC_API_KEY: provider.apiKey }),
       ANTHROPIC_MODEL: provider.models.main,
       ANTHROPIC_DEFAULT_HAIKU_MODEL: provider.models.haiku,
       ANTHROPIC_DEFAULT_SONNET_MODEL: provider.models.sonnet,

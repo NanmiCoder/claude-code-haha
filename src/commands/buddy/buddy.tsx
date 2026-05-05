@@ -12,6 +12,9 @@ import {
   RARITY_COLORS,
   RARITY_STARS,
   STAT_NAMES,
+  RARITY_CN,
+  SPECIES_CN,
+  STAT_NAMES_CN,
   type StoredCompanion,
 } from '../../buddy/types.js'
 import { saveGlobalConfig } from '../../utils/config.js'
@@ -118,6 +121,8 @@ function CompanionCard({
     }
   }, [])
 
+  const isCN = trimmed === 'info_cn'
+
   // Render companion info
   if (!companion) {
     const { bones } = roll(companionUserId())
@@ -125,8 +130,8 @@ function CompanionCard({
     const color = RARITY_COLORS[bones.rarity]
     return (
       <Box flexDirection="column" paddingX={1} paddingY={1} autoFocus={true} onKeyDown={handleKeyDown} tabIndex={0}>
-        <Text bold>You haven't hatched a companion yet!</Text>
-        <Text dimColor>Here's a preview of yours:</Text>
+        <Text bold>{isCN ? '你还没有孵化伙伴！' : "You haven't hatched a companion yet!"}</Text>
+        <Text dimColor>{isCN ? '这是你的预览：' : "Here's a preview of yours:"}</Text>
         <Box flexDirection="column" marginY={1}>
           {preview.map((line, i) => (
             <Text key={i} color={color}>
@@ -134,11 +139,13 @@ function CompanionCard({
             </Text>
           ))}
           <Text italic dimColor>
-            A {bones.rarity} {bones.species} {RARITY_STARS[bones.rarity]}
+            {isCN
+              ? `${RARITY_CN[bones.rarity]} ${SPECIES_CN[bones.species]} ${RARITY_STARS[bones.rarity]}`
+              : `A ${bones.rarity} ${bones.species} ${RARITY_STARS[bones.rarity]}`}
           </Text>
         </Box>
-        <Text>Run <Text bold>/buddy hatch</Text> to bring them to life!</Text>
-        <Text dimColor>Or type <Text bold>q</Text> to dismiss.</Text>
+        <Text>{isCN ? '运行 ' : 'Run '}<Text bold>/buddy hatch</Text>{isCN ? ' 来孵化它！' : ' to bring them to life!'}</Text>
+        <Text dimColor>{isCN ? '或按 ' : 'Or type '}<Text bold>q</Text>{isCN ? ' 关闭。' : ' to dismiss.'}</Text>
       </Box>
     )
   }
@@ -161,21 +168,21 @@ function CompanionCard({
         </Box>
         <Box flexDirection="column" justifyContent="center">
           <Text>
-            <Text bold>Species:</Text>{' '}
-            <Text color={color}>{companion.species}</Text>
+            <Text bold>{isCN ? '物种：' : 'Species:'}</Text>{' '}
+            <Text color={color}>{isCN ? SPECIES_CN[companion.species] : companion.species}</Text>
           </Text>
           <Text>
-            <Text bold>Rarity:</Text>{' '}
+            <Text bold>{isCN ? '稀有度：' : 'Rarity:'}</Text>{' '}
             <Text color={color}>
-              {companion.rarity} {RARITY_STARS[companion.rarity]}
+              {isCN ? RARITY_CN[companion.rarity] : companion.rarity} {RARITY_STARS[companion.rarity]}
             </Text>
           </Text>
-          {companion.shiny && <Text color="warning">✦ Shiny!</Text>}
+          {companion.shiny && <Text color="warning">✦ {isCN ? '闪光！' : 'Shiny!'}</Text>}
           <Text dimColor>{'─'.repeat(20)}</Text>
-          <Text bold>Stats:</Text>
+          <Text bold>{isCN ? '属性：' : 'Stats:'}</Text>
           {STAT_NAMES.map(stat => (
             <Text key={stat}>
-              <Text dimColor>{stat}:</Text>{' '}
+              <Text dimColor>{isCN ? STAT_NAMES_CN[stat] : stat}:</Text>{' '}
               <Text color={color}>{companion.stats[stat]}</Text>
             </Text>
           ))}
@@ -185,7 +192,7 @@ function CompanionCard({
       <Text dimColor>
         /buddy pet · /buddy mute · /buddy unmute · /buddy release
       </Text>
-      <Text dimColor>Press q or Enter to dismiss</Text>
+      <Text dimColor>{isCN ? '按 q 或 Enter 关闭' : 'Press q or Enter to dismiss'}</Text>
     </Box>
   )
 }
