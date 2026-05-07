@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { skillsApi } from '../../api/skills'
 import { mcpApi } from '../../api/mcp'
+import { filesystemApi } from '../../api/filesystem'
 import {
   sessionsApi,
   type SessionContextSnapshot,
@@ -9,6 +10,7 @@ import {
 } from '../../api/sessions'
 import { useTranslation, type TranslationKey } from '../../i18n'
 import { useUIStore } from '../../stores/uiStore'
+import { useChatStore } from '../../stores/chatStore'
 import { SETTINGS_TAB_ID, useTabStore } from '../../stores/tabStore'
 import { useMcpStore } from '../../stores/mcpStore'
 import { useSkillStore } from '../../stores/skillStore'
@@ -16,7 +18,7 @@ import type { McpServerRecord } from '../../types/mcp'
 import type { SkillMeta } from '../../types/skill'
 import type { SlashCommandOption } from './composerUtils'
 
-export type LocalSlashCommandName = 'mcp' | 'skills' | 'help' | 'status' | 'cost' | 'context'
+export type LocalSlashCommandName = 'mcp' | 'skills' | 'add-dir' | 'help' | 'status' | 'cost' | 'context'
 
 type Props = {
   command: LocalSlashCommandName
@@ -947,6 +949,244 @@ function SkillsPanel({ cwd, onClose }: { cwd?: string; onClose: () => void }) {
   )
 }
 
+type BrowseEntry = { name: string; path: string; isDirectory: boolean }
+
+function AddDirPanel({
+  sessionId,
+  cwd,
+  onClose,
+}: {
+  sessionId?: string
+  cwd?: string
+  onClose: () => void
+}) {
+  const t = useTranslation()
+  const sendMessage = useChatStore((s) => s.sendMessage)
+  const [selectedPath, setSelectedPath] = useState('')
+  const [remember, setRemember] = useState(false)
+  const [browseEntries, setBrowseEntries] = useState<BrowseEntry[]>([])
+  const [browsePath, setBrowsePath] = useState('')
+  const [browseParent, setBrowseParent] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [mode, setMode] = useState<'input' | 'browse'>('input')
+
+  const loadBrowseDir = useCallback(async (path?: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await filesystemApi.browse(path)
+      setBrowsePath(result.currentPath)
+      setBrowseParent(result.parentPath)
+      setBrowseEntries(result.entries.filter((e) => e.isDirectory))
+    } catch {
+      setError(t('slash.addDir.browseError'))
+    }
+    setLoading(false)
+  }, [t])
+
+  useEffect(() => {
+    if (mode === 'browse' && browseEntries.length === 0 && !browsePath) {
+      loadBrowseDir(cwd || undefined)
+    }
+  }, [mode, browseEntries.length, browsePath, cwd, loadBrowseDir])
+
+  const handleSubmit = () => {
+    if (!selectedPath.trim() || !sessionId) return
+    const command = remember
+      ? `/add-dir ${selectedPath} --remember`
+      : `/add-dir ${selectedPath}`
+    sendMessage(sessionId, command)
+    onClose()
+  }
+
+  const handleChooseFolder = async () => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog')
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: t('slash.addDir.chooseFolder'),
+      })
+      if (selected) {
+        setSelectedPath(selected)
+      }
+    } catch (err) {
+      console.error('[AddDirPanel] Failed to open folder dialog:', err)
+    }
+  }
+
+  const handleBrowseSelect = (path: string) => {
+    setSelectedPath(path)
+    setMode('input')
+  }
+
+  return (
+    <PanelShell
+      title={t('slash.addDir.title')}
+      subtitle={t('slash.addDir.subtitle')}
+      onClose={onClose}
+    >
+      <div className="space-y-4">
+        {mode === 'input' ? (
+          <>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">
+                {t('slash.addDir.pathLabel')}
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={selectedPath}
+                  onChange={(e) => setSelectedPath(e.target.value)}
+                  placeholder={t('slash.addDir.pathPlaceholder')}
+                  className="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--color-brand)] focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSubmit()
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleChooseFolder}
+                  className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] transition-colors"
+                  title={t('slash.addDir.browseFolders')}
+                >
+                  <span className="material-symbols-outlined text-[16px]">folder_open</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('browse')
+                    loadBrowseDir(cwd || undefined)
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] transition-colors"
+                  title={t('slash.addDir.browseTree')}
+                >
+                  <span className="material-symbols-outlined text-[16px]">account_tree</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-brand)] focus:ring-[var(--color-brand)]"
+                />
+                {t('slash.addDir.rememberLabel')}
+              </label>
+            </div>
+
+            {remember && (
+              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
+                {t('slash.addDir.rememberHint')}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] transition-colors"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!selectedPath.trim() || !sessionId}
+                className="rounded-lg bg-[var(--color-brand)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {t('slash.addDir.addButton')}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 border-b border-[var(--color-border)] pb-2">
+              <button
+                type="button"
+                onClick={() => setMode('input')}
+                className="text-xs text-[var(--color-text-accent)] hover:underline"
+              >
+                {'← ' + t('slash.addDir.backToInput')}
+              </button>
+              <span className="text-xs text-[var(--color-text-tertiary)] font-mono truncate">
+                {browsePath}
+              </span>
+            </div>
+
+            {error ? (
+              <ErrorState message={error} />
+            ) : loading ? (
+              <LoadingState label={t('common.loading')} />
+            ) : (
+              <div className="max-h-[300px] overflow-y-auto">
+                {browseParent && browseParent !== browsePath && (
+                  <button
+                    type="button"
+                    onClick={() => loadBrowseDir(browseParent)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--color-surface-hover)]"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-[var(--color-text-tertiary)]">arrow_upward</span>
+                    <span className="text-xs text-[var(--color-text-secondary)]">..</span>
+                  </button>
+                )}
+                {browseEntries.length === 0 ? (
+                  <EmptyState
+                    title={t('slash.addDir.noSubdirs')}
+                    body={t('slash.addDir.noSubdirsBody')}
+                  />
+                ) : (
+                  browseEntries.map((entry) => (
+                    <div
+                      key={entry.path}
+                      className="flex items-center gap-2 border-t border-[var(--color-border)] px-3 py-2 first:border-t-0"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => loadBrowseDir(entry.path)}
+                        className="flex items-center gap-2 flex-1 min-w-0 text-left hover:bg-[var(--color-surface-hover)] -mx-1 px-1 rounded"
+                      >
+                        <span className="material-symbols-outlined text-[16px] text-[var(--color-text-tertiary)]">folder</span>
+                        <span className="text-xs text-[var(--color-text-primary)] truncate">{entry.name}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBrowseSelect(entry.path)}
+                        className="shrink-0 rounded px-2 py-0.5 text-[10px] font-semibold text-[var(--color-brand)] hover:bg-[var(--color-primary-fixed)] transition-colors"
+                      >
+                        {t('common.select')}
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {browsePath && (
+              <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-3">
+                <span className="text-[10px] text-[var(--color-text-tertiary)] font-mono truncate max-w-[60%]">
+                  {browsePath}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleBrowseSelect(browsePath)}
+                  className="rounded-lg bg-[var(--color-brand)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                >
+                  {t('dirPicker.useThisFolder')}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </PanelShell>
+  )
+}
+
 const COMMAND_GROUPS = [
   {
     titleKey: 'slash.help.group.context',
@@ -954,7 +1194,7 @@ const COMMAND_GROUPS = [
   },
   {
     titleKey: 'slash.help.group.project',
-    names: ['init', 'review', 'commit', 'pr'],
+    names: ['init', 'review', 'commit', 'pr', 'add-dir'],
   },
   {
     titleKey: 'slash.help.group.desktop',
@@ -1037,6 +1277,7 @@ function HelpPanel({
 export function LocalSlashCommandPanel({ command, sessionId, cwd, commands, onClose }: Props) {
   if (command === 'mcp') return <McpPanel cwd={cwd} onClose={onClose} />
   if (command === 'skills') return <SkillsPanel cwd={cwd} onClose={onClose} />
+  if (command === 'add-dir') return <AddDirPanel sessionId={sessionId} cwd={cwd} onClose={onClose} />
   if (command === 'status' || command === 'cost' || command === 'context') {
     return <SessionInspectorPanel command={command} sessionId={sessionId} commands={commands} onClose={onClose} />
   }

@@ -3,6 +3,7 @@ import type { SettingsTab } from '../../stores/uiStore'
 export const PANEL_SLASH_COMMANDS = [
   { name: 'mcp', description: 'Open available MCP tools for the current chat context' },
   { name: 'skills', description: 'Browse user-invocable skills for the current chat context' },
+  { name: 'add-dir', description: 'Add a new working directory to the current session' },
   { name: 'help', description: 'Show available desktop and agent commands' },
   { name: 'status', description: 'Show session status, usage, and context' },
   { name: 'cost', description: 'Show session usage and costs' },
