@@ -103,6 +103,18 @@ if not exist "node_modules" (
         pause
         exit /b 1
     )
+    echo [INFO] Installing adapter dependencies...
+    pushd ..\adapters
+    if not exist "node_modules" (
+        "%BUN_EXE%" install
+        if %ERRORLEVEL% neq 0 (
+            echo [ERROR] Adapter install failed
+            popd
+            pause
+            exit /b 1
+        )
+    )
+    popd
     echo.
 )
 
