@@ -25,6 +25,9 @@ export function AdapterSettings() {
     pollDingtalkRegistration,
     unbindWechatAccount,
     unbindDingtalkBot,
+    beginFeishuSetup,
+    pollFeishuSetup,
+    unbindFeishu,
   } = useAdapterStore()
 
   // Active IM tab —— Feishu 默认展示，在前
@@ -45,6 +48,18 @@ export function AdapterSettings() {
   const [fsVerificationToken, setFsVerificationToken] = useState('')
   const [fsAllowedUsers, setFsAllowedUsers] = useState('')
   const [fsStreamingCard, setFsStreamingCard] = useState(false)
+  // Feishu QR scan-to-create
+  const [fsRegistration, setFsRegistration] = useState<{
+    deviceCode: string
+    verificationUriComplete: string
+    qrDataUrl?: string
+    intervalSeconds: number
+    expiresAt: number
+  } | null>(null)
+  const [fsAuthStatus, setFsAuthStatus] = useState<'idle' | 'waiting' | 'bound' | 'error'>('idle')
+  const [fsAuthError, setFsAuthError] = useState('')
+  const [isStartingFsAuth, setIsStartingFsAuth] = useState(false)
+  const [isUnbindingFs, setIsUnbindingFs] = useState(false)
 
   // WeChat
   const [wcAllowedUsers, setWcAllowedUsers] = useState('')
@@ -188,6 +203,48 @@ export function AdapterSettings() {
       window.clearInterval(timer)
     }
   }, [dtRegistration, dtAuthStatus, pollDingtalkRegistration, fetchConfig, t])
+
+  // Feishu QR poll
+  useEffect(() => {
+    if (!fsRegistration || fsAuthStatus !== 'waiting') return
+
+    let cancelled = false
+    const poll = async () => {
+      if (Date.now() > fsRegistration.expiresAt) {
+        setFsAuthStatus('error')
+        setFsAuthError(t('settings.adapters.dingtalkAuthExpired'))
+        setFsRegistration(null)
+        return
+      }
+
+      try {
+        const result = await pollFeishuSetup(fsRegistration.deviceCode)
+        if (cancelled) return
+        if (result.status === 'SUCCESS') {
+          setFsAuthStatus('bound')
+          setFsRegistration(null)
+          setFsAuthError('')
+          await fetchConfig()
+        } else if (result.status === 'FAIL' || result.status === 'EXPIRED') {
+          setFsAuthStatus('error')
+          setFsAuthError(result.failReason || t('settings.adapters.dingtalkAuthFailed'))
+          setFsRegistration(null)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setFsAuthStatus('error')
+          setFsAuthError(err instanceof Error ? err.message : t('settings.adapters.dingtalkAuthFailed'))
+        }
+      }
+    }
+
+    const timer = window.setInterval(poll, Math.max(1, fsRegistration.intervalSeconds) * 1000)
+    void poll()
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [fsRegistration, fsAuthStatus, pollFeishuSetup, fetchConfig, t])
 
   async function handleSave() {
     setIsSaving(true)
@@ -347,6 +404,44 @@ export function AdapterSettings() {
     }
   }, [unbindDingtalkBot, fetchConfig, t])
 
+  const handleStartFeishuAuth = useCallback(async () => {
+    setIsStartingFsAuth(true)
+    setFsAuthStatus('idle')
+    setFsAuthError('')
+    try {
+      const begin = await beginFeishuSetup()
+      setFsRegistration({
+        deviceCode: begin.deviceCode,
+        verificationUriComplete: begin.verificationUriComplete,
+        qrDataUrl: begin.qrDataUrl,
+        intervalSeconds: begin.intervalSeconds,
+        expiresAt: Date.now() + begin.expiresInSeconds * 1000,
+      })
+      setFsAuthStatus('waiting')
+    } catch (err) {
+      setFsAuthStatus('error')
+      setFsAuthError(err instanceof Error ? err.message : t('settings.adapters.dingtalkAuthFailed'))
+    } finally {
+      setIsStartingFsAuth(false)
+    }
+  }, [beginFeishuSetup, t])
+
+  const handleUnbindFeishuBot = useCallback(async () => {
+    setIsUnbindingFs(true)
+    setFsAuthError('')
+    try {
+      await unbindFeishu()
+      setFsAuthStatus('idle')
+      setFsRegistration(null)
+      await fetchConfig()
+    } catch (err) {
+      setFsAuthStatus('error')
+      setFsAuthError(err instanceof Error ? err.message : 'Failed to unbind Feishu')
+    } finally {
+      setIsUnbindingFs(false)
+    }
+  }, [unbindFeishu, fetchConfig])
+
   const handleUnbind = useCallback(async (platform: ImPlatform, userId: string | number) => {
     setPendingUnbind({ platform, userId })
   }, [])
@@ -505,6 +600,57 @@ export function AdapterSettings() {
 
         {activeIm === 'feishu' && (
           <div className="p-4 space-y-4">
+            <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    {config.feishu?.appId ? t('settings.adapters.dingtalkBound') : t('settings.adapters.dingtalkQrTitle')}
+                  </h4>
+                  <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">{t('settings.adapters.dingtalkQrDesc')}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button onClick={handleStartFeishuAuth} loading={isStartingFsAuth} size="sm">
+                    {t('settings.adapters.dingtalkStartAuth')}
+                  </Button>
+                  {(config.feishu?.appId || fsAppId) && (
+                    <Button onClick={handleUnbindFeishuBot} loading={isUnbindingFs} size="sm" variant="danger">
+                      {t('settings.adapters.dingtalkUnbindBot')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {fsRegistration && (
+                <div className="flex flex-wrap items-center gap-4">
+                  {fsRegistration.qrDataUrl ? (
+                    <img
+                      src={fsRegistration.qrDataUrl}
+                      alt={t('settings.adapters.dingtalkQrAlt')}
+                      className="h-40 w-40 rounded-lg border border-[var(--color-border)] bg-white object-contain p-2"
+                    />
+                  ) : null}
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <p className="text-sm text-[var(--color-text-primary)]">{t('settings.adapters.dingtalkWaiting')}</p>
+                    <a
+                      href={fsRegistration.verificationUriComplete}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block truncate text-xs text-[var(--color-brand)] hover:underline"
+                    >
+                      {fsRegistration.verificationUriComplete}
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {fsAuthStatus === 'bound' && (
+                <p className="text-sm text-[var(--color-success)]">{t('settings.adapters.dingtalkBound')}</p>
+              )}
+              {fsAuthStatus === 'error' && (
+                <p className="text-sm text-[var(--color-error)]">{fsAuthError}</p>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label={t('settings.adapters.appId')}

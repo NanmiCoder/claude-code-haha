@@ -30,6 +30,7 @@ export type TelegramConfig = {
 export type FeishuConfig = {
   appId: string
   appSecret: string
+  domain: string
   encryptKey: string
   verificationToken: string
   allowedUsers: string[]
@@ -116,6 +117,7 @@ export function loadConfig(): AdapterConfig {
     feishu: {
       appId: process.env.FEISHU_APP_ID || fs_.appId || '',
       appSecret: process.env.FEISHU_APP_SECRET || fs_.appSecret || '',
+      domain: process.env.FEISHU_DOMAIN || fs_.domain || 'feishu',
       encryptKey: process.env.FEISHU_ENCRYPT_KEY || fs_.encryptKey || '',
       verificationToken: process.env.FEISHU_VERIFICATION_TOKEN || fs_.verificationToken || '',
       allowedUsers: fs_.allowedUsers ?? [],

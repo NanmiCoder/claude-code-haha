@@ -35,6 +35,7 @@ export type AdapterFileConfig = {
   feishu?: {
     appId?: string
     appSecret?: string
+    domain?: string
     encryptKey?: string
     verificationToken?: string
     allowedUsers?: string[]

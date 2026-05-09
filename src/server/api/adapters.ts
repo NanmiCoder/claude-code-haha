@@ -133,6 +133,144 @@ async function pollDingtalkRegistration(deviceCode: string): Promise<Response> {
   })
 }
 
+/**
+ * Feishu QR scan-to-create registration
+ */
+const FEISHU_ACCOUNTS_BASE_URL: Record<string, string> = {
+  feishu: 'https://accounts.feishu.cn',
+  lark: 'https://accounts.larksuite.com',
+}
+const FEISHU_REGISTRATION_PATH = '/oauth/v1/app/registration'
+const FEISHU_ONBOARD_REQUEST_TIMEOUT_MS = 15_000
+
+async function postFeishuRegistration(
+  baseUrl: string,
+  body: Record<string, string>,
+): Promise<Record<string, unknown>> {
+  const url = `${baseUrl}${FEISHU_REGISTRATION_PATH}`
+  const formBody = new URLSearchParams(body).toString()
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: formBody,
+    signal: AbortSignal.timeout(FEISHU_ONBOARD_REQUEST_TIMEOUT_MS),
+  })
+  // Feishu returns JSON even on 4xx (e.g. poll returns authorization_pending as 400)
+  const text = await res.text()
+  try {
+    return JSON.parse(text) as Record<string, unknown>
+  } catch {
+    if (!res.ok) throw ApiError.internal(`[Feishu] HTTP ${res.status}: ${text.slice(0, 200)}`)
+    throw ApiError.internal('[Feishu] invalid JSON response')
+  }
+}
+
+async function beginFeishuRegistration(
+  domain: string,
+): Promise<RegistrationBeginPayload> {
+  const baseUrl = FEISHU_ACCOUNTS_BASE_URL[domain] || FEISHU_ACCOUNTS_BASE_URL.feishu
+
+  // Init — verify client_secret is supported
+  const initRes = await postFeishuRegistration(baseUrl, { action: 'init' })
+  const methods = (initRes.supported_auth_methods as string[]) || []
+  if (!methods.includes('client_secret')) {
+    throw ApiError.internal(
+      `Feishu/Lark registration does not support client_secret auth. Supported: ${methods.join(', ')}`,
+    )
+  }
+
+  // Begin — start device code flow
+  const beginRes = await postFeishuRegistration(baseUrl, {
+    action: 'begin',
+    archetype: 'PersonalAgent',
+    auth_method: 'client_secret',
+    request_user_info: 'open_id',
+  })
+
+  const deviceCode = String(beginRes.device_code ?? '').trim()
+  if (!deviceCode) throw ApiError.internal('[Feishu begin] missing device_code')
+
+  let qrUrl = String(beginRes.verification_uri_complete ?? '').trim()
+  if (!qrUrl) throw ApiError.internal('[Feishu begin] missing verification_uri_complete')
+
+  const expiresInSeconds = Math.min(
+    Number(beginRes.expire_in ?? 600),
+    600, // cap at 10 minutes
+  )
+
+  return {
+    deviceCode,
+    userCode: String(beginRes.user_code ?? '').trim() || undefined,
+    verificationUri: String(beginRes.verification_uri ?? '').trim() || undefined,
+    verificationUriComplete: qrUrl,
+    expiresInSeconds: Number.isFinite(expiresInSeconds) && expiresInSeconds > 0 ? expiresInSeconds : 600,
+    intervalSeconds: Math.max(1, Number(beginRes.interval ?? 5) || 5),
+    qrDataUrl: await createQrDataUrl(qrUrl),
+  }
+}
+
+async function pollFeishuRegistration(
+  deviceCode: string,
+  domain: string,
+): Promise<Response> {
+  if (!deviceCode) throw ApiError.badRequest('deviceCode is required')
+
+  const baseUrl = FEISHU_ACCOUNTS_BASE_URL[domain] || FEISHU_ACCOUNTS_BASE_URL.feishu
+
+  let pollRes: Record<string, unknown>
+  try {
+    pollRes = await postFeishuRegistration(baseUrl, {
+      action: 'poll',
+      device_code: deviceCode,
+      tp: 'ob_app',
+    })
+  } catch {
+    // Network error during poll — treat as still waiting
+    return Response.json({ status: 'WAITING' })
+  }
+
+  // Domain auto-detection: if user scanned via Lark app, switch domain
+  const userInfo = (pollRes.user_info as Record<string, unknown>) || {}
+  const tenantBrand = String(userInfo.tenant_brand ?? '').trim()
+  let effectiveDomain = domain
+  if (tenantBrand === 'lark' && domain !== 'lark') {
+    effectiveDomain = 'lark'
+  }
+
+  // Success
+  if (pollRes.client_id && pollRes.client_secret) {
+    const appId = String(pollRes.client_id).trim()
+    const appSecret = String(pollRes.client_secret).trim()
+    const openId = String(userInfo.open_id ?? '').trim() || undefined
+
+    await adapterService.updateConfig({
+      feishu: {
+        appId,
+        appSecret,
+        domain: effectiveDomain,
+        // Don't persist bot identity — resolved at runtime
+      },
+    })
+    return Response.json({
+      status: 'SUCCESS',
+      domain: effectiveDomain,
+      openId,
+      config: await adapterService.getConfig(),
+    })
+  }
+
+  // Terminal errors
+  const error = String(pollRes.error ?? '').trim()
+  if (error === 'access_denied') {
+    return Response.json({ status: 'FAIL', failReason: 'User denied the authorization' })
+  }
+  if (error === 'expired_token') {
+    return Response.json({ status: 'EXPIRED', failReason: 'Device code expired' })
+  }
+
+  // Still waiting (authorization_pending or unknown)
+  return Response.json({ status: 'WAITING' })
+}
 export async function handleAdaptersApi(
   req: Request,
   _url: URL,
@@ -165,6 +303,36 @@ export async function handleAdaptersApi(
       }
     }
 
+    // -- Feishu --
+    if (tail[0] === 'feishu' && req.method === 'POST' && tail[1] === 'unbind') {
+      await adapterService.updateConfig({
+        feishu: {
+          appId: undefined,
+          appSecret: undefined,
+          domain: undefined,
+          encryptKey: undefined,
+          verificationToken: undefined,
+          allowedUsers: [],
+          pairedUsers: [],
+          streamingCard: false,
+        },
+      })
+      return Response.json(await adapterService.getConfig())
+    }
+    if (tail[0] === 'feishu' && tail[1] === 'setup') {
+      if (req.method === 'POST' && tail[2] === 'begin') {
+        const body = await req.json().catch(() => ({})) as { domain?: string }
+        const domain = String(body.domain ?? 'feishu').trim() || 'feishu'
+        return Response.json(await beginFeishuRegistration(domain))
+      }
+      if (req.method === 'POST' && tail[2] === 'poll') {
+        const body = await req.json().catch(() => ({})) as { deviceCode?: string; domain?: string }
+        return pollFeishuRegistration(
+          String(body.deviceCode ?? '').trim(),
+          String(body.domain ?? 'feishu').trim() || 'feishu',
+        )
+      }
+    }
     if (req.method === 'GET') {
       const config = await adapterService.getConfig()
       return Response.json(config)

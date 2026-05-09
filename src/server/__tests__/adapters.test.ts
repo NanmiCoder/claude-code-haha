@@ -148,4 +148,77 @@ describe('Adapters API', () => {
     expect(json.dingtalk.permissionCardTemplateId).toBeUndefined()
     expect(json.dingtalk.pairedUsers).toEqual([])
   })
+
+  it('clears Feishu credentials on unbind', async () => {
+    const put = makeRequest('PUT', '/api/adapters', {
+      feishu: {
+        appId: 'cli_test',
+        appSecret: 'secret_test',
+        domain: 'feishu',
+        encryptKey: 'enc_test',
+        verificationToken: 'tok_test',
+        allowedUsers: ['ou_allowed'],
+        streamingCard: true,
+        pairedUsers: [{ userId: 'ou_user', displayName: 'Feishu User', pairedAt: 1 }],
+      },
+    })
+    await handleAdaptersApi(put.req, put.url, put.segments)
+
+    const unbind = makeRequest('POST', '/api/adapters/feishu/unbind')
+    const res = await handleAdaptersApi(unbind.req, unbind.url, unbind.segments)
+    expect(res.status).toBe(200)
+    const json = await res.json() as any
+    expect(json.feishu.appId).toBeUndefined()
+    expect(json.feishu.appSecret).toBeUndefined()
+    expect(json.feishu.domain).toBeUndefined()
+    expect(json.feishu.encryptKey).toBeUndefined()
+    expect(json.feishu.verificationToken).toBeUndefined()
+    expect(json.feishu.allowedUsers).toEqual([])
+    expect(json.feishu.pairedUsers).toEqual([])
+    expect(json.feishu.streamingCard).toBe(false)
+  })
+
+  it('begins Feishu QR registration and returns QR payload', async () => {
+    // Mock the Feishu accounts endpoint
+    const mockInit = {
+      nonce: 'test_nonce',
+      supported_auth_methods: ['client_secret'],
+    }
+    const mockBegin = {
+      device_code: 'dc_test_feishu',
+      verification_uri_complete: 'https://accounts.feishu.cn/scan/dc_test',
+      user_code: 'XYZ-123',
+      interval: 3,
+      expire_in: 600,
+    }
+    let callCount = 0
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async (input: any, init?: any) => {
+      callCount++
+      const url = typeof input === 'string' ? input : input?.url || ''
+      if (url.includes('accounts.feishu.cn')) {
+        const body = init?.body as string || ''
+        if (body.includes('action=init')) {
+          return new Response(JSON.stringify(mockInit), { status: 200 })
+        }
+        if (body.includes('action=begin')) {
+          return new Response(JSON.stringify(mockBegin), { status: 200 })
+        }
+      }
+      return originalFetch(input, init)
+    }
+
+    try {
+      const begin = makeRequest('POST', '/api/adapters/feishu/setup/begin', { domain: 'feishu' })
+      const res = await handleAdaptersApi(begin.req, begin.url, begin.segments)
+      expect(res.status).toBe(200)
+      const json = await res.json() as any
+      expect(json.deviceCode).toBe('dc_test_feishu')
+      expect(json.verificationUriComplete).toContain('accounts.feishu.cn')
+      expect(json.expiresInSeconds).toBe(600)
+      expect(callCount).toBe(2) // init + begin
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
 })

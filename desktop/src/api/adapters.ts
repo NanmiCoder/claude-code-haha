@@ -17,6 +17,24 @@ export type DingtalkRegistrationPoll = {
   config?: AdapterFileConfig
 }
 
+export type FeishuSetupBegin = {
+  deviceCode: string
+  userCode?: string
+  verificationUri?: string
+  verificationUriComplete: string
+  expiresInSeconds: number
+  intervalSeconds: number
+  qrDataUrl?: string
+}
+
+export type FeishuSetupPoll = {
+  status: 'WAITING' | 'SUCCESS' | 'FAIL' | 'EXPIRED' | 'UNKNOWN'
+  domain?: string
+  openId?: string
+  failReason?: string
+  config?: AdapterFileConfig
+}
+
 export const adaptersApi = {
   getConfig() {
     return api.get<AdapterFileConfig>('/api/adapters')
@@ -51,5 +69,17 @@ export const adaptersApi = {
 
   pollDingtalkRegistration(deviceCode: string) {
     return api.post<DingtalkRegistrationPoll>('/api/adapters/dingtalk/registration/poll', { deviceCode })
+  },
+
+  beginFeishuSetup(domain = 'feishu') {
+    return api.post<FeishuSetupBegin>('/api/adapters/feishu/setup/begin', { domain })
+  },
+
+  pollFeishuSetup(deviceCode: string, domain = 'feishu') {
+    return api.post<FeishuSetupPoll>('/api/adapters/feishu/setup/poll', { deviceCode, domain })
+  },
+
+  unbindFeishu() {
+    return api.post<AdapterFileConfig>('/api/adapters/feishu/unbind', {})
   },
 }

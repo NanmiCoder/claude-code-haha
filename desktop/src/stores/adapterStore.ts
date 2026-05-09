@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { adaptersApi } from '../api/adapters'
 import type { AdapterFileConfig } from '../types/adapter'
-import type { DingtalkRegistrationBegin, DingtalkRegistrationPoll } from '../api/adapters'
+import type { DingtalkRegistrationBegin, DingtalkRegistrationPoll, FeishuSetupBegin, FeishuSetupPoll } from '../api/adapters'
 
 /**
  * Tauri command 触发器：让主进程 kill + respawn adapter sidecar，
@@ -56,6 +56,9 @@ type AdapterStore = {
   pollDingtalkRegistration: (deviceCode: string) => Promise<DingtalkRegistrationPoll>
   unbindWechatAccount: () => Promise<void>
   unbindDingtalkBot: () => Promise<void>
+  beginFeishuSetup: () => Promise<FeishuSetupBegin>
+  pollFeishuSetup: (deviceCode: string) => Promise<FeishuSetupPoll>
+  unbindFeishu: () => Promise<void>
 }
 
 export const useAdapterStore = create<AdapterStore>((set, get) => ({
@@ -133,6 +136,23 @@ export const useAdapterStore = create<AdapterStore>((set, get) => ({
 
   unbindDingtalkBot: async () => {
     const config = await adaptersApi.unbindDingtalk()
+    set({ config })
+    void notifyTauriRestartAdapters()
+  },
+
+  beginFeishuSetup: () => adaptersApi.beginFeishuSetup(),
+
+  pollFeishuSetup: async (deviceCode) => {
+    const result = await adaptersApi.pollFeishuSetup(deviceCode)
+    if (result.config) {
+      set({ config: result.config })
+      void notifyTauriRestartAdapters()
+    }
+    return result
+  },
+
+  unbindFeishu: async () => {
+    const config = await adaptersApi.unbindFeishu()
     set({ config })
     void notifyTauriRestartAdapters()
   },
