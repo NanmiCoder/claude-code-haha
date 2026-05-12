@@ -1,0 +1,1 @@
+import{c as e}from"./core-B0RdiEJJ.js";async function t(t,n){await e(`plugin:shell|open`,{path:t,with:n})}export{t};

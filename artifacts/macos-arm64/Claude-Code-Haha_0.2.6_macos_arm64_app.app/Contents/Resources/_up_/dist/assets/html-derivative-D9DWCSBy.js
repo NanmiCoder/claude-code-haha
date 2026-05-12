@@ -1,0 +1,1 @@
+import{t as e}from"./html-derivative-sUvHd_EQ.js";export{e as default};
