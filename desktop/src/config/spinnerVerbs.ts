@@ -1,3 +1,5 @@
+import { useSettingsStore } from '../stores/settingsStore'
+
 const SPINNER_VERBS = [
   'Accomplishing',
   'Actioning',
@@ -188,6 +190,26 @@ const SPINNER_VERBS = [
   'Zigzagging',
 ]
 
+function getVerbs(): string[] {
+  try {
+    const settings = useSettingsStore.getState() as Record<string, unknown>
+    const config = settings.spinnerVerbs as
+      | { mode?: string; verbs?: string[] }
+      | undefined
+
+    if (config?.verbs && config.verbs.length > 0) {
+      if (config.mode === 'replace') {
+        return config.verbs
+      }
+      return [...SPINNER_VERBS, ...config.verbs]
+    }
+  } catch {
+    // settings store not yet initialized, use defaults
+  }
+  return SPINNER_VERBS
+}
+
 export function randomSpinnerVerb(): string {
-  return SPINNER_VERBS[Math.floor(Math.random() * SPINNER_VERBS.length)] ?? 'Thinking'
+  const verbs = getVerbs()
+  return verbs[Math.floor(Math.random() * verbs.length)] ?? 'Thinking'
 }

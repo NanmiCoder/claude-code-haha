@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand'
+import { create } from 'zustand'
 import { settingsApi } from '../api/settings'
 import { modelsApi } from '../api/models'
 import type { PermissionMode, EffortLevel, ModelInfo } from '../types/settings'
@@ -23,7 +23,6 @@ type SettingsStore = {
   locale: Locale
   isLoading: boolean
   error: string | null
-  spinnerVerbs: { mode: string; verbs: string[] } | null
 
   fetchAll: () => Promise<void>
   setPermissionMode: (mode: PermissionMode) => Promise<void>
@@ -41,17 +40,15 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   locale: getStoredLocale(),
   isLoading: false,
   error: null,
-  spinnerVerbs: null,
 
   fetchAll: async () => {
     set({ isLoading: true, error: null })
     try {
-      const [{ mode }, modelsRes, { model }, { level }, userSettings] = await Promise.all([
+      const [{ mode }, modelsRes, { model }, { level }] = await Promise.all([
         settingsApi.getPermissionMode(),
         modelsApi.list(),
         modelsApi.getCurrent(),
         modelsApi.getEffort(),
-        settingsApi.getUser(),
       ])
       set({
         permissionMode: mode,
@@ -59,7 +56,6 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         activeProviderName: modelsRes.provider?.name ?? null,
         currentModel: model,
         effortLevel: level,
-        spinnerVerbs: (userSettings.spinnerVerbs as { mode: string; verbs: string[] } | undefined) ?? null,
         isLoading: false,
         error: null,
       })
