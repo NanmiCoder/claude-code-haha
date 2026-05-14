@@ -89,6 +89,35 @@ describe('Skills API', () => {
     expect(body.skills).toContainEqual(expect.objectContaining({ name: 'project-skill', source: 'project' }))
   })
 
+  it('includes skills installed via symlinks in user skills directory', async () => {
+    const userSkillsRoot = path.join(tmpHome, '.claude', 'skills')
+    const realSkillDir = path.join(tmpHome, 'skill-store', 'symlinked-skill')
+
+    await writeSkill(
+      realSkillDir,
+      '',
+      ['---', 'description: Symlinked skill', '---', '', '# Symlinked'].join('\n'),
+    )
+
+    // symlink the skill directory into the user skills folder (skip on platforms without symlink support)
+    const symlinkTarget = path.join(userSkillsRoot, 'symlinked-skill')
+    try {
+      await fs.symlink(realSkillDir, symlinkTarget, 'dir')
+    } catch {
+      // symlinks not supported in this test environment, skip this assertion
+      return
+    }
+
+    const { req, url, segments } = makeRequest('/api/skills')
+    const res = await handleSkillsApi(req, url, segments)
+
+    expect(res.status).toBe(200)
+    const body = await res.json() as { skills: Array<{ name: string; source: string }> }
+    expect(body.skills).toContainEqual(
+      expect.objectContaining({ name: 'symlinked-skill', source: 'user' }),
+    )
+  })
+
   it('resolves project skill details from the nearest project skills directory', async () => {
     const projectRoot = path.join(tmpHome, 'workspace')
     const nestedRoot = path.join(projectRoot, 'packages', 'app')
