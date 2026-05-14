@@ -6,7 +6,7 @@ import { homedir } from 'os'
 import * as path from 'path'
 import { logEvent } from 'src/services/analytics/index.js'
 import { fileURLToPath } from 'url'
-import { isInBundledMode } from './bundledMode.js'
+import { isBunVirtualPath, isInBundledMode } from './bundledMode.js'
 import { logForDebugging } from './debug.js'
 import { isEnvDefinedFalsy } from './envUtils.js'
 import { execFileNoThrow } from './execFileNoThrow.js'
@@ -22,18 +22,11 @@ const __dirname = path.join(
   process.env.NODE_ENV === 'test' ? '../../../' : '../',
 )
 
-const BUN_VIRTUAL_PATH_MARKERS = ['$bunfs', '~BUN']
-
 type RipgrepConfig = {
   mode: 'system' | 'builtin' | 'embedded' | 'unavailable'
   command: string
   args: string[]
   argv0?: string
-}
-
-function isBunVirtualPath(candidatePath: string): boolean {
-  const normalized = candidatePath.replace(/\\/g, '/')
-  return BUN_VIRTUAL_PATH_MARKERS.some(marker => normalized.includes(marker))
 }
 
 export function isUsableBuiltinRipgrepPath(candidatePath: string): boolean {

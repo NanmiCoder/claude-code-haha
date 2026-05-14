@@ -9,14 +9,31 @@ export function isRunningWithBun(): boolean {
   return process.versions.bun !== undefined
 }
 
+const BUN_VIRTUAL_PATH_MARKERS = ['/$bunfs/', '/~bun/']
+
+export function isBunVirtualPath(candidatePath: string | null | undefined): boolean {
+  if (!candidatePath) {
+    return false
+  }
+
+  const normalized = candidatePath.replace(/\\/g, '/').toLowerCase()
+  return BUN_VIRTUAL_PATH_MARKERS.some(marker => normalized.includes(marker))
+}
+
 /**
  * Detects if running as a Bun-compiled standalone executable.
- * This checks for embedded files which are present in compiled binaries.
+ * Bun compile loads the entry module from Bun's virtual filesystem
+ * (`/$bunfs/...` on POSIX, `~BUN\\...` on Windows). `Bun.embeddedFiles`
+ * alone is not sufficient because compiled binaries can still report an
+ * empty embedded file list at runtime.
  */
 export function isInBundledMode(): boolean {
+  if (typeof Bun === 'undefined') {
+    return false
+  }
+
   return (
-    typeof Bun !== 'undefined' &&
-    Array.isArray(Bun.embeddedFiles) &&
-    Bun.embeddedFiles.length > 0
+    isBunVirtualPath(process.argv[1]) ||
+    (Array.isArray(Bun.embeddedFiles) && Bun.embeddedFiles.length > 0)
   )
 }
