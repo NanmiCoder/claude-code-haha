@@ -224,7 +224,7 @@ async function collectSkillsFromRoots(
     }
 
     for (const entry of entries) {
-      if (!entry.isDirectory() || entry.name.startsWith('.') || seenNames.has(entry.name)) {
+      if ((!entry.isDirectory() && !entry.isSymbolicLink()) || entry.name.startsWith('.') || seenNames.has(entry.name)) {
         continue
       }
 
