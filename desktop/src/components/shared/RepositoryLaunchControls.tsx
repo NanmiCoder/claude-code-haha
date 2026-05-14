@@ -19,6 +19,7 @@ import { DirectoryPicker } from './DirectoryPicker'
 import { useMobileViewport } from '../../hooks/useMobileViewport'
 import { isTauriRuntime } from '../../lib/desktopRuntime'
 import { MobileBottomSheet } from './MobileBottomSheet'
+import { getOverlayRoot } from '../../lib/overlayRoot'
 
 type Props = {
   workDir: string
@@ -555,7 +556,7 @@ export function RepositoryLaunchControls({
               })}
             </div>
           </div>,
-          document.body,
+          getOverlayRoot(),
         )
       )}
 

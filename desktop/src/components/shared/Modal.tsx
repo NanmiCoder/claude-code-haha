@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { getOverlayRoot } from '../../lib/overlayRoot'
 
 type ModalProps = {
   open: boolean
@@ -63,6 +64,6 @@ export function Modal({ open, onClose, title, children, width = 560, footer }: M
         )}
       </div>
     </div>,
-    document.body,
+    getOverlayRoot(),
   )
 }
