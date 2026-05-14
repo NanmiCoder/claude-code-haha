@@ -7,6 +7,7 @@ import type {
   WorkspaceTreeResult,
 } from '../../api/sessions'
 import { useTranslation } from '../../i18n'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { useShallow } from 'zustand/react/shallow'
 import {
   useWorkspacePanelStore,
@@ -41,6 +42,8 @@ type TreeNodeProps = {
   onToggle: (path: string) => void
   onOpenFile: (path: string) => void
   onFileContextMenu: (event: MouseEvent, path: string) => void
+  rightClickedFilePath: string | null
+  rightClickedPreviewTabId: string | null
   activePath: string | null
 }
 
@@ -563,6 +566,8 @@ function TreeNode({
   onToggle,
   onOpenFile,
   onFileContextMenu,
+  rightClickedFilePath,
+  rightClickedPreviewTabId,
   activePath,
 }: TreeNodeProps) {
   const t = useTranslation()
@@ -584,7 +589,7 @@ function TreeNode({
           isActive
             ? 'bg-[var(--color-surface-selected)] shadow-[inset_0_0_0_1.5px_var(--color-border-focus)]'
             : 'hover:bg-[var(--color-surface-hover)]'
-        }`}
+        }${entry.path === rightClickedFilePath ? ' ring-2 ring-[var(--color-brand)] ring-offset-1' : ''}`}
         style={{ paddingLeft: indent }}
       >
         <FileTypeBadge name={entry.name} subtle={!isActive} />
@@ -662,6 +667,8 @@ function TreeNode({
                 onToggle={onToggle}
                 onOpenFile={onOpenFile}
                 onFileContextMenu={onFileContextMenu}
+                rightClickedFilePath={rightClickedFilePath}
+                rightClickedPreviewTabId={rightClickedPreviewTabId}
                 activePath={activePath}
               />
             ))}
@@ -676,7 +683,9 @@ export function WorkspacePanel({ sessionId }: WorkspacePanelProps) {
   const [filterQuery, setFilterQuery] = useState('')
   const [isViewMenuOpen, setIsViewMenuOpen] = useState(false)
   const [previewTabContextMenu, setPreviewTabContextMenu] = useState<{ tabId: string; x: number; y: number } | null>(null)
+  const [rightClickedPreviewTabId, setRightClickedPreviewTabId] = useState<string | null>(null)
   const [fileContextMenu, setFileContextMenu] = useState<{ path: string; x: number; y: number } | null>(null)
+  const [rightClickedFilePath, setRightClickedFilePath] = useState<string | null>(null)
   const width = useWorkspacePanelStore((state) => state.width)
   const isOpen = useWorkspacePanelStore((state) => state.isPanelOpen(sessionId))
   const activeView = useWorkspacePanelStore((state) => state.getActiveView(sessionId))
@@ -703,6 +712,7 @@ export function WorkspacePanel({ sessionId }: WorkspacePanelProps) {
   const closePanel = useWorkspacePanelStore((state) => state.closePanel)
   const addWorkspaceReference = useWorkspaceChatContextStore((state) => state.addReference)
   const chatState = useChatStore((state) => state.sessions[sessionId]?.chatState ?? 'idle')
+  const uiZoom = useSettingsStore((s) => s.uiZoom)
   const refreshLifecycleRef = useRef({
     sessionId,
     isOpen: false,
@@ -766,6 +776,8 @@ export function WorkspacePanel({ sessionId }: WorkspacePanelProps) {
     const close = () => {
       setPreviewTabContextMenu(null)
       setFileContextMenu(null)
+      setRightClickedPreviewTabId(null)
+      setRightClickedFilePath(null)
     }
     document.addEventListener('click', close)
     return () => document.removeEventListener('click', close)
@@ -824,14 +836,18 @@ export function WorkspacePanel({ sessionId }: WorkspacePanelProps) {
     event.preventDefault()
     event.stopPropagation()
     setFileContextMenu(null)
+    setRightClickedFilePath(null)
     setPreviewTabContextMenu({ tabId, x: event.clientX, y: event.clientY })
+    setRightClickedPreviewTabId(tabId)
   }
 
   const handleFileContextMenu = (event: MouseEvent, path: string) => {
     event.preventDefault()
     event.stopPropagation()
     setPreviewTabContextMenu(null)
+    setRightClickedPreviewTabId(null)
     setFileContextMenu({ path, x: event.clientX, y: event.clientY })
+    setRightClickedFilePath(path)
   }
 
   const handleClosePreviewTabs = (scope: WorkspacePreviewCloseScope) => {
@@ -942,6 +958,8 @@ export function WorkspacePanel({ sessionId }: WorkspacePanelProps) {
             }}
             onOpenFile={handleOpenFile}
             onFileContextMenu={handleFileContextMenu}
+            rightClickedFilePath={rightClickedFilePath}
+            rightClickedPreviewTabId={rightClickedPreviewTabId}
             activePath={activeTreePath}
           />
         ))}
@@ -1039,7 +1057,7 @@ export function WorkspacePanel({ sessionId }: WorkspacePanelProps) {
                   isActive
                     ? 'bg-[var(--color-surface-selected)] text-[var(--color-text-primary)]'
                     : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]'
-                }`}
+                }${tab.id === rightClickedPreviewTabId ? ' ring-2 ring-[var(--color-brand)] ring-offset-1 ring-offset-[var(--color-surface-container-lowest)]' : ''}`}
               >
                 <button
                   type="button"
@@ -1077,7 +1095,7 @@ export function WorkspacePanel({ sessionId }: WorkspacePanelProps) {
         <div
           role="menu"
           className="fixed z-50 min-w-[156px] rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface-container-lowest)] py-1 text-[12px] shadow-[var(--shadow-dropdown)]"
-          style={{ left: previewTabContextMenu.x, top: previewTabContextMenu.y }}
+          style={{ left: previewTabContextMenu.x / uiZoom, top: previewTabContextMenu.y / uiZoom }}
           onClick={(event) => event.stopPropagation()}
         >
           <button
@@ -1212,7 +1230,7 @@ export function WorkspacePanel({ sessionId }: WorkspacePanelProps) {
         <div
           role="menu"
           className="fixed z-50 min-w-[156px] rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface-container-lowest)] py-1 text-[12px] shadow-[var(--shadow-dropdown)]"
-          style={{ left: fileContextMenu.x, top: fileContextMenu.y }}
+          style={{ left: fileContextMenu.x / uiZoom, top: fileContextMenu.y / uiZoom }}
           onClick={(event) => event.stopPropagation()}
         >
           <button

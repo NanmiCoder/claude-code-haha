@@ -5,6 +5,7 @@ import { filesystemApi } from '../../api/filesystem'
 import { useTranslation } from '../../i18n'
 import { useMobileViewport } from '../../hooks/useMobileViewport'
 import { MobileBottomSheet } from './MobileBottomSheet'
+import { getOverlayRoot } from '../../lib/overlayRoot'
 
 type Props = {
   value: string
@@ -345,7 +346,7 @@ export function DirectoryPicker({ value, onChange, variant = 'chip', isGitProjec
           >
             {dropdownContent}
           </div>,
-          document.body,
+          getOverlayRoot(),
         )
       )}
     </div>

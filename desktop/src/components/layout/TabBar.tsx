@@ -7,6 +7,7 @@ import {
   type Tab,
 } from '../../stores/tabStore'
 import { useChatStore } from '../../stores/chatStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { useWorkspacePanelStore } from '../../stores/workspacePanelStore'
 import { useTerminalPanelStore } from '../../stores/terminalPanelStore'
 import { useTranslation } from '../../i18n'
@@ -46,12 +47,14 @@ export function TabBar() {
   const isTerminalPanelOpen = useTerminalPanelStore((state) =>
     activeTabId && isActiveSessionTab ? state.isPanelOpen(activeTabId) : false,
   )
+  const uiZoom = useSettingsStore((s) => s.uiZoom)
 
   const moveTab = useTabStore((s) => s.moveTab)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ sessionId: string; x: number; y: number } | null>(null)
+  const [rightClickedTabId, setRightClickedTabId] = useState<string | null>(null)
   const [closingTabId, setClosingTabId] = useState<string | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [draggingSessionId, setDraggingSessionId] = useState<string | null>(null)
@@ -110,7 +113,10 @@ export function TabBar() {
 
   useEffect(() => {
     if (!contextMenu) return
-    const close = () => setContextMenu(null)
+    const close = () => {
+      setContextMenu(null)
+      setRightClickedTabId(null)
+    }
     document.addEventListener('click', close)
     return () => document.removeEventListener('click', close)
   }, [contextMenu])
@@ -153,10 +159,12 @@ export function TabBar() {
   const handleContextMenu = (e: React.MouseEvent, sessionId: string) => {
     e.preventDefault()
     setContextMenu({ sessionId, x: e.clientX, y: e.clientY })
+    setRightClickedTabId(sessionId)
   }
 
   const handleCloseOthers = (sessionId: string) => {
     setContextMenu(null)
+    setRightClickedTabId(null)
     const otherTabs = tabs.filter((t) => t.sessionId !== sessionId)
     for (const tab of otherTabs) {
       if (isSessionTab(tab)) disconnectSession(tab.sessionId)
@@ -166,6 +174,7 @@ export function TabBar() {
 
   const handleCloseLeft = (sessionId: string) => {
     setContextMenu(null)
+    setRightClickedTabId(null)
     const idx = tabs.findIndex((t) => t.sessionId === sessionId)
     const leftTabs = tabs.slice(0, idx)
     for (const tab of leftTabs) {
@@ -176,6 +185,7 @@ export function TabBar() {
 
   const handleCloseRight = (sessionId: string) => {
     setContextMenu(null)
+    setRightClickedTabId(null)
     const idx = tabs.findIndex((t) => t.sessionId === sessionId)
     const rightTabs = tabs.slice(idx + 1)
     for (const tab of rightTabs) {
@@ -186,6 +196,7 @@ export function TabBar() {
 
   const handleCloseAll = () => {
     setContextMenu(null)
+    setRightClickedTabId(null)
     for (const tab of tabs) {
       if (isSessionTab(tab)) disconnectSession(tab.sessionId)
       closeTabWithCleanup(tab)
@@ -307,6 +318,7 @@ export function TabBar() {
             ref={(node) => { tabRefs.current.set(tab.sessionId, node) }}
             tab={tab}
             isActive={tab.sessionId === activeTabId}
+            isContextMenuTarget={tab.sessionId === rightClickedTabId}
             isDragOver={dragOverIndex === index}
             isDragging={tab.sessionId === draggingSessionId}
             dragOffsetX={tab.sessionId === draggingSessionId ? dragOffsetX : 0}
@@ -360,8 +372,9 @@ export function TabBar() {
 
       {contextMenu && (
         <div
+          onClick={(e) => e.stopPropagation()}
           className="fixed z-50 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-md)] py-1 min-w-[160px]"
-          style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: 'var(--shadow-dropdown)' }}
+          style={{ left: contextMenu.x / uiZoom, top: contextMenu.y / uiZoom, boxShadow: 'var(--shadow-dropdown)' }}
         >
           <button
             onClick={() => { handleClose(contextMenu.sessionId); setContextMenu(null) }}
@@ -439,6 +452,7 @@ export function TabBar() {
 const TabItem = forwardRef<HTMLDivElement, {
   tab: Tab
   isActive: boolean
+  isContextMenuTarget: boolean
   isDragOver: boolean
   isDragging: boolean
   dragOffsetX: number
@@ -446,7 +460,7 @@ const TabItem = forwardRef<HTMLDivElement, {
   onClose: () => void
   onContextMenu: (e: React.MouseEvent) => void
   onMouseDown: (event: React.MouseEvent) => void
-}>(({ tab, isActive, isDragOver, isDragging, dragOffsetX, onClick, onClose, onContextMenu, onMouseDown }, ref) => {
+}>(({ tab, isActive, isContextMenuTarget, isDragOver, isDragging, dragOffsetX, onClick, onClose, onContextMenu, onMouseDown }, ref) => {
   return (
     <div
       ref={ref}
@@ -462,6 +476,7 @@ const TabItem = forwardRef<HTMLDivElement, {
           ? 'bg-[var(--color-surface)] shadow-[inset_0_-2px_0_var(--color-brand)]'
           : 'bg-transparent hover:bg-[var(--color-surface-hover)]'
         }
+        ${isContextMenuTarget ? 'ring-2 ring-[var(--color-brand)] ring-offset-1 ring-offset-[var(--color-surface)]' : ''}
         ${isDragging ? 'opacity-95 shadow-[0_10px_24px_rgba(0,0,0,0.18)] ring-1 ring-[var(--color-border)]' : ''}
         ${isDragOver ? 'before:absolute before:left-0 before:top-[4px] before:bottom-[4px] before:w-[3px] before:bg-[var(--color-brand)] before:rounded-full before:shadow-[0_0_0_1px_rgba(255,255,255,0.25)]' : ''}
       `}

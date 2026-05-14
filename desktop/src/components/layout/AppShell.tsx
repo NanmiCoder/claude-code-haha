@@ -274,6 +274,7 @@ export function AppShell() {
       </main>
       <ToastContainer />
       <UpdateChecker />
+      <div id="app-overlay-root" />
     </div>
   )
 }

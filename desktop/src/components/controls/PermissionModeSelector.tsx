@@ -10,6 +10,7 @@ import type { PermissionMode } from '../../types/settings'
 import { useMobileViewport } from '../../hooks/useMobileViewport'
 import { isTauriRuntime } from '../../lib/desktopRuntime'
 import { MobileBottomSheet } from '../shared/MobileBottomSheet'
+import { getOverlayRoot } from '../../lib/overlayRoot'
 
 const MODE_ICONS: Record<PermissionMode, string> = {
   default: 'verified_user',
@@ -278,7 +279,7 @@ export function PermissionModeSelector({ workDir: workDirProp, compact = false, 
             </div>
           </div>
         </div>,
-        document.body,
+        getOverlayRoot(),
       )}
     </div>
   )

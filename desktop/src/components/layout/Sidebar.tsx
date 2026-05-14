@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useUIStore } from '../../stores/uiStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { useTranslation } from '../../i18n'
 import { ProjectFilter } from './ProjectFilter'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
@@ -43,8 +44,10 @@ export function Sidebar({ isMobile = false, onRequestClose }: SidebarProps) {
   const activeTabId = useTabStore((s) => s.activeTabId)
   const closeTab = useTabStore((s) => s.closeTab)
   const disconnectSession = useChatStore((s) => s.disconnectSession)
+  const uiZoom = useSettingsStore((s) => s.uiZoom)
   const [searchQuery, setSearchQuery] = useState('')
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null)
+  const [rightClickedSessionId, setRightClickedSessionId] = useState<string | null>(null)
   const [pendingDeleteSessionId, setPendingDeleteSessionId] = useState<string | null>(null)
   const [pendingBatchDeleteSessionIds, setPendingBatchDeleteSessionIds] = useState<string[] | null>(null)
   const [isBatchDeleting, setIsBatchDeleting] = useState(false)
@@ -64,9 +67,13 @@ export function Sidebar({ isMobile = false, onRequestClose }: SidebarProps) {
 
   useEffect(() => {
     if (!contextMenu) return
-    const close = () => setContextMenu(null)
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
+    const close = (e: MouseEvent) => {
+      if (e.button !== 0) return
+      setContextMenu(null)
+      setRightClickedSessionId(null)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
   }, [contextMenu])
 
   const filteredSessions = useMemo(() => {
@@ -100,6 +107,7 @@ export function Sidebar({ isMobile = false, onRequestClose }: SidebarProps) {
     e.preventDefault()
     if (isBatchMode) return
     setContextMenu({ id, x: e.clientX, y: e.clientY })
+    setRightClickedSessionId(id)
   }, [isBatchMode])
 
   const handleDelete = useCallback((id: string) => {
@@ -529,6 +537,7 @@ export function Sidebar({ isMobile = false, onRequestClose }: SidebarProps) {
                                 ? 'sidebar-session-row--active border-transparent bg-[var(--color-sidebar-item-active)] text-[var(--color-text-primary)]'
                                 : 'sidebar-session-row--idle border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-sidebar-item-hover)]'
                               }
+                              ${session.id === rightClickedSessionId ? 'ring-2 ring-[var(--color-brand)] ring-offset-1 ring-offset-[var(--color-surface)]' : ''}
                             `}
                             aria-pressed={isBatchMode ? selectedSessionIds.has(session.id) : undefined}
                           >
@@ -602,8 +611,9 @@ export function Sidebar({ isMobile = false, onRequestClose }: SidebarProps) {
 
       {contextMenu && (
         <div
+          onClick={(e) => e.stopPropagation()}
           className="fixed z-50 min-w-[140px] rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] py-1"
-          style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: 'var(--shadow-dropdown)' }}
+          style={{ left: contextMenu.x / uiZoom, top: contextMenu.y / uiZoom, boxShadow: 'var(--shadow-dropdown)' }}
         >
           <button
             onClick={() => {
