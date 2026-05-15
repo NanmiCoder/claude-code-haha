@@ -13,7 +13,6 @@ import {
   ConversationStartupError,
   conversationService,
 } from '../services/conversationService.js'
-import { computerUseApprovalService } from '../services/computerUseApprovalService.js'
 import { sessionService } from '../services/sessionService.js'
 import { SettingsService } from '../services/settingsService.js'
 import { ProviderService } from '../services/providerService.js'
@@ -169,10 +168,6 @@ export const handleWebSocket = {
           handlePermissionResponse(ws, message)
           break
 
-        case 'computer_use_permission_response':
-          handleComputerUsePermissionResponse(ws, message)
-          break
-
         case 'set_permission_mode':
           handleSetPermissionMode(ws, message)
           break
@@ -215,7 +210,6 @@ export const handleWebSocket = {
       console.log(`[WS] Ignoring stale client disconnect for session: ${sessionId}`)
       return
     }
-    computerUseApprovalService.cancelSession(sessionId)
     activeSessions.delete(sessionId)
     conversationService.clearOutputCallbacks(sessionId)
 
@@ -428,22 +422,6 @@ function handlePermissionResponse(
     message.updatedInput,
   )
   console.log(`[WS] Permission response for ${message.requestId}: ${message.allowed}`)
-}
-
-function handleComputerUsePermissionResponse(
-  ws: ServerWebSocket<WebSocketData>,
-  message: Extract<ClientMessage, { type: 'computer_use_permission_response' }>
-) {
-  const { sessionId } = ws.data
-  const ok = computerUseApprovalService.resolveApproval(
-    message.requestId,
-    message.response,
-  )
-  if (!ok) {
-    console.warn(
-      `[WS] Ignored Computer Use permission response for unknown request ${message.requestId} from ${sessionId}`
-    )
-  }
 }
 
 function handleSetPermissionMode(
@@ -1567,7 +1545,6 @@ export function closeSessionConnection(sessionId: string, reason = 'session clos
     clearTimeout(cleanupTimer)
     sessionCleanupTimers.delete(sessionId)
   }
-  computerUseApprovalService.cancelSession(sessionId)
   conversationService.clearOutputCallbacks(sessionId)
   cleanupSessionRuntimeState(sessionId)
 

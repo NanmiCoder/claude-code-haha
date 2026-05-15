@@ -16,13 +16,8 @@ import { handleProvidersApi } from './api/providers.js'
 import { handleAdaptersApi } from './api/adapters.js'
 import { handlePluginsApi } from './api/plugins.js'
 import { handleSkillsApi } from './api/skills.js'
-import { handleComputerUseApi } from './api/computer-use.js'
-import { handleHahaOAuthApi } from './api/haha-oauth.js'
-import { handleHahaOpenAIOAuthApi } from './api/haha-openai-oauth.js'
 import { handleMcpApi } from './api/mcp.js'
 import { handleDiagnosticsApi } from './api/diagnostics.js'
-import { handleDoctorApi } from './api/doctor.js'
-import { handleH5AccessApi } from './api/h5-access.js'
 import { handleActivityStatsApi } from './api/activityStats.js'
 
 export async function handleApiRequest(req: Request, url: URL): Promise<Response> {
@@ -74,12 +69,6 @@ export async function handleApiRequest(req: Request, url: URL): Promise<Response
     case 'providers':
       return handleProvidersApi(req, url, segments)
 
-    case 'haha-oauth':
-      return handleHahaOAuthApi(req, url, segments)
-
-    case 'haha-openai-oauth':
-      return handleHahaOpenAIOAuthApi(req, url, segments)
-
     case 'adapters':
       return handleAdaptersApi(req, url, segments)
 
@@ -92,17 +81,8 @@ export async function handleApiRequest(req: Request, url: URL): Promise<Response
     case 'plugins':
       return handlePluginsApi(req, url, segments)
 
-    case 'computer-use':
-      return handleComputerUseApi(req, url, segments)
-
     case 'diagnostics':
       return handleDiagnosticsApi(req, url, segments)
-
-    case 'doctor':
-      return handleDoctorApi(req, url, segments)
-
-    case 'h5-access':
-      return handleH5AccessApi(req, url, segments)
 
     case 'activity-stats':
       return handleActivityStatsApi(req, url, segments)
