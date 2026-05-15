@@ -1,0 +1,38 @@
+{
+  "name": "claude-code-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.19",
+    "@types/dompurify": "^3.2.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "dompurify": "^3.3.3",
+    "lucide-react": "^0.469.0",
+    "marked": "^15.0.7",
+    "mermaid": "^11.14.0",
+    "prism-react-renderer": "^2.4.1",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-diff-viewer-continued": "^4.2.0",
+    "react-dom": "^18.3.1",
+    "react-shiki": "^0.9.2",
+    "shiki": "^4.0.2",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^6.0.1",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.10"
+  }
+}

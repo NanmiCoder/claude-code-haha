@@ -1,0 +1,11 @@
+{
+  "extends": "../desktop/tsconfig.json",
+  "include": ["src", "../desktop/src"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../desktop/src/*"],
+      "@desktop/*": ["../desktop/src/*"]
+    }
+  }
+}
