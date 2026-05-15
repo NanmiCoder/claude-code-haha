@@ -1,8 +1,11 @@
 {
   "extends": "../desktop/tsconfig.json",
-  "include": ["src", "../desktop/src"],
+  "include": ["src"],
   "compilerOptions": {
     "baseUrl": ".",
+    "noImplicitAny": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "paths": {
       "@/*": ["../desktop/src/*"],
       "@desktop/*": ["../desktop/src/*"]

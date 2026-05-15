@@ -349,3 +349,22 @@ function clearStoredH5Token() {
 
   setAuthToken(null)
 }
+
+let webBootstrapApplied = false
+
+export function runWebRuntimeBootstrap(): void {
+  if (webBootstrapApplied) return
+  webBootstrapApplied = true
+
+  // Always treat the page origin as the API base.
+  if (typeof window !== 'undefined' && !import.meta.env?.VITE_DESKTOP_SERVER_URL) {
+    setBaseUrl(window.location.origin)
+  }
+
+  // Single-user: no auth token plumbing.
+  setAuthToken(null)
+}
+
+export function isWebRuntime(): boolean {
+  return webBootstrapApplied
+}

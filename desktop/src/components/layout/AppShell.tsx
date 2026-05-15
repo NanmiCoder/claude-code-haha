@@ -11,6 +11,7 @@ import {
   initializeDesktopServerUrl,
   isH5ConnectionRequiredError,
   isTauriRuntime,
+  isWebRuntime,
 } from '../../lib/desktopRuntime'
 import { TabBar } from './TabBar'
 import { StartupErrorView } from './StartupErrorView'
@@ -39,6 +40,7 @@ export function AppShell() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const t = useTranslation()
   const tauriRuntime = isTauriRuntime()
+  const webRuntime = isWebRuntime()
   const isMobileShell = useMobileViewport() && !tauriRuntime
   const tabs = useTabStore((s) => s.tabs)
   const activeTabId = useTabStore((s) => s.activeTabId)
@@ -75,7 +77,9 @@ export function AppShell() {
       }
 
       try {
-        await initializeDesktopServerUrl()
+        if (!webRuntime) {
+          await initializeDesktopServerUrl()
+        }
         await fetchSettings()
 
         if (!cancelled) {
@@ -114,7 +118,7 @@ export function AppShell() {
 
   // Listen for macOS native menu navigation events (About / Settings)
   useEffect(() => {
-    if (!tauriRuntime) return
+    if (!tauriRuntime || webRuntime) return
     let unlisten: (() => void) | undefined
     import('@tauri-apps/api/event')
       .then(({ listen }) =>
@@ -172,7 +176,7 @@ export function AppShell() {
     toggleSidebar()
   }
 
-  if (!tauriRuntime && h5StartupError) {
+  if (!tauriRuntime && !webRuntime && h5StartupError) {
     return (
       <H5ConnectionView
         initialServerUrl={h5StartupError.serverUrl}

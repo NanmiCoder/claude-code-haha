@@ -5,7 +5,11 @@ const ENV_BASE_URL =
     ? import.meta.env.VITE_DESKTOP_SERVER_URL
     : undefined
 
-const DEFAULT_BASE_URL = ENV_BASE_URL || 'http://127.0.0.1:3456'
+const DEFAULT_BASE_URL =
+  ENV_BASE_URL ||
+  (typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : 'http://127.0.0.1:3456')
 
 let baseUrl = DEFAULT_BASE_URL
 let authToken: string | null = null
