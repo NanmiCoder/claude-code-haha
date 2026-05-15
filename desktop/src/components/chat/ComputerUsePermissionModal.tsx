@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from '../../i18n'
 import { computerUseApi } from '../../api/computerUse'
 import { useChatStore } from '../../stores/chatStore'
+import { isWebRuntime } from '../../lib/desktopRuntime'
 import type {
   ComputerUsePermissionRequest,
   ComputerUsePermissionResponse,
@@ -67,6 +68,8 @@ function buildAllowResponse(
 }
 
 export function ComputerUsePermissionModal({ sessionId, request }: Props) {
+  if (isWebRuntime()) return null
+
   const t = useTranslation()
   const respondToComputerUsePermission = useChatStore(
     (s) => s.respondToComputerUsePermission,

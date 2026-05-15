@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { computerUseApi, type ComputerUseStatus, type SetupResult, type InstalledApp, type AuthorizedApp } from '../api/computerUse'
 import { useTranslation } from '../i18n'
+import { isWebRuntime } from '../lib/desktopRuntime'
 
 type CheckState = 'loading' | 'ready' | 'error'
 const PYTHON_DOWNLOAD_URLS: Record<string, string> = {
@@ -45,6 +46,14 @@ async function openExternalUrl(url: string) {
 }
 
 export function ComputerUseSettings() {
+  if (isWebRuntime()) {
+    return (
+      <div className="p-6 text-sm text-muted-foreground">
+        Computer Use is disabled in web mode.
+      </div>
+    )
+  }
+
   const t = useTranslation()
   const [status, setStatus] = useState<ComputerUseStatus | null>(null)
   const [checkState, setCheckState] = useState<CheckState>('loading')
