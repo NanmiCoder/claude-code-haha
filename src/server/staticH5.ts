@@ -53,6 +53,8 @@ export async function handleStaticH5Request(req: Request, url: URL): Promise<Res
 async function resolveH5DistDir(): Promise<string | null> {
   const candidates = [
     process.env.CLAUDE_H5_DIST_DIR,
+    process.env.CC_HAHA_WEB_DIST_DIR,
+    path.resolve(process.cwd(), 'web', 'dist'),
     process.env.CLAUDE_APP_ROOT
       ? path.resolve(process.env.CLAUDE_APP_ROOT, '..', 'Resources', '_up_', 'dist')
       : undefined,
