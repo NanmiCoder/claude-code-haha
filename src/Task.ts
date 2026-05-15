@@ -20,9 +20,9 @@ export type TaskStatus =
   | 'killed'
 
 /**
- * True when a task is in a terminal state and will not transition further.
- * Used to guard against injecting messages into dead teammates, evicting
- * finished tasks from AppState, and orphan-cleanup paths.
+ * 当任务处于终止状态且不会再继续转移时为 true。
+ * 用于防止向已结束的 teammate 注入消息、从 AppState 中驱逐
+ * 已完成任务，以及处理孤儿清理路径。
  */
 export function isTerminalTaskStatus(status: TaskStatus): boolean {
   return status === 'completed' || status === 'failed' || status === 'killed'
@@ -41,7 +41,7 @@ export type TaskContext = {
   setAppState: SetAppState
 }
 
-// Base fields shared by all task states
+// 所有任务状态共享的基础字段
 export type TaskStateBase = {
   id: string
   type: TaskType
@@ -62,20 +62,20 @@ export type LocalShellSpawnInput = {
   timeout?: number
   toolUseId?: string
   agentId?: AgentId
-  /** UI display variant: description-as-label, dialog title, status bar pill. */
+  /** UI 展示变体：description 作为标签、对话框标题、状态栏胶囊。 */
   kind?: 'bash' | 'monitor'
 }
 
-// What getTaskByType dispatches for: kill. spawn/render were never
-// called polymorphically (removed in #22546). All six kill implementations
-// use only setAppState — getAppState/abortController were dead weight.
+// getTaskByType 实际分发的只有 kill。spawn/render 从未以多态方式调用
+//（已在 #22546 移除）。六个 kill 实现都只用到 setAppState——
+// getAppState/abortController 只是累赘。
 export type Task = {
   name: string
   type: TaskType
   kill(taskId: string, setAppState: SetAppState): Promise<void>
 }
 
-// Task ID prefixes
+// 任务 ID 前缀
 const TASK_ID_PREFIXES: Record<string, string> = {
   local_bash: 'b', // Keep as 'b' for backward compatibility
   local_agent: 'a',
@@ -86,13 +86,13 @@ const TASK_ID_PREFIXES: Record<string, string> = {
   dream: 'd',
 }
 
-// Get task ID prefix
+// 获取任务 ID 前缀
 function getTaskIdPrefix(type: TaskType): string {
   return TASK_ID_PREFIXES[type] ?? 'x'
 }
 
-// Case-insensitive-safe alphabet (digits + lowercase) for task IDs.
-// 36^8 ≈ 2.8 trillion combinations, sufficient to resist brute-force symlink attacks.
+// 任务 ID 使用的大小写无关安全字母表（数字 + 小写字母）。
+// 36^8 ≈ 2.8 万亿种组合，足以抵御暴力 symlink 攻击。
 const TASK_ID_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz'
 
 export function generateTaskId(type: TaskType): string {

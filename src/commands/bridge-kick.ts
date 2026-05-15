@@ -95,8 +95,8 @@ const call: LocalCommandCall = async args => {
           value: `poll: need 'transient' or a status code\n${USAGE}`,
         }
       }
-      // Default to what the server ACTUALLY sends for 404 (BQ-verified),
-      // so `/bridge-kick poll 404` reproduces the real 147K/week state.
+      // 默认使用 server 在 404 时“实际”发送的值（BQ 已验证），
+      // 这样 `/bridge-kick poll 404` 就能复现真实的 147K/week 状态。
       const errorType =
         b ?? (status === 404 ? 'not_found_error' : 'authentication_error')
       h.injectFault({

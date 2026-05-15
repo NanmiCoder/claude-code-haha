@@ -465,7 +465,7 @@ function _temp4(s) {
   return s.replBridgeSessionUrl;
 }
 async function checkBridgePrerequisites(): Promise<string | null> {
-  // Check organization policy — remote control may be disabled
+  // 检查组织策略，remote control 可能已被禁用
   const {
     waitForPolicyLimitsToLoad,
     isPolicyAllowed
@@ -479,10 +479,10 @@ async function checkBridgePrerequisites(): Promise<string | null> {
     return disabledReason;
   }
 
-  // Mirror the v1/v2 branching logic in initReplBridge: env-less (v2) is used
-  // only when the flag is on AND the session is not perpetual.  In assistant
-  // mode (KAIROS) useReplBridge sets perpetual=true, which forces
-  // initReplBridge onto the v1 path — so the prerequisite check must match.
+  // 与 initReplBridge 中的 v1/v2 分支逻辑保持一致：env-less（v2）只在
+  // flag 打开且 session 非 perpetual 时使用。在 assistant
+  // 模式（KAIROS）下，useReplBridge 会设置 perpetual=true，这会强制
+  // initReplBridge 走 v1 路径，因此这里的前置检查也必须一致。
   let useV2 = isEnvLessBridgeEnabled();
   if (feature('KAIROS') && useV2) {
     const {

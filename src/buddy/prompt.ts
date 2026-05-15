@@ -17,7 +17,7 @@ export function getCompanionIntroAttachment(
   const companion = getCompanion()
   if (!companion || getGlobalConfig().companionMuted) return []
 
-  // Skip if already announced for this companion.
+  // 如果这个 companion 已经提示过，则跳过。
   for (const msg of messages ?? []) {
     if (msg.type !== 'attachment') continue
     if (msg.attachment.type !== 'companion_intro') continue

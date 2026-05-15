@@ -6,29 +6,26 @@ import { TerminalWriteContext } from '../useTerminalNotification.js';
 import Box from './Box.js';
 import { TerminalSizeContext } from './TerminalSizeContext.js';
 type Props = PropsWithChildren<{
-  /** Enable SGR mouse tracking (wheel + click/drag). Default true. */
+  /** 启用 SGR 鼠标跟踪（滚轮 + 点击/拖拽）。默认为 true。 */
   mouseTracking?: boolean;
 }>;
 
 /**
- * Run children in the terminal's alternate screen buffer, constrained to
- * the viewport height. While mounted:
+ * 在终端的备用屏缓冲区中运行 children，并将高度限制在视口范围内。
+ * 挂载期间：
  *
- * - Enters the alt screen (DEC 1049), clears it, homes the cursor
- * - Constrains its own height to the terminal row count, so overflow must
- *   be handled via `overflow: scroll` / flexbox (no native scrollback)
- * - Optionally enables SGR mouse tracking (wheel + click/drag) — events
- *   surface as `ParsedKey` (wheel) and update the Ink instance's
- *   selection state (click/drag)
+ * - 进入 alt screen（DEC 1049），清屏并把光标归位
+ * - 将自身高度限制为终端行数，因此溢出必须通过 `overflow: scroll` /
+ *   flexbox 处理（没有原生 scrollback）
+ * - 可选启用 SGR 鼠标跟踪（滚轮 + 点击/拖拽），事件会以 `ParsedKey`
+ *   （滚轮）形式暴露，并更新 Ink 实例中的选择状态（点击/拖拽）
  *
- * On unmount, disables mouse tracking and exits the alt screen, restoring
- * the main screen's content. Safe for use in ctrl-o transcript overlays
- * and similar temporary fullscreen views — the main screen is preserved.
+ * 卸载时，会关闭鼠标跟踪并退出 alt screen，恢复主屏内容。可安全用于
+ * ctrl-o 转录覆盖层以及类似的临时全屏视图，主屏内容会被保留。
  *
- * Notifies the Ink instance via `setAltScreenActive()` so the renderer
- * keeps the cursor inside the viewport (preventing the cursor-restore LF
- * from scrolling content) and so signal-exit cleanup can exit the alt
- * screen if the component's own unmount doesn't run.
+ * 还会通过 `setAltScreenActive()` 通知 Ink 实例，让 renderer 将光标
+ * 保持在视口内（防止 cursor-restore 的 LF 把内容滚动走），并让
+ * signal-exit 清理逻辑在组件自身 unmount 未运行时也能退出 alt screen。
  */
 export function AlternateScreen(t0) {
   const $ = _c(7);

@@ -5,27 +5,25 @@ import instances from '../instances.js'
 import type { MatchPosition } from '../render-to-screen.js'
 
 /**
- * Set the search highlight query on the Ink instance. Non-empty → all
- * visible occurrences are inverted on the next frame (SGR 7, screen-buffer
- * overlay, same damage machinery as selection). Empty → clears.
+ * 在 Ink 实例上设置搜索高亮查询。非空时，下一帧会将所有可见匹配项反相显示
+ * （SGR 7、screen-buffer overlay，使用与 selection 相同的 damage 机制）。
+ * 为空时则清除。
  *
- * This is a screen-space highlight — it matches the RENDERED text, not the
- * source message text. Works for anything visible (bash output, file paths,
- * error messages) regardless of where it came from in the message tree. A
- * query that matched in source but got truncated/ellipsized in rendering
- * won't highlight; that's acceptable — we highlight what you see.
+ * 这是屏幕空间上的高亮，它匹配的是渲染后的文本，而不是消息源码文本。
+ * 只要最终可见，无论内容来自消息树的哪里（bash 输出、文件路径、错误信息），
+ * 都能工作。若查询在源码中能匹配，但渲染后被截断或省略，就不会被高亮；这是
+ * 可以接受的，因为我们高亮的是你实际看到的内容。
  */
 export function useSearchHighlight(): {
   setQuery: (query: string) => void
-  /** Paint an existing DOM subtree (from the MAIN tree) to a fresh
-   *  Screen at its natural height, scan. Element-relative positions
-   *  (row 0 = element top). Zero context duplication — the element
-   *  IS the one built with all real providers. */
+  /** 将现有 DOM 子树（来自主树）按其自然高度绘制到一个全新的 Screen 上并扫描。
+   *  位置相对于元素本身（row 0 = 元素顶部）。不会复制任何 context，
+   *  因为这个元素本身就是在所有真实 provider 下构建出来的。 */
   scanElement: (el: DOMElement) => MatchPosition[]
-  /** Position-based CURRENT highlight. Every frame writes yellow at
-   *  positions[currentIdx] + rowOffset. The scan-highlight (inverse on
-   *  all matches) still runs — this overlays on top. rowOffset tracks
-   *  scroll; positions stay stable (message-relative). null clears. */
+  /** 基于位置的 CURRENT 高亮。每一帧都会在 positions[currentIdx] + rowOffset
+   *  上写入黄色。scan-highlight（对所有匹配做反相）仍会照常运行，这一层只是在
+   *  其上叠加。rowOffset 跟踪滚动；positions 保持稳定（相对于消息）。
+   *  传入 null 可清除。 */
   setPositions: (
     state: {
       positions: MatchPosition[]

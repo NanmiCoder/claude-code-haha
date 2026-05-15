@@ -6,23 +6,23 @@ import type { ValidationError } from '../utils/settings/validation.js';
 import { type TreeNode, treeify } from '../utils/treeify.js';
 
 /**
- * Builds a nested tree structure from dot-notation paths
- * Uses lodash setWith to avoid automatic array creation
+ * 根据点号路径构建嵌套树结构
+ * 使用 lodash 的 setWith 避免自动创建数组
  */
 function buildNestedTree(errors: ValidationError[]): TreeNode {
   const tree: TreeNode = {};
   errors.forEach(error => {
     if (!error.path) {
-      // Root level error - use empty string as key
+      // 根级错误，使用空字符串作为键
       tree[''] = error.message;
       return;
     }
 
-    // Try to enhance the path with meaningful values
+    // 尝试用更有意义的值增强路径
     const pathParts = error.path.split('.');
     let modifiedPath = error.path;
 
-    // If we have an invalid value, try to make the path more readable
+    // 如果存在无效值，尝试让路径更易读
     if (error.invalidValue !== null && error.invalidValue !== undefined && pathParts.length > 0) {
       const newPathParts: string[] = [];
       for (let i = 0; i < pathParts.length; i++) {
@@ -30,9 +30,9 @@ function buildNestedTree(errors: ValidationError[]): TreeNode {
         if (!part) continue;
         const numericPart = parseInt(part, 10);
 
-        // If this is a numeric index and it's the last part where we have the invalid value
+        // 如果这是数字索引，且它是包含无效值的最后一段
         if (!isNaN(numericPart) && i === pathParts.length - 1) {
-          // Format the value for display
+          // 格式化该值以便展示
           let displayValue: string;
           if (typeof error.invalidValue === 'string') {
             displayValue = `"${error.invalidValue}"`;
@@ -45,7 +45,7 @@ function buildNestedTree(errors: ValidationError[]): TreeNode {
           }
           newPathParts.push(displayValue);
         } else {
-          // Keep other parts as-is
+          // 其他部分保持原样
           newPathParts.push(part);
         }
       }
@@ -57,7 +57,7 @@ function buildNestedTree(errors: ValidationError[]): TreeNode {
 }
 
 /**
- * Groups and displays validation errors using treeify with deduplication
+ * 使用 treeify 在去重后分组并显示校验错误
  */
 export function ValidationErrorsList(t0) {
   const $ = _c(9);

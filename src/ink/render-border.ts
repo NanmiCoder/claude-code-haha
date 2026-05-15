@@ -7,10 +7,10 @@ import { stringWidth } from './stringWidth.js'
 import type { Color } from './styles.js'
 
 export type BorderTextOptions = {
-  content: string // Pre-rendered string with ANSI color codes
+  content: string // 带 ANSI 颜色码的预渲染字符串
   position: 'top' | 'bottom'
   align: 'start' | 'end' | 'center'
-  offset?: number // Only used with 'start' or 'end' alignment. Number of characters from the edge.
+  offset?: number // 仅在 'start' 或 'end' 对齐时使用，表示距边缘的字符数。
 }
 
 export const CUSTOM_BORDER_STYLES = {
@@ -19,7 +19,7 @@ export const CUSTOM_BORDER_STYLES = {
     left: '╎',
     right: '╎',
     bottom: '╌',
-    // there aren't any line-drawing characters for dashes unfortunately
+    // 可惜并不存在专门用于虚线的线框字符
     topLeft: ' ',
     topRight: ' ',
     bottomLeft: ' ',
@@ -56,7 +56,7 @@ function embedTextInBorder(
     position = borderLength - textLength - offset - 1 // -1 for corner character
   }
 
-  // Ensure position is valid
+  // 确保位置合法
   position = Math.max(1, Math.min(position, borderLength - textLength - 1))
 
   const before = borderLine.substring(0, 1) + borderChar.repeat(position - 1)
@@ -130,7 +130,7 @@ const renderBorder = (
         (showRightBorder ? box.topRight : '')
       : ''
 
-    // Handle text in top border
+    // 处理顶部边框中的文本
     let topBorder: string | undefined
     if (showTopBorder && node.style.borderText?.position === 'top') {
       const [before, text, after] = embedTextInBorder(
@@ -186,7 +186,7 @@ const renderBorder = (
         (showRightBorder ? box.bottomRight : '')
       : ''
 
-    // Handle text in bottom border
+    // 处理底部边框中的文本
     let bottomBorder: string | undefined
     if (showBottomBorder && node.style.borderText?.position === 'bottom') {
       const [before, text, after] = embedTextInBorder(

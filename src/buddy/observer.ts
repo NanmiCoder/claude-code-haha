@@ -2,8 +2,8 @@ import type { Message } from '../types/message.js'
 import { getCompanion } from './companion.js'
 import { getGlobalConfig } from '../utils/config.js'
 
-// Simple companion observer: picks a reaction based on the last assistant message.
-// This is a lightweight placeholder that generates fun reactions without an LLM call.
+// 简单的 companion observer：根据最后一条 assistant 消息挑选一个反应。
+// 这是一个轻量占位实现，不依赖 LLM 调用，只负责生成一些有趣的反馈。
 
 const DEBUGGING_QUIPS = [
   'Found it!',
@@ -40,7 +40,7 @@ function pickQuip(messages: Message[]): string | undefined {
 
   if (!content) return undefined
 
-  // Only react occasionally (1 in 5 turns)
+  // 只在少数轮次触发反应（约 5 轮 1 次）。
   if (Math.random() > 0.2) return undefined
 
   const lower = content.toLowerCase()

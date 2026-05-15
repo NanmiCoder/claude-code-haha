@@ -5,9 +5,9 @@ import { Text } from '../ink.js';
 import { getGlobalConfig } from '../utils/config.js';
 import { getRainbowColor } from '../utils/thinking.js';
 
-// Local date, not UTC — 24h rolling wave across timezones. Sustained Twitter
-// buzz instead of a single UTC-midnight spike, gentler on soul-gen load.
-// Teaser window: April 1-7, 2026 only. Command stays live forever after.
+// 使用本地日期，而不是 UTC —— 在各个时区形成 24 小时滚动波次。持续的 Twitter
+// 热度，而不是单次 UTC 午夜尖峰，对 soul-gen 负载更温和。
+// 预告窗口仅限 2026 年 4 月 1 日至 7 日。之后命令会永久可用。
 export function isBuddyTeaserWindow(): boolean {
   if ("external" === 'ant') return true;
   const d = new Date();
@@ -34,8 +34,8 @@ function RainbowText(t0) {
   return t1;
 }
 
-// Rainbow /buddy teaser shown on startup when no companion hatched yet.
-// Idle presence and reactions are handled by CompanionSprite directly.
+// 在尚未孵化 companion 时，启动时显示彩虹 /buddy 预告。
+// 空闲态显示和反应由 CompanionSprite 直接处理。
 function _temp(ch, i) {
   return <Text key={i} color={getRainbowColor(i)}>{ch}</Text>;
 }

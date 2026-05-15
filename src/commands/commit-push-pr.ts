@@ -29,7 +29,7 @@ function getPromptContent(
 ): string {
   const { commit: commitAttribution, pr: defaultPrAttribution } =
     getAttributionTexts()
-  // Use provided PR attribution or fall back to default
+  // 使用传入的 PR attribution，否则回退到默认值
   const effectivePrAttribution = prAttribution ?? defaultPrAttribution
   const safeUser = process.env.SAFEUSER || ''
   const username = process.env.USER || ''
@@ -111,20 +111,20 @@ const command = {
   description: 'Commit, push, and open a PR',
   allowedTools: ALLOWED_TOOLS,
   get contentLength() {
-    // Use 'main' as estimate for content length calculation
+    // 使用 'main' 作为内容长度计算的估算值
     return getPromptContent('main').length
   },
   progressMessage: 'creating commit and PR',
   source: 'builtin',
   async getPromptForCommand(args, context) {
-    // Get default branch and enhanced PR attribution
+    // 获取默认分支和增强版 PR attribution
     const [defaultBranch, prAttribution] = await Promise.all([
       getDefaultBranch(),
       getEnhancedPRAttribution(context.getAppState),
     ])
     let promptContent = getPromptContent(defaultBranch, prAttribution)
 
-    // Append user instructions if args provided
+    // 如果提供 args，则追加用户指令
     const trimmedArgs = args?.trim()
     if (trimmedArgs) {
       promptContent += `\n\n## Additional instructions from user\n\n${trimmedArgs}`

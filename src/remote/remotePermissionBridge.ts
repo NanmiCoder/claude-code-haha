@@ -5,9 +5,9 @@ import type { AssistantMessage } from '../types/message.js'
 import { jsonStringify } from '../utils/slowOperations.js'
 
 /**
- * Create a synthetic AssistantMessage for remote permission requests.
- * The ToolUseConfirm type requires an AssistantMessage, but in remote mode
- * we don't have a real one — the tool use runs on the CCR container.
+ * 为远端权限请求创建一个合成的 AssistantMessage。
+ * ToolUseConfirm 类型要求提供 AssistantMessage，但在 remote mode 下
+ * 我们没有真实消息，因为 tool use 运行在 CCR container 上。
  */
 export function createSyntheticAssistantMessage(
   request: SDKControlPermissionRequest,
@@ -46,9 +46,9 @@ export function createSyntheticAssistantMessage(
 }
 
 /**
- * Create a minimal Tool stub for tools that aren't loaded locally.
- * This happens when the remote CCR has tools (e.g., MCP tools) that the
- * local CLI doesn't know about. The stub routes to FallbackPermissionRequest.
+ * 为本地未加载的工具创建一个最小化的 Tool stub。
+ * 当远端 CCR 具有某些工具（例如 MCP tools），而本地 CLI
+ * 并不了解它们时，就会发生这种情况。该 stub 会路由到 FallbackPermissionRequest。
  */
 export function createToolStub(toolName: string): Tool {
   return {

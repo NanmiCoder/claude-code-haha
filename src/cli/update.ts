@@ -36,7 +36,7 @@ export async function update() {
 
   logForDebugging('update: Starting update check')
 
-  // Run diagnostic to detect potential issues
+  // 运行诊断以检测潜在问题
   logForDebugging('update: Running diagnostic')
   const diagnostic = await getDoctorDiagnostic()
   logForDebugging(`update: Installation type: ${diagnostic.installationType}`)
@@ -44,7 +44,7 @@ export async function update() {
     `update: Config install method: ${diagnostic.configInstallMethod}`,
   )
 
-  // Check for multiple installations
+  // 检查是否存在多个安装
   if (diagnostic.multipleInstallations.length > 1) {
     writeToStdout('\n')
     writeToStdout(chalk.yellow('Warning: Multiple installations found') + '\n')
@@ -57,14 +57,14 @@ export async function update() {
     }
   }
 
-  // Display warnings if any exist
+  // 如果存在警告则显示
   if (diagnostic.warnings.length > 0) {
     writeToStdout('\n')
     for (const warning of diagnostic.warnings) {
       logForDebugging(`update: Warning detected: ${warning.issue}`)
 
-      // Don't skip PATH warnings - they're always relevant
-      // The user needs to know that 'which claude' points elsewhere
+      // 不要跳过 PATH 警告，它们始终 relevant
+      // 用户需要知道 'which claude' 指向了别处
       logForDebugging(`update: Showing warning: ${warning.issue}`)
 
       writeToStdout(chalk.yellow(`Warning: ${warning.issue}\n`))
@@ -73,7 +73,7 @@ export async function update() {
     }
   }
 
-  // Update config if installMethod is not set (but skip for package managers)
+  // 如果 installMethod 未设置则更新 config（但 package managers 跳过）
   const config = getGlobalConfig()
   if (
     !config.installMethod &&
@@ -83,7 +83,7 @@ export async function update() {
     writeToStdout('Updating configuration to track installation method...\n')
     let detectedMethod: 'local' | 'native' | 'global' | 'unknown' = 'unknown'
 
-    // Map diagnostic installation type to config install method
+    // 将 diagnostic 的 installation type 映射到 config 的 install method
     switch (diagnostic.installationType) {
       case 'npm-local':
         detectedMethod = 'local'
@@ -105,7 +105,7 @@ export async function update() {
     writeToStdout(`Installation method set to: ${detectedMethod}\n`)
   }
 
-  // Check if running from development build
+  // 检查是否运行在 development build 中
   if (diagnostic.installationType === 'development') {
     writeToStdout('\n')
     writeToStdout(
@@ -114,7 +114,7 @@ export async function update() {
     await gracefulShutdown(1)
   }
 
-  // Check if running from a package manager
+  // 检查是否由 package manager 运行
   if (diagnostic.installationType === 'package-manager') {
     const packageManager = await getPackageManager()
     writeToStdout('\n')
@@ -155,9 +155,9 @@ export async function update() {
         writeToStdout('Claude is up to date!\n')
       }
     } else {
-      // pacman, deb, and rpm don't get specific commands because they each have
-      // multiple frontends (pacman: yay/paru/makepkg, deb: apt/apt-get/aptitude/nala,
-      // rpm: dnf/yum/zypper)
+      // pacman、deb 和 rpm 不提供特定命令，因为它们各自都有
+      // 多个前端（pacman: yay/paru/makepkg，deb: apt/apt-get/aptitude/nala，
+      // rpm 示例前端：dnf/yum/zypper）
       writeToStdout('Claude is managed by a package manager.\n')
       writeToStdout('Please use your package manager to update.\n')
     }
@@ -165,7 +165,7 @@ export async function update() {
     await gracefulShutdown(0)
   }
 
-  // Check for config/reality mismatch (skip for package-manager installs)
+  // 检查 config 与实际情况是否不匹配（package-manager 安装跳过）
   if (
     config.installMethod &&
     diagnostic.configInstallMethod !== 'not set' &&
@@ -174,7 +174,7 @@ export async function update() {
     const runningType = diagnostic.installationType
     const configExpects = diagnostic.configInstallMethod
 
-    // Map installation types for comparison
+    // 为比较映射 installation types
     const typeMapping: Record<string, string> = {
       'npm-local': 'local',
       'npm-global': 'global',
@@ -199,7 +199,7 @@ export async function update() {
         ) + '\n',
       )
 
-      // Update config to match reality
+      // 更新 config 以匹配实际情况
       saveGlobalConfig(current => ({
         ...current,
         installMethod: normalizedRunningType as InstallMethod,
@@ -210,7 +210,7 @@ export async function update() {
     }
   }
 
-  // Handle native installation updates first
+  // 优先处理 native installation 更新
   if (diagnostic.installationType === 'native') {
     logForDebugging(
       'update: Detected native installation, using native updater',
@@ -218,7 +218,7 @@ export async function update() {
     try {
       const result = await installLatestNative(channel, true)
 
-      // Handle lock contention gracefully
+      // 优雅处理锁竞争
       if (result.lockFailed) {
         const pidInfo = result.lockHolderPid
           ? ` (PID ${result.lockHolderPid})`
@@ -257,9 +257,9 @@ export async function update() {
     }
   }
 
-  // Fallback to existing JS/npm-based update logic
-  // Remove native installer symlink since we're not using native installation
-  // But only if user hasn't migrated to native installation
+  // 回退到现有的 JS/npm 更新逻辑
+  // 由于当前不使用 native installation，移除 native installer symlink
+  // 但仅在用户尚未迁移到 native installation 时这样做
   if (config.installMethod !== 'native') {
     await removeInstalledSymlink()
   }
@@ -305,7 +305,7 @@ export async function update() {
     await gracefulShutdown(1)
   }
 
-  // Check if versions match exactly, including any build metadata (like SHA)
+  // 检查版本是否完全一致，包括 build metadata（如 SHA）
   if (latestVersion === MACRO.VERSION) {
     writeToStdout(
       chalk.green(`Claude Code is up to date (${MACRO.VERSION})`) + '\n',
@@ -318,7 +318,7 @@ export async function update() {
   )
   writeToStdout('Installing update...\n')
 
-  // Determine update method based on what's actually running
+  // 根据实际运行的安装确定更新方式
   let useLocalUpdate = false
   let updateMethodName = ''
 
@@ -332,7 +332,7 @@ export async function update() {
       updateMethodName = 'global'
       break
     case 'unknown': {
-      // Fallback to detection if we can't determine installation type
+      // 如果无法确定 installation type，则回退到探测
       const isLocal = await localInstallationExists()
       useLocalUpdate = isLocal
       updateMethodName = isLocal ? 'local' : 'global'

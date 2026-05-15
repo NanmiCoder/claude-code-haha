@@ -3,7 +3,7 @@ import React, { createContext, type ReactNode, useCallback, useEffect, useMemo, 
 import { useExitOnCtrlCDWithKeybindings } from '../../hooks/useExitOnCtrlCDWithKeybindings.js';
 import type { WizardContextValue, WizardProviderProps } from './types.js';
 
-// Use any here for the context since it will be cast properly when used
+// 这里的 context 使用 any，因为在实际使用点会被正确地再做类型转换。
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const WizardContext = createContext<WizardContextValue<any> | null>(null);
 export function WizardProvider(t0) {

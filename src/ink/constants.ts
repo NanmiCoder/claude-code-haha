@@ -1,2 +1,2 @@
-// Shared frame interval for render throttling and animations (~60fps)
+// 渲染节流与动画共用的帧间隔（约 60fps）
 export const FRAME_INTERVAL_MS = 16

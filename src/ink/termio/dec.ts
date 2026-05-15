@@ -1,14 +1,14 @@
 /**
- * DEC (Digital Equipment Corporation) Private Mode Sequences
+ * DEC（Digital Equipment Corporation）私有模式序列
  *
- * DEC private modes use CSI ? N h (set) and CSI ? N l (reset) format.
- * These are terminal-specific extensions to the ANSI standard.
+ * DEC 私有模式使用 CSI ? N h（设置）和 CSI ? N l（重置）格式。
+ * 它们是 ANSI 标准之上的终端专有扩展。
  */
 
 import { csi } from './csi.js'
 
 /**
- * DEC private mode numbers
+ * DEC 私有模式编号
  */
 export const DEC = {
   CURSOR_VISIBLE: 25,
@@ -23,17 +23,17 @@ export const DEC = {
   SYNCHRONIZED_UPDATE: 2026,
 } as const
 
-/** Generate CSI ? N h sequence (set mode) */
+/** 生成 CSI ? N h 序列（设置模式） */
 export function decset(mode: number): string {
   return csi(`?${mode}h`)
 }
 
-/** Generate CSI ? N l sequence (reset mode) */
+/** 生成 CSI ? N l 序列（重置模式） */
 export function decreset(mode: number): string {
   return csi(`?${mode}l`)
 }
 
-// Pre-generated sequences for common modes
+// 预生成的常用模式序列
 export const BSU = decset(DEC.SYNCHRONIZED_UPDATE)
 export const ESU = decreset(DEC.SYNCHRONIZED_UPDATE)
 export const EBP = decset(DEC.BRACKETED_PASTE)
@@ -44,10 +44,10 @@ export const SHOW_CURSOR = decset(DEC.CURSOR_VISIBLE)
 export const HIDE_CURSOR = decreset(DEC.CURSOR_VISIBLE)
 export const ENTER_ALT_SCREEN = decset(DEC.ALT_SCREEN_CLEAR)
 export const EXIT_ALT_SCREEN = decreset(DEC.ALT_SCREEN_CLEAR)
-// Mouse tracking: 1000 reports button press/release/wheel, 1002 adds drag
-// events (button-motion), 1003 adds all-motion (no button held — for
-// hover), 1006 uses SGR format (CSI < btn;col;row M/m) instead of legacy
-// X10 bytes. Combined: wheel + click/drag for selection + hover.
+// 鼠标跟踪：1000 上报按下/释放/滚轮，1002 增加拖拽事件（button-motion），
+// 1003 增加全量移动事件（未按按钮时，用于 hover），1006 使用 SGR 格式
+//（CSI < btn;col;row M/m）而不是旧式 X10 字节。组合起来即可支持：
+// 滚轮 + 用于选择的点击/拖拽 + hover。
 export const ENABLE_MOUSE_TRACKING =
   decset(DEC.MOUSE_NORMAL) +
   decset(DEC.MOUSE_BUTTON) +

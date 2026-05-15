@@ -44,9 +44,9 @@ function getSleepGuidance(): string | null {
 }
 
 /**
- * Version-specific syntax guidance. The model's training data covers both
- * editions but it can't tell which one it's targeting, so it either emits
- * pwsh-7 syntax on 5.1 (parser error → exit 1) or needlessly avoids && on 7.
+ * 版本相关的语法指引。模型的训练数据覆盖了两个版本，
+ * 但它无法判断当前目标是哪一个，因此要么在 5.1 上生成
+ * pwsh 7 语法（解析错误 → 退出码 1），要么在 7 上没必要地避开 &&。
  */
 function getEditionSection(edition: PowerShellEdition | null): string {
   if (edition === 'desktop') {
@@ -63,8 +63,8 @@ function getEditionSection(edition: PowerShellEdition | null): string {
    - Ternary (\`$cond ? $a : $b\`), null-coalescing (\`??\`), and null-conditional (\`?.\`) operators are available.
    - Default file encoding is UTF-8 without BOM.`
   }
-  // Detection not yet resolved (first prompt build before any tool call) or
-  // PS not installed. Give the conservative 5.1-safe guidance.
+  // 检测结果尚未确定（首次构建提示词、尚未有任何工具调用）或
+  // 未安装 PS。此时提供保守的 5.1 安全指引。
   return `PowerShell edition: unknown — assume Windows PowerShell 5.1 for compatibility
    - Do NOT use \`&&\`, \`||\`, ternary \`?:\`, null-coalescing \`??\`, or null-conditional \`?.\`. These are PowerShell 7+ only and parser-error on 5.1.
    - To chain commands conditionally: \`A; if ($?) { B }\`. Unconditionally: \`A; B\`.`

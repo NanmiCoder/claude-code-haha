@@ -1,18 +1,18 @@
 /**
- * Bidirectional text reordering for terminal rendering.
+ * 供终端渲染使用的双向文本重排。
  *
- * Terminals on Windows do not implement the Unicode Bidi Algorithm,
- * so RTL text (Hebrew, Arabic, etc.) appears reversed. This module
- * applies the bidi algorithm to reorder ClusteredChar arrays from
- * logical order to visual order before Ink's LTR cell placement loop.
+ * Windows 上的终端并未实现 Unicode Bidi Algorithm，
+ * 因此 RTL 文本（希伯来语、阿拉伯语等）会反向显示。该模块会在 Ink 的
+ * LTR 单元格放置循环之前，应用 bidi 算法，将 ClusteredChar 数组从逻辑顺序
+ * 重排为视觉顺序。
  *
- * On macOS terminals (Terminal.app, iTerm2) bidi works natively.
- * Windows Terminal (including WSL) does not implement bidi
- * (https://github.com/microsoft/terminal/issues/538).
+ * 在 macOS 终端（Terminal.app、iTerm2）中，bidi 原生可用。
+ * Windows Terminal（包括 WSL）则没有实现 bidi
+ *（https://github.com/microsoft/terminal/issues/538）。
  *
- * Detection: Windows Terminal sets WT_SESSION; native Windows cmd/conhost
- * also lacks bidi. We enable bidi reordering when running on Windows or
- * inside Windows Terminal (covers WSL).
+ * 检测方式：Windows Terminal 会设置 WT_SESSION；原生 Windows cmd/conhost
+ * 同样缺失 bidi。因此只要运行在 Windows 上，或位于 Windows Terminal 中
+ *（涵盖 WSL），我们就启用 bidi 重排。
  */
 import bidiFactory from 'bidi-js'
 
@@ -44,21 +44,20 @@ function getBidi() {
 }
 
 /**
- * Reorder an array of ClusteredChars from logical order to visual order
- * using the Unicode Bidi Algorithm. Active on terminals that lack native
- * bidi support (Windows Terminal, conhost, WSL).
+ * 使用 Unicode Bidi Algorithm 将 ClusteredChar 数组从逻辑顺序重排为视觉顺序。
+ * 仅在缺少原生 bidi 支持的终端上启用（Windows Terminal、conhost、WSL）。
  *
- * Returns the same array on bidi-capable terminals (no-op).
+ * 在支持 bidi 的终端上，直接返回原数组（no-op）。
  */
 export function reorderBidi(characters: ClusteredChar[]): ClusteredChar[] {
   if (!needsBidi() || characters.length === 0) {
     return characters
   }
 
-  // Build a plain string from the clustered chars to run through bidi
+  // 从 clustered chars 构建纯文本字符串，交给 bidi 算法处理
   const plainText = characters.map(c => c.value).join('')
 
-  // Check if there are any RTL characters — skip bidi if pure LTR
+  // 检查是否存在 RTL 字符；如果是纯 LTR，就跳过 bidi
   if (!hasRTLCharacters(plainText)) {
     return characters
   }
@@ -66,8 +65,8 @@ export function reorderBidi(characters: ClusteredChar[]): ClusteredChar[] {
   const bidi = getBidi()
   const { levels } = bidi.getEmbeddingLevels(plainText, 'auto')
 
-  // Map bidi levels back to ClusteredChar indices.
-  // Each ClusteredChar may be multiple code units in the joined string.
+  // 将 bidi level 映射回 ClusteredChar 下标。
+  // 拼接后的字符串里，一个 ClusteredChar 可能对应多个 code unit。
   const charLevels: number[] = []
   let offset = 0
   for (let i = 0; i < characters.length; i++) {
@@ -75,10 +74,9 @@ export function reorderBidi(characters: ClusteredChar[]): ClusteredChar[] {
     offset += characters[i]!.value.length
   }
 
-  // Get reorder segments from bidi-js, but we need to work at the
-  // ClusteredChar level, not the string level. We'll implement the
-  // standard bidi reordering: find the max level, then for each level
-  // from max down to 1, reverse all contiguous runs >= that level.
+  // 虽然可以从 bidi-js 获取重排片段，但这里需要在 ClusteredChar 层级上工作，
+  // 而不是字符串层级。因此直接实现标准 bidi 重排：先找到最大 level，
+  // 再从 max 递减到 1，反转所有 level >= 当前值的连续区间。
   const reordered = [...characters]
   const maxLevel = Math.max(...charLevels)
 
@@ -86,12 +84,12 @@ export function reorderBidi(characters: ClusteredChar[]): ClusteredChar[] {
     let i = 0
     while (i < reordered.length) {
       if (charLevels[i]! >= level) {
-        // Find the end of this run
+        // 找到该连续区间的末尾
         let j = i + 1
         while (j < reordered.length && charLevels[j]! >= level) {
           j++
         }
-        // Reverse the run in both arrays
+        // 在两个数组中同时反转该区间
         reverseRange(reordered, i, j - 1)
         reverseRangeNumbers(charLevels, i, j - 1)
         i = j
@@ -125,8 +123,8 @@ function reverseRangeNumbers(arr: number[], start: number, end: number): void {
 }
 
 /**
- * Quick check for RTL characters (Hebrew, Arabic, and related scripts).
- * Avoids running the full bidi algorithm on pure-LTR text.
+ * 快速检查是否包含 RTL 字符（希伯来语、阿拉伯语及相关文字）。
+ * 以避免在纯 LTR 文本上运行完整的 bidi 算法。
  */
 function hasRTLCharacters(text: string): boolean {
   // Hebrew: U+0590-U+05FF, U+FB1D-U+FB4F

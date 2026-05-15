@@ -9,7 +9,7 @@ export const call: LocalCommandCall = async () => {
   const config = getGlobalConfig()
   let currentMode = config.editorMode || 'normal'
 
-  // Handle backward compatibility - treat 'emacs' as 'normal'
+  // 处理向后兼容：把 'emacs' 视为 'normal'。
   if (currentMode === 'emacs') {
     currentMode = 'normal'
   }

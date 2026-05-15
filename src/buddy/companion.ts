@@ -13,7 +13,7 @@ import {
   type StatName,
 } from './types.js'
 
-// Mulberry32 — tiny seeded PRNG, good enough for picking ducks
+// Mulberry32 —— 小型有种子 PRNG，用来挑鸭子已经够用
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0
   return function () {
@@ -59,7 +59,7 @@ const RARITY_FLOOR: Record<Rarity, number> = {
   legendary: 50,
 }
 
-// One peak stat, one dump stat, rest scattered. Rarity bumps the floor.
+// 一个峰值属性，一个低谷属性，其余分散。稀有度会抬高下限。
 function rollStats(
   rng: () => number,
   rarity: Rarity,
@@ -102,8 +102,8 @@ function rollFrom(rng: () => number): Roll {
   return { bones, inspirationSeed: Math.floor(rng() * 1e9) }
 }
 
-// Called from three hot paths (500ms sprite tick, per-keystroke PromptInput,
-// per-turn observer) with the same userId → cache the deterministic result.
+// 会在三个热点路径里用同一个 userId 调用（500ms 的 sprite tick、每次按键的 PromptInput、
+// 每轮 observer），因此缓存这个确定性结果。
 let rollCache: { key: string; value: Roll } | undefined
 export function roll(userId: string): Roll {
   const key = userId + SALT
@@ -122,35 +122,13 @@ export function companionUserId(): string {
   return config.oauthAccount?.accountUuid ?? config.userID ?? 'anon'
 }
 
-function storedAppearanceSeed(stored: {
-  appearanceSeed?: string
-  hatchedAt: number
-  name: string
-  personality: string
-}): string {
-  return (
-    stored.appearanceSeed ??
-    `legacy:${stored.hatchedAt}:${stored.name}:${stored.personality}`
-  )
-}
-
-function applyStoredOverrides(
-  bones: CompanionBones,
-  stored: { speciesOverride?: Species },
-): CompanionBones {
-  return stored.speciesOverride
-    ? { ...bones, species: stored.speciesOverride }
-    : bones
-}
-
-// Regenerate bones from the stored hatch seed, merge with the saved soul.
-// Old configs without a seed get a deterministic legacy fallback so they stop
-// changing every render without requiring users to re-hatch.
+// Regenerate bones from userId, merge with stored soul. Bones never persist
+// so species renames and SPECIES-array edits can't break stored companions,
+// and editing config.companion can't fake a rarity.
 export function getCompanion(): Companion | undefined {
   const stored = getGlobalConfig().companion
   if (!stored) return undefined
-  const { bones: rolledBones } = rollWithSeed(storedAppearanceSeed(stored))
-  const bones = applyStoredOverrides(rolledBones, stored)
+  const { bones } = roll(companionUserId())
   // bones last so stale bones fields in old-format configs get overridden
   return { ...stored, ...bones }
 }

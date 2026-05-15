@@ -1,4 +1,3 @@
-import type { z } from 'zod/v4'
 import {
   isUnsafeCompoundCommand_DEPRECATED,
   splitCommand_DEPRECATED,
@@ -12,8 +11,9 @@ import { type Node, PARSE_ABORTED } from '../../utils/bash/parser.js'
 import type { PermissionResult } from '../../utils/permissions/PermissionResult.js'
 import type { PermissionUpdate } from '../../utils/permissions/PermissionUpdateSchema.js'
 import { createPermissionRequestMessage } from '../../utils/permissions/permissions.js'
-import { BashTool } from './BashTool.js'
+import type { BashToolInput } from './BashTool.js'
 import { bashCommandIsSafeAsync_DEPRECATED } from './bashSecurity.js'
+import { BASH_TOOL_NAME } from './toolName.js'
 
 export type CommandIdentityCheckers = {
   isNormalizedCdCommand: (command: string) => boolean
@@ -21,10 +21,10 @@ export type CommandIdentityCheckers = {
 }
 
 async function segmentedCommandPermissionResult(
-  input: z.infer<typeof BashTool.inputSchema>,
+  input: BashToolInput,
   segments: string[],
   bashToolHasPermissionFn: (
-    input: z.infer<typeof BashTool.inputSchema>,
+    input: BashToolInput,
   ) => Promise<PermissionResult>,
   checkers: CommandIdentityCheckers,
 ): Promise<PermissionResult> {
@@ -42,7 +42,7 @@ async function segmentedCommandPermissionResult(
     return {
       behavior: 'ask',
       decisionReason,
-      message: createPermissionRequestMessage(BashTool.name, decisionReason),
+      message: createPermissionRequestMessage(BASH_TOOL_NAME, decisionReason),
     }
   }
 
@@ -76,7 +76,7 @@ async function segmentedCommandPermissionResult(
       return {
         behavior: 'ask',
         decisionReason,
-        message: createPermissionRequestMessage(BashTool.name, decisionReason),
+        message: createPermissionRequestMessage(BASH_TOOL_NAME, decisionReason),
       }
     }
   }
@@ -149,7 +149,7 @@ async function segmentedCommandPermissionResult(
 
   return {
     behavior: 'ask',
-    message: createPermissionRequestMessage(BashTool.name, decisionReason),
+    message: createPermissionRequestMessage(BASH_TOOL_NAME, decisionReason),
     decisionReason,
     suggestions: suggestions.length > 0 ? suggestions : undefined,
   }
@@ -179,9 +179,9 @@ async function buildSegmentWithoutRedirections(
  * bashToolCheckCommandOperatorPermissions.
  */
 export async function checkCommandOperatorPermissions(
-  input: z.infer<typeof BashTool.inputSchema>,
+  input: BashToolInput,
   bashToolHasPermissionFn: (
-    input: z.infer<typeof BashTool.inputSchema>,
+    input: BashToolInput,
   ) => Promise<PermissionResult>,
   checkers: CommandIdentityCheckers,
   astRoot: Node | null | typeof PARSE_ABORTED,
@@ -206,9 +206,9 @@ export async function checkCommandOperatorPermissions(
  * simple subcommand checking.
  */
 async function bashToolCheckCommandOperatorPermissions(
-  input: z.infer<typeof BashTool.inputSchema>,
+  input: BashToolInput,
   bashToolHasPermissionFn: (
-    input: z.infer<typeof BashTool.inputSchema>,
+    input: BashToolInput,
   ) => Promise<PermissionResult>,
   checkers: CommandIdentityCheckers,
   parsed: IParsedCommand,
@@ -233,7 +233,7 @@ async function bashToolCheckCommandOperatorPermissions(
     }
     return {
       behavior: 'ask',
-      message: createPermissionRequestMessage(BashTool.name, decisionReason),
+      message: createPermissionRequestMessage(BASH_TOOL_NAME, decisionReason),
       decisionReason,
       // This is an unsafe compound command, so we don't want to suggest rules since we wont be able to allow it
     }

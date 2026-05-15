@@ -1,15 +1,15 @@
 /**
- * ANSI Parser - Semantic Types
+ * ANSI 解析器 - 语义类型
  *
- * These types represent the semantic meaning of ANSI escape sequences,
- * not their string representation. Inspired by ghostty's action-based design.
+ * 这些类型表示 ANSI 转义序列的语义含义，
+ * 而不是它们的字符串表示形式。设计受 ghostty 基于 action 的方案启发。
  */
 
 // =============================================================================
-// Colors
+// 颜色
 // =============================================================================
 
-/** Named colors from the 16-color palette */
+/** 16 色调色板中的命名颜色 */
 export type NamedColor =
   | 'black'
   | 'red'
@@ -28,7 +28,7 @@ export type NamedColor =
   | 'brightCyan'
   | 'brightWhite'
 
-/** Color specification - can be named, indexed (256), or RGB */
+/** 颜色描述，可为命名色、索引色（256 色）或 RGB */
 export type Color =
   | { type: 'named'; name: NamedColor }
   | { type: 'indexed'; index: number } // 0-255
@@ -36,10 +36,10 @@ export type Color =
   | { type: 'default' }
 
 // =============================================================================
-// Text Styles
+// 文本样式
 // =============================================================================
 
-/** Underline style variants */
+/** 下划线样式变体 */
 export type UnderlineStyle =
   | 'none'
   | 'single'
@@ -48,7 +48,7 @@ export type UnderlineStyle =
   | 'dotted'
   | 'dashed'
 
-/** Text style attributes - represents current styling state */
+/** 文本样式属性，表示当前样式状态 */
 export type TextStyle = {
   bold: boolean
   dim: boolean
@@ -64,7 +64,7 @@ export type TextStyle = {
   underlineColor: Color
 }
 
-/** Create a default (reset) text style */
+/** 创建默认（重置后）的文本样式 */
 export function defaultStyle(): TextStyle {
   return {
     bold: false,
@@ -82,7 +82,7 @@ export function defaultStyle(): TextStyle {
   }
 }
 
-/** Check if two styles are equal */
+/** 检查两种样式是否相等 */
 export function stylesEqual(a: TextStyle, b: TextStyle): boolean {
   return (
     a.bold === b.bold &&
@@ -100,7 +100,7 @@ export function stylesEqual(a: TextStyle, b: TextStyle): boolean {
   )
 }
 
-/** Check if two colors are equal */
+/** 检查两种颜色是否相等 */
 export function colorsEqual(a: Color, b: Color): boolean {
   if (a.type !== b.type) return false
   switch (a.type) {
@@ -120,7 +120,7 @@ export function colorsEqual(a: Color, b: Color): boolean {
 }
 
 // =============================================================================
-// Cursor Actions
+// 光标动作
 // =============================================================================
 
 export type CursorDirection = 'up' | 'down' | 'forward' | 'back'
@@ -143,7 +143,7 @@ export type CursorAction =
   | { type: 'prevLine'; count: number }
 
 // =============================================================================
-// Erase Actions
+// 擦除动作
 // =============================================================================
 
 export type EraseAction =
@@ -152,7 +152,7 @@ export type EraseAction =
   | { type: 'chars'; count: number }
 
 // =============================================================================
-// Scroll Actions
+// 滚动动作
 // =============================================================================
 
 export type ScrollAction =
@@ -161,7 +161,7 @@ export type ScrollAction =
   | { type: 'setRegion'; top: number; bottom: number }
 
 // =============================================================================
-// Mode Actions
+// 模式动作
 // =============================================================================
 
 export type ModeAction =
@@ -171,7 +171,7 @@ export type ModeAction =
   | { type: 'focusEvents'; enabled: boolean }
 
 // =============================================================================
-// Link Actions (OSC 8)
+// 链接动作（OSC 8）
 // =============================================================================
 
 export type LinkAction =
@@ -179,7 +179,7 @@ export type LinkAction =
   | { type: 'end' }
 
 // =============================================================================
-// Title Actions (OSC 0/1/2)
+// 标题动作（OSC 0/1/2）
 // =============================================================================
 
 export type TitleAction =
@@ -188,14 +188,14 @@ export type TitleAction =
   | { type: 'both'; title: string }
 
 // =============================================================================
-// Tab Status Action (OSC 21337)
+// 标签状态动作（OSC 21337）
 // =============================================================================
 
 /**
- * Per-tab chrome metadata. Tristate for each field:
- *  - property absent → not mentioned in sequence, no change
- *  - null → explicitly cleared (bare key or key= with empty value)
- *  - value → set to this
+ * 每个标签页的 chrome 元数据。每个字段都是三态：
+ *  - 属性缺失：序列中未提及，不做修改
+ *  - null：显式清除（裸 key，或 key= 且值为空）
+ *  - value：设置为该值
  */
 export type TabStatusAction = {
   indicator?: Color | null
@@ -204,23 +204,23 @@ export type TabStatusAction = {
 }
 
 // =============================================================================
-// Parsed Segments - The output of the parser
+// 解析后片段 - 解析器的输出
 // =============================================================================
 
-/** A segment of styled text */
+/** 一段带样式的文本 */
 export type TextSegment = {
   type: 'text'
   text: string
   style: TextStyle
 }
 
-/** A grapheme (visual character unit) with width info */
+/** 带宽度信息的字素（可视字符单元） */
 export type Grapheme = {
   value: string
-  width: 1 | 2 // Display width in columns
+  width: 1 | 2 // 以列为单位的显示宽度
 }
 
-/** All possible parsed actions */
+/** 所有可能的解析动作 */
 export type Action =
   | { type: 'text'; graphemes: Grapheme[]; style: TextStyle }
   | { type: 'cursor'; action: CursorAction }
@@ -230,7 +230,7 @@ export type Action =
   | { type: 'link'; action: LinkAction }
   | { type: 'title'; action: TitleAction }
   | { type: 'tabStatus'; action: TabStatusAction }
-  | { type: 'sgr'; params: string } // Select Graphic Rendition (style change)
+  | { type: 'sgr'; params: string } // Select Graphic Rendition（样式变更）
   | { type: 'bell' }
-  | { type: 'reset' } // Full terminal reset (ESC c)
-  | { type: 'unknown'; sequence: string } // Unrecognized sequence
+  | { type: 'reset' } // 完整终端重置（ESC c）
+  | { type: 'unknown'; sequence: string } // 无法识别的序列

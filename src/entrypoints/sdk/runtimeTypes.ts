@@ -1,2 +1,2 @@
-// Local recovery stub for missing SDK runtime type exports.
+// 用于缺失 SDK runtime type 导出的本地兜底 stub。
 export {}

@@ -61,8 +61,8 @@ export function collectRecentAssistantTexts(messages: Message[]): string[] {
 }
 export function fileExtension(lang: string | undefined): string {
   if (lang) {
-    // Sanitize to prevent path traversal (e.g. ```../../etc/passwd)
-    // Language identifiers are alphanumeric: python, tsx, jsonc, etc.
+    // 做 sanitize 以防止路径穿越（例如 ```../../etc/passwd）
+    // 语言标识符只能包含字母数字：python、tsx、jsonc 等。
     const sanitized = lang.replace(/[^a-zA-Z0-9]/g, '');
     if (sanitized && sanitized !== 'plaintext') {
       return `.${sanitized}`;
@@ -83,8 +83,8 @@ async function copyOrWriteToFile(text: string, filename: string): Promise<string
   if (raw) process.stdout.write(raw);
   const lineCount = countCharInString(text, '\n') + 1;
   const charCount = text.length;
-  // Also write to a temp file — clipboard paths are best-effort (OSC 52 needs
-  // terminal support), so the file provides a reliable fallback.
+  // 同时写入临时文件，clipboard 路径只是尽力而为（OSC 52 需要
+  // terminal 支持），因此文件提供可靠的兜底方案。
   try {
     const filePath = await writeToFile(text, filename);
     return `Copied to clipboard (${charCount} characters, ${lineCount} lines)\nAlso written to ${filePath}`;
@@ -338,7 +338,7 @@ export const call: LocalJSXCommandCall = async (onDone, context, args) => {
     return null;
   }
 
-  // /copy N reaches back N-1 messages (1 = latest, 2 = second-to-latest, ...)
+  // /copy N 会回溯 N-1 条消息（1 = 最新，2 = 倒数第二，...）
   let age = 0;
   const arg = args?.trim();
   if (arg) {

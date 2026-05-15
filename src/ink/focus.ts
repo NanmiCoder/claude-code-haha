@@ -4,13 +4,13 @@ import { FocusEvent } from './events/focus-event.js'
 const MAX_FOCUS_STACK = 32
 
 /**
- * DOM-like focus manager for the Ink terminal UI.
+ * 用于 Ink 终端 UI 的类 DOM 焦点管理器。
  *
- * Pure state — tracks activeElement and a focus stack. Has no reference
- * to the tree; callers pass the root when tree walks are needed.
+ * 它是纯状态结构，只负责跟踪 activeElement 和一个焦点栈。
+ * 自身不持有树的引用；当需要遍历树时，由调用方传入 root。
  *
- * Stored on the root DOMElement so any node can reach it by walking
- * parentNode (like browser's `node.ownerDocument`).
+ * 它会被存放在根 DOMElement 上，因此任意节点都能像浏览器里的
+ * `node.ownerDocument` 一样，通过沿着 parentNode 向上查找到它。
  */
 export class FocusManager {
   activeElement: DOMElement | null = null
@@ -30,7 +30,7 @@ export class FocusManager {
 
     const previous = this.activeElement
     if (previous) {
-      // Deduplicate before pushing to prevent unbounded growth from Tab cycling
+      // 在压栈前先去重，防止 Tab 循环切换时焦点栈无限增长
       const idx = this.focusStack.indexOf(previous)
       if (idx !== -1) this.focusStack.splice(idx, 1)
       this.focusStack.push(previous)
@@ -50,17 +50,17 @@ export class FocusManager {
   }
 
   /**
-   * Called by the reconciler when a node is removed from the tree.
-   * Handles both the exact node and any focused descendant within
-   * the removed subtree. Dispatches blur and restores focus from stack.
+   * 当某个节点从树中移除时，由 reconciler 调用。
+   * 既处理该节点本身，也处理位于被移除子树中的任意已聚焦后代。
+   * 会派发 blur，并尝试从焦点栈中恢复焦点。
    */
   handleNodeRemoved(node: DOMElement, root: DOMElement): void {
-    // Remove the node and any descendants from the stack
+    // 从焦点栈中移除该节点以及其所有后代
     this.focusStack = this.focusStack.filter(
       n => n !== node && isInTree(n, root),
     )
 
-    // Check if activeElement is the removed node OR a descendant
+    // 检查 activeElement 是否就是被移除节点，或位于其子树中
     if (!this.activeElement) return
     if (this.activeElement !== node && isInTree(this.activeElement, root)) {
       return
@@ -70,7 +70,7 @@ export class FocusManager {
     this.activeElement = null
     this.dispatchFocusEvent(removed, new FocusEvent('blur', null))
 
-    // Restore focus to the most recent still-mounted element
+    // 将焦点恢复到最近一个仍然挂载着的元素上
     while (this.focusStack.length > 0) {
       const candidate = this.focusStack.pop()!
       if (isInTree(candidate, root)) {
@@ -160,8 +160,8 @@ function isInTree(node: DOMElement, root: DOMElement): boolean {
 }
 
 /**
- * Walk up to root and return it. The root is the node that holds
- * the FocusManager — like browser's `node.getRootNode()`.
+ * 自底向上走到根节点并返回它。根节点就是持有 FocusManager 的节点，
+ * 相当于浏览器里的 `node.getRootNode()`。
  */
 export function getRootNode(node: DOMElement): DOMElement {
   let current: DOMElement | undefined = node
@@ -173,8 +173,8 @@ export function getRootNode(node: DOMElement): DOMElement {
 }
 
 /**
- * Walk up to root and return its FocusManager.
- * Like browser's `node.ownerDocument` — focus belongs to the root.
+ * 自底向上走到根节点，并返回其 FocusManager。
+ * 类似浏览器里的 `node.ownerDocument`，焦点归属于根节点。
  */
 export function getFocusManager(node: DOMElement): FocusManager {
   return getRootNode(node).focusManager!

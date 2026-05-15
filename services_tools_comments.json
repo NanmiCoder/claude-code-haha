@@ -1,0 +1,870 @@
+[
+  {
+    "file": "src/services\\tools\\toolExecution.ts",
+    "count": 124,
+    "comments": [
+      {
+        "line": 133,
+        "raw": "/** Minimum total hook duration (ms) to show inline timing summary */"
+      },
+      {
+        "line": 135,
+        "raw": "/** Log a debug warning when hooks/permission-decision block for this long. Matches\r\n * BashTool's PROGRESS_THRESHOLD_MS — the collapsed view feels stuck past this. */"
+      },
+      {
+        "line": 139,
+        "raw": "/**\r\n * Classify a tool execution error into a telemetry-safe string.\r\n *\r\n * In minified/external builds, `error.constructor.name` is mangled into\r\n * short identifiers like \"nJT\" or \"Chq\" — useless for diagnostics.\r\n * This function extracts structured, telemetry-safe information instead:\r\n * - TelemetrySafeError: use its telemetryMessage (already vetted)\r\n * - Node.js fs errors: log the error code (ENOENT, EACCES, etc.)\r\n * - Known error types: use their unminified name\r\n * - Fallback: \"Error\" (better than a mangled 3-char identifier)\r\n */"
+      },
+      {
+        "line": 157,
+        "raw": "// Node.js filesystem errors have a `code` property (ENOENT, EACCES, etc.)\r"
+      },
+      {
+        "line": 158,
+        "raw": "// These are safe to log and much more useful than the constructor name.\r"
+      },
+      {
+        "line": 163,
+        "raw": "// ShellError, ImageSizeError, etc. have stable `.name` properties\r"
+      },
+      {
+        "line": 164,
+        "raw": "// that survive minification (they're set in the constructor).\r"
+      },
+      {
+        "line": 173,
+        "raw": "/**\r\n * Map a rule's origin to the documented OTel `source` vocabulary, matching\r\n * the interactive path's semantics (permissionLogging.ts:81): session-scoped\r\n * grants are temporary, on-disk grants are permanent, and user-authored\r\n * denies are user_reject regardless of persistence. Everything the user\r\n * didn't write (cliArg, policySettings, projectSettings, flagSettings) is\r\n * config.\r\n */"
+      },
+      {
+        "line": 196,
+        "raw": "/**\r\n * Map a PermissionDecisionReason to the OTel `source` label for the\r\n * non-interactive tool_decision path, staying within the documented\r\n * vocabulary (config, hook, user_permanent, user_temporary, user_reject).\r\n *\r\n * For permissionPromptTool, the SDK host may set decisionClassification on\r\n * the PermissionResult to tell us exactly what happened (once vs always vs\r\n * cache hit — the host knows, we can't tell from {behavior:'allow'} alone).\r\n * Without it, we fall back conservatively: allow → user_temporary,\r\n * deny → user_reject.\r\n */"
+      },
+      {
+        "line": 216,
+        "raw": "// toolResult is typed `unknown` on PermissionDecisionReason but carries\r"
+      },
+      {
+        "line": 217,
+        "raw": "// the parsed Output from PermissionPromptToolResultSchema. Narrow at\r"
+      },
+      {
+        "line": 218,
+        "raw": "// runtime rather than widen the cross-file type.\r"
+      },
+      {
+        "line": 296,
+        "raw": "// mcpInfo.serverName is normalized (e.g., \"claude_ai_Slack\"), but client.name\r"
+      },
+      {
+        "line": 297,
+        "raw": "// is the original name (e.g., \"claude.ai Slack\"). Normalize both for comparison.\r"
+      },
+      {
+        "line": 303,
+        "raw": "/**\r\n * Extracts the MCP server transport type from a tool name.\r\n * Returns the server type (stdio, sse, http, ws, sdk, etc.) for MCP tools,\r\n * or undefined for built-in tools.\r\n */"
+      },
+      {
+        "line": 315,
+        "raw": "// Handle stdio configs where type field is optional (defaults to 'stdio')\r"
+      },
+      {
+        "line": 322,
+        "raw": "/**\r\n * Extracts the MCP server base URL for a tool by looking up its server connection.\r\n * Returns undefined for stdio servers, built-in tools, or if the server is not connected.\r\n */"
+      },
+      {
+        "line": 344,
+        "raw": "// First try to find in the available tools (what the model sees)\r"
+      },
+      {
+        "line": 347,
+        "raw": "// If not found, check if it's a deprecated tool being called by alias\r"
+      },
+      {
+        "line": 348,
+        "raw": "// (e.g., old transcripts calling \"KillShell\" which is now an alias for \"TaskStop\")\r"
+      },
+      {
+        "line": 349,
+        "raw": "// Only fall back for tools where the name matches an alias, not the primary name\r"
+      },
+      {
+        "line": 352,
+        "raw": "// Only use fallback if the tool was found via alias (deprecated name)\r"
+      },
+      {
+        "line": 368,
+        "raw": "// Check if the tool exists\r"
+      },
+      {
+        "line": 504,
+        "raw": "// This is a bit of a hack to get progress events and final results\r"
+      },
+      {
+        "line": 505,
+        "raw": "// into a single async iterable.\r"
+      },
+      {
+        "line": 507,
+        "raw": "// Ideally the progress reporting and tool call reporting would\r"
+      },
+      {
+        "line": 508,
+        "raw": "// be via separate mechanisms.\r"
+      },
+      {
+        "line": 572,
+        "raw": "/**\r\n * Appended to Zod errors when a deferred tool wasn't in the discovered-tool\r\n * set — re-runs the claude.ts schema-filter scan dispatch-time to detect the\r\n * mismatch. The raw Zod error (\"expected array, got string\") doesn't tell the\r\n * model to re-load the tool; this hint does. Null if the schema was sent.\r\n */"
+      },
+      {
+        "line": 583,
+        "raw": "// Optimistic gating — reconstructing claude.ts's full useToolSearch\r"
+      },
+      {
+        "line": 584,
+        "raw": "// computation is fragile. These two gates prevent pointing at a ToolSearch\r"
+      },
+      {
+        "line": 585,
+        "raw": "// that isn't callable; occasional misfires (Haiku, tst-auto below threshold)\r"
+      },
+      {
+        "line": 586,
+        "raw": "// cost one extra round-trip on an already-failing path.\r"
+      },
+      {
+        "line": 614,
+        "raw": "// Validate input types with zod (surprisingly, the model is not great at generating valid input)\r"
+      },
+      {
+        "line": 682,
+        "raw": "// Validate input values. Each tool has its own validation logic\r"
+      },
+      {
+        "line": 734,
+        "raw": "// Speculatively start the bash allow classifier check early so it runs in\r"
+      },
+      {
+        "line": 735,
+        "raw": "// parallel with pre-tool hooks, deny/ask classifiers, and permission dialog\r"
+      },
+      {
+        "line": 736,
+        "raw": "// setup. The UI indicator (setClassifierChecking) is NOT set here — it's\r"
+      },
+      {
+        "line": 737,
+        "raw": "// set in interactiveHandler.ts only when the permission check returns `ask`\r"
+      },
+      {
+        "line": 738,
+        "raw": "// with a pendingClassifierCheck. This avoids flashing \"classifier running\"\r"
+      },
+      {
+        "line": 739,
+        "raw": "// for commands that auto-allow via prefix rules.\r"
+      },
+      {
+        "line": 756,
+        "raw": "// Defense-in-depth: strip _simulatedSedEdit from model-provided Bash input.\r"
+      },
+      {
+        "line": 757,
+        "raw": "// This field is internal-only — it must only be injected by the permission\r"
+      },
+      {
+        "line": 758,
+        "raw": "// system (SedEditPermissionRequest) after user approval. If the model supplies\r"
+      },
+      {
+        "line": 759,
+        "raw": "// it, the schema's strictObject should already reject it, but we strip here\r"
+      },
+      {
+        "line": 760,
+        "raw": "// as a safeguard against future regressions.\r"
+      },
+      {
+        "line": 775,
+        "raw": "// Backfill legacy/derived fields on a shallow clone so hooks/canUseTool see\r"
+      },
+      {
+        "line": 776,
+        "raw": "// them without affecting tool.call(). SendMessageTool adds fields; file\r"
+      },
+      {
+        "line": 777,
+        "raw": "// tools overwrite file_path with expandPath — that mutation must not reach\r"
+      },
+      {
+        "line": 778,
+        "raw": "// call() because tool results embed the input path verbatim (e.g. \"File\r"
+      },
+      {
+        "line": 779,
+        "raw": "// created successfully at: {path}\"), and changing it alters the serialized\r"
+      },
+      {
+        "line": 780,
+        "raw": "// transcript and VCR fixture hashes. If a hook/permission later returns a\r"
+      },
+      {
+        "line": 781,
+        "raw": "// fresh updatedInput, callInput converges on it below — that replacement\r"
+      },
+      {
+        "line": 782,
+        "raw": "// is intentional and should reach call().\r"
+      },
+      {
+        "line": 835,
+        "raw": "// Hook provided updatedInput without making a permission decision (passthrough)\r"
+      },
+      {
+        "line": 836,
+        "raw": "// Update processedInput so it's used in the normal permission flow\r"
+      },
+      {
+        "line": 872,
+        "raw": "// Emit PreToolUse summary immediately so it's visible while the tool executes.\r"
+      },
+      {
+        "line": 873,
+        "raw": "// Use wall-clock time (not sum of individual durations) since hooks run in parallel.\r"
+      },
+      {
+        "line": 916,
+        "raw": "// Check whether we have permission to use the tool,\r"
+      },
+      {
+        "line": 917,
+        "raw": "// and ask the user for permission if we don't\r"
+      },
+      {
+        "line": 933,
+        "raw": "// In auto mode, canUseTool awaits the classifier (side_query) — if that's\r"
+      },
+      {
+        "line": 934,
+        "raw": "// slow the collapsed view shows \"Running…\" with no (Ns) tick since\r"
+      },
+      {
+        "line": 935,
+        "raw": "// bash_progress hasn't started yet. Auto-only: in default mode this timer\r"
+      },
+      {
+        "line": 936,
+        "raw": "// includes interactive-dialog wait (user think time), which is just noise.\r"
+      },
+      {
+        "line": 948,
+        "raw": "// Emit tool_decision OTel event and code-edit counter if the interactive\r"
+      },
+      {
+        "line": 949,
+        "raw": "// permission path didn't already log it (headless mode bypasses permission\r"
+      },
+      {
+        "line": 950,
+        "raw": "// logging, so we need to emit both the generic event and the code-edit\r"
+      },
+      {
+        "line": 951,
+        "raw": "// counter here)\r"
+      },
+      {
+        "line": 968,
+        "raw": "// Increment code-edit tool decision counter for headless mode\r"
+      },
+      {
+        "line": 979,
+        "raw": "// Add message if permission was granted/denied by PermissionRequest hook\r"
+      },
+      {
+        "line": 1024,
+        "raw": "// Only use generic \"Execution stopped\" message if we don't have a detailed hook message\r"
+      },
+      {
+        "line": 1029,
+        "raw": "// Build top-level content: tool_result (text-only for is_error compatibility) + images alongside\r"
+      },
+      {
+        "line": 1039,
+        "raw": "// Add image blocks at top level (not inside tool_result, which rejects non-text with is_error)\r"
+      },
+      {
+        "line": 1048,
+        "raw": "// Generate sequential imagePasteIds so each image renders with a distinct label\r"
+      },
+      {
+        "line": 1073,
+        "raw": "// Run PermissionDenied hooks for auto mode classifier denials.\r"
+      },
+      {
+        "line": 1074,
+        "raw": "// If a hook returns {retry: true}, tell the model it may retry.\r"
+      },
+      {
+        "line": 1128,
+        "raw": "// Use the updated input from permissions if provided\r"
+      },
+      {
+        "line": 1129,
+        "raw": "// (Don't overwrite if undefined - processedInput may have been modified by passthrough hooks)\r"
+      },
+      {
+        "line": 1134,
+        "raw": "// Prepare tool parameters for logging in tool_result event.\r"
+      },
+      {
+        "line": 1135,
+        "raw": "// Gated by OTEL_LOG_TOOL_DETAILS — tool parameters can contain sensitive\r"
+      },
+      {
+        "line": 1136,
+        "raw": "// content (bash commands, MCP server names, etc.) so they're opt-in only.\r"
+      },
+      {
+        "line": 1181,
+        "raw": "// If processedInput still points at the backfill clone, no hook/permission\r"
+      },
+      {
+        "line": 1182,
+        "raw": "// replaced it — pass the pre-backfill callInput so call() sees the model's\r"
+      },
+      {
+        "line": 1183,
+        "raw": "// original field values. Otherwise converge on the hook-supplied input.\r"
+      },
+      {
+        "line": 1184,
+        "raw": "// Permission/hook flows may return a fresh object derived from the\r"
+      },
+      {
+        "line": 1185,
+        "raw": "// backfilled clone (e.g. via inputSchema.parse). If its file_path matches\r"
+      },
+      {
+        "line": 1186,
+        "raw": "// the backfill-expanded value, restore the model's original so the tool\r"
+      },
+      {
+        "line": 1187,
+        "raw": "// result string embeds the path the model emitted — keeps transcript/VCR\r"
+      },
+      {
+        "line": 1188,
+        "raw": "// hashes stable. Other hook modifications flow through unchanged.\r"
+      },
+      {
+        "line": 1226,
+        "raw": "// Log tool content/output as span event if enabled\r"
+      },
+      {
+        "line": 1230,
+        "raw": "// Read tool: capture file_path and content\r"
+      },
+      {
+        "line": 1238,
+        "raw": "// Edit/Write tools: capture file_path and diff\r"
+      },
+      {
+        "line": 1246,
+        "raw": "// For Edit, capture the actual changes made\r"
+      },
+      {
+        "line": 1250,
+        "raw": "// For Write, capture the written content\r"
+      },
+      {
+        "line": 1256,
+        "raw": "// Bash tool: capture command\r"
+      },
+      {
+        "line": 1260,
+        "raw": "// Also capture output if available\r"
+      },
+      {
+        "line": 1271,
+        "raw": "// Capture structured output from tool result if present\r"
+      },
+      {
+        "line": 1273,
+        "raw": "// Store the structured output in an attachment message\r"
+      },
+      {
+        "line": 1283,
+        "raw": "// Pass tool result for new_context logging\r"
+      },
+      {
+        "line": 1290,
+        "raw": "// Map the tool result to API format once and cache it. This block is reused\r"
+      },
+      {
+        "line": 1291,
+        "raw": "// by addToolResult (skipping the remap) and measured here for analytics.\r"
+      },
+      {
+        "line": 1303,
+        "raw": "// Extract file extension for file-related tools\r"
+      },
+      {
+        "line": 1359,
+        "raw": "// Enrich tool parameters with git commit ID from successful git commit output\r"
+      },
+      {
+        "line": 1376,
+        "raw": "// Log tool result event for OTLP with tool parameters and decision context\r"
+      },
+      {
+        "line": 1397,
+        "raw": "// Run PostToolUse hooks\r"
+      },
+      {
+        "line": 1407,
+        "raw": "// Use the pre-mapped block when available (non-MCP tools where hooks\r"
+      },
+      {
+        "line": 1408,
+        "raw": "// don't modify the output), otherwise map from scratch.\r"
+      },
+      {
+        "line": 1417,
+        "raw": "// Build content blocks - tool result first, then optional feedback\r"
+      },
+      {
+        "line": 1419,
+        "raw": "// Add accept feedback if user provided feedback when approving\r"
+      },
+      {
+        "line": 1420,
+        "raw": "// (acceptFeedback only exists on PermissionAllowDecision, which is guaranteed here)\r"
+      },
+      {
+        "line": 1431,
+        "raw": "// Add content blocks (e.g., pasted images) from the permission decision\r"
+      },
+      {
+        "line": 1440,
+        "raw": "// Generate sequential imagePasteIds so each image renders with a distinct label\r"
+      },
+      {
+        "line": 1476,
+        "raw": "// TOOD(hackyon): refactor so we don't have different experiences for MCP tools\r"
+      },
+      {
+        "line": 1544,
+        "raw": "// Show PostToolUse hook timing inline below tool result when > 500ms.\r"
+      },
+      {
+        "line": 1545,
+        "raw": "// Use wall-clock time (not sum of individual durations) since hooks run in parallel.\r"
+      },
+      {
+        "line": 1565,
+        "raw": "// If the tool provided new messages, add them to the list to return.\r"
+      },
+      {
+        "line": 1571,
+        "raw": "// If hook indicated to prevent continuation after successful execution, yield a stop reason message\r"
+      },
+      {
+        "line": 1584,
+        "raw": "// Yield the remaining hook results after the other messages are sent\r"
+      },
+      {
+        "line": 1599,
+        "raw": "// Handle MCP auth errors by updating the client status to 'needs-auth'\r"
+      },
+      {
+        "line": 1600,
+        "raw": "// This updates the /mcp display to show the server needs re-authorization\r"
+      },
+      {
+        "line": 1611,
+        "raw": "// Only update if client was connected (don't overwrite other states)\r"
+      },
+      {
+        "line": 1669,
+        "raw": "// Log tool result error event for OTLP with tool parameters and decision context\r"
+      },
+      {
+        "line": 1693,
+        "raw": "// Determine if this was a user interrupt\r"
+      },
+      {
+        "line": 1696,
+        "raw": "// Run PostToolUseFailure hooks\r"
+      },
+      {
+        "line": 1740,
+        "raw": "// Clean up decision info after logging\r"
+      }
+    ]
+  },
+  {
+    "file": "src/services\\tools\\StreamingToolExecutor.ts",
+    "count": 51,
+    "comments": [
+      {
+        "line": 29,
+        "raw": "// Progress messages are stored separately and yielded immediately\r"
+      },
+      {
+        "line": 34,
+        "raw": "/**\r\n * Executes tools as they stream in with concurrency control.\r\n * - Concurrent-safe tools can execute in parallel with other concurrent-safe tools\r\n * - Non-concurrent tools must execute alone (exclusive access)\r\n * - Results are buffered and emitted in the order tools were received\r\n */"
+      },
+      {
+        "line": 45,
+        "raw": "// Child of toolUseContext.abortController. Fires when a Bash tool errors\r"
+      },
+      {
+        "line": 46,
+        "raw": "// so sibling subprocesses die immediately instead of running to completion.\r"
+      },
+      {
+        "line": 47,
+        "raw": "// Aborting this does NOT abort the parent — query.ts won't end the turn.\r"
+      },
+      {
+        "line": 50,
+        "raw": "// Signal to wake up getRemainingResults when progress is available\r"
+      },
+      {
+        "line": 64,
+        "raw": "/**\r\n   * Discards all pending and in-progress tools. Called when streaming fallback\r\n   * occurs and results from the failed attempt should be abandoned.\r\n   * Queued tools won't start, and in-progress tools will receive synthetic errors.\r\n   */"
+      },
+      {
+        "line": 73,
+        "raw": "/**\r\n   * Add a tool to the execution queue. Will start executing immediately if conditions allow.\r\n   */"
+      },
+      {
+        "line": 126,
+        "raw": "/**\r\n   * Check if a tool can execute based on current concurrency state\r\n   */"
+      },
+      {
+        "line": 137,
+        "raw": "/**\r\n   * Process the queue, starting tools when concurrency conditions allow\r\n   */"
+      },
+      {
+        "line": 147,
+        "raw": "// Can't execute this tool yet, and since we need to maintain order for non-concurrent tools, stop here\r"
+      },
+      {
+        "line": 158,
+        "raw": "// For user interruptions (ESC to reject), use REJECT_MESSAGE so the UI shows\r"
+      },
+      {
+        "line": 159,
+        "raw": "// \"User rejected edit\" instead of \"Error editing file\"\r"
+      },
+      {
+        "line": 207,
+        "raw": "/**\r\n   * Determine why a tool should be cancelled.\r\n   */"
+      },
+      {
+        "line": 220,
+        "raw": "// 'interrupt' means the user typed a new message while tools were\r"
+      },
+      {
+        "line": 221,
+        "raw": "// running. Only cancel tools whose interruptBehavior is 'cancel';\r"
+      },
+      {
+        "line": 222,
+        "raw": "// 'block' tools shouldn't reach here (abort isn't fired).\r"
+      },
+      {
+        "line": 262,
+        "raw": "/**\r\n   * Execute a tool and collect its results\r\n   */"
+      },
+      {
+        "line": 277,
+        "raw": "// If already aborted (by error or user), generate synthetic error block instead of running the tool\r"
+      },
+      {
+        "line": 294,
+        "raw": "// Per-tool child controller. Lets siblingAbortController kill running\r"
+      },
+      {
+        "line": 295,
+        "raw": "// subprocesses (Bash spawns listen to this signal) when a Bash error\r"
+      },
+      {
+        "line": 296,
+        "raw": "// cascades. Permission-dialog rejection also aborts this controller\r"
+      },
+      {
+        "line": 297,
+        "raw": "// (PermissionContext.ts cancelAndAbort) — that abort must bubble up to\r"
+      },
+      {
+        "line": 298,
+        "raw": "// the query controller so the query loop's post-tool abort check ends\r"
+      },
+      {
+        "line": 299,
+        "raw": "// the turn. Without bubble-up, ExitPlanMode \"clear context + auto\"\r"
+      },
+      {
+        "line": 300,
+        "raw": "// sends REJECT_MESSAGE to the model instead of aborting (#21056 regression).\r"
+      },
+      {
+        "line": 327,
+        "raw": "// Track if this specific tool has produced an error result.\r"
+      },
+      {
+        "line": 328,
+        "raw": "// This prevents the tool from receiving a duplicate \"sibling error\"\r"
+      },
+      {
+        "line": 329,
+        "raw": "// message when it is the one that caused the error.\r"
+      },
+      {
+        "line": 333,
+        "raw": "// Check if we were aborted by a sibling tool error or user interruption.\r"
+      },
+      {
+        "line": 334,
+        "raw": "// Only add the synthetic error if THIS tool didn't produce the error.\r"
+      },
+      {
+        "line": 356,
+        "raw": "// Only Bash errors cancel siblings. Bash commands often have implicit\r"
+      },
+      {
+        "line": 357,
+        "raw": "// dependency chains (e.g. mkdir fails → subsequent commands pointless).\r"
+      },
+      {
+        "line": 358,
+        "raw": "// Read/WebFetch/etc are independent — one failure shouldn't nuke the rest.\r"
+      },
+      {
+        "line": 367,
+        "raw": "// Progress messages go to pendingProgress for immediate yielding\r"
+      },
+      {
+        "line": 370,
+        "raw": "// Signal that progress is available\r"
+      },
+      {
+        "line": 388,
+        "raw": "// NOTE: we currently don't support context modifiers for concurrent\r"
+      },
+      {
+        "line": 389,
+        "raw": "//       tools. None are actively being used, but if we want to use\r"
+      },
+      {
+        "line": 390,
+        "raw": "//       them in concurrent tools, we need to support that here.\r"
+      },
+      {
+        "line": 401,
+        "raw": "// Process more queue when done\r"
+      },
+      {
+        "line": 407,
+        "raw": "/**\r\n   * Get any completed results that haven't been yielded yet (non-blocking)\r\n   * Maintains order where necessary\r\n   * Also yields any pending progress messages immediately\r\n   */"
+      },
+      {
+        "line": 418,
+        "raw": "// Always yield pending progress messages immediately, regardless of tool status\r"
+      },
+      {
+        "line": 442,
+        "raw": "/**\r\n   * Check if any tool has pending progress messages\r\n   */"
+      },
+      {
+        "line": 449,
+        "raw": "/**\r\n   * Wait for remaining tools and yield their results as they complete\r\n   * Also yields progress messages as they become available\r\n   */"
+      },
+      {
+        "line": 465,
+        "raw": "// If we still have executing tools but nothing completed, wait for any to complete\r"
+      },
+      {
+        "line": 466,
+        "raw": "// OR for progress to become available\r"
+      },
+      {
+        "line": 476,
+        "raw": "// Also wait for progress to become available\r"
+      },
+      {
+        "line": 492,
+        "raw": "/**\r\n   * Check if there are any completed results ready to yield\r\n   */"
+      },
+      {
+        "line": 499,
+        "raw": "/**\r\n   * Check if there are any tools still executing\r\n   */"
+      },
+      {
+        "line": 506,
+        "raw": "/**\r\n   * Check if there are any unfinished tools\r\n   */"
+      },
+      {
+        "line": 513,
+        "raw": "/**\r\n   * Get the current tool use context (may have been modified by context modifiers)\r\n   */"
+      }
+    ]
+  },
+  {
+    "file": "src/services\\tools\\toolHooks.ts",
+    "count": 31,
+    "comments": [
+      {
+        "line": 66,
+        "raw": "// Check if we were aborted during hook execution\r"
+      },
+      {
+        "line": 67,
+        "raw": "// IMPORTANT: We emit a cancelled event per hook\r"
+      },
+      {
+        "line": 90,
+        "raw": "// For JSON {decision:\"block\"} hooks, executeHooks yields two results:\r"
+      },
+      {
+        "line": 91,
+        "raw": "// {blockingError} and {message: hook_blocking_error attachment}. The\r"
+      },
+      {
+        "line": 92,
+        "raw": "// blockingError path below creates that same attachment, so skip it\r"
+      },
+      {
+        "line": 93,
+        "raw": "// here to avoid displaying the block reason twice (#31301). The\r"
+      },
+      {
+        "line": 94,
+        "raw": "// exit-code-2 path only yields {blockingError}, so it's unaffected.\r"
+      },
+      {
+        "line": 117,
+        "raw": "// If hook indicated to prevent continuation, yield a stop reason message\r"
+      },
+      {
+        "line": 132,
+        "raw": "// If hooks provided additional context, add it as a message\r"
+      },
+      {
+        "line": 145,
+        "raw": "// If hooks provided updatedMCPToolOutput, yield it if this is an MCP tool\r"
+      },
+      {
+        "line": 223,
+        "raw": "// Check if we were aborted during hook execution\r"
+      },
+      {
+        "line": 245,
+        "raw": "// Skip hook_blocking_error in result.message — blockingError path\r"
+      },
+      {
+        "line": 246,
+        "raw": "// below creates the same attachment (see #31301 / PostToolUse above).\r"
+      },
+      {
+        "line": 269,
+        "raw": "// If hooks provided additional context, add it as a message\r"
+      },
+      {
+        "line": 321,
+        "raw": "/**\r\n * Resolve a PreToolUse hook's permission result into a final PermissionDecision.\r\n *\r\n * Encapsulates the invariant that hook 'allow' does NOT bypass settings.json\r\n * deny/ask rules — checkRuleBasedPermissions still applies (inc-4788 analog).\r\n * Also handles the requiresUserInteraction/requireCanUseTool guards and the\r\n * 'ask' forceDecision passthrough.\r\n *\r\n * Shared by toolExecution.ts (main query loop) and REPLTool/toolWrappers.ts\r\n * (REPL inner calls) so the permission semantics stay in lockstep.\r\n */"
+      },
+      {
+        "line": 350,
+        "raw": "// Hook provided updatedInput for an interactive tool — the hook IS the\r"
+      },
+      {
+        "line": 351,
+        "raw": "// user interaction (e.g. headless wrapper that collected AskUserQuestion\r"
+      },
+      {
+        "line": 352,
+        "raw": "// answers). Treat as non-interactive for the rule-check path.\r"
+      },
+      {
+        "line": 372,
+        "raw": "// Hook allow skips the interactive prompt, but deny/ask rules still apply.\r"
+      },
+      {
+        "line": 392,
+        "raw": "// ask rule — dialog required despite hook approval\r"
+      },
+      {
+        "line": 413,
+        "raw": "// No hook decision or 'ask' — normal permission flow, possibly with\r"
+      },
+      {
+        "line": 414,
+        "raw": "// forceDecision so the dialog shows the hook's ask message.\r"
+      },
+      {
+        "line": 459,
+        "raw": "// stop execution\r"
+      },
+      {
+        "line": 473,
+        "raw": "// timeoutMs - use default\r"
+      },
+      {
+        "line": 499,
+        "raw": "// Check if hook wants to prevent continuation\r"
+      },
+      {
+        "line": 509,
+        "raw": "// Check for hook-defined permission behavior\r"
+      },
+      {
+        "line": 542,
+        "raw": "// deny - updatedInput is irrelevant since tool won't run\r"
+      },
+      {
+        "line": 556,
+        "raw": "// Yield updatedInput for passthrough case (no permission decision)\r"
+      },
+      {
+        "line": 557,
+        "raw": "// This allows hooks to modify input while letting normal permission flow continue\r"
+      },
+      {
+        "line": 565,
+        "raw": "// If hooks provided additional context, add it as a message\r"
+      },
+      {
+        "line": 581,
+        "raw": "// Check if we were aborted during hook execution\r"
+      }
+    ]
+  },
+  {
+    "file": "src/services\\tools\\toolOrchestration.ts",
+    "count": 5,
+    "comments": [
+      {
+        "line": 35,
+        "raw": "// Run read-only batch concurrently\r"
+      },
+      {
+        "line": 65,
+        "raw": "// Run non-read-only batch serially\r"
+      },
+      {
+        "line": 86,
+        "raw": "/**\r\n * Partition tool calls into batches where each batch is either:\r\n * 1. A single non-read-only tool, or\r\n * 2. Multiple consecutive read-only tools\r\n */"
+      },
+      {
+        "line": 103,
+        "raw": "// If isConcurrencySafe throws (e.g., due to shell-quote parse failure),\r"
+      },
+      {
+        "line": 104,
+        "raw": "// treat as not concurrency-safe to be conservative\r"
+      }
+    ]
+  }
+]

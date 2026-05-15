@@ -1,27 +1,27 @@
-// SDK Core Types - Common serializable types used by both SDK consumers and SDK builders.
+// SDK Core Types：供 SDK consumers 和 SDK builders 共同使用的通用可序列化类型。
 //
-// Types are generated from Zod schemas in coreSchemas.ts.
-// To modify types:
-// 1. Edit Zod schemas in coreSchemas.ts
-// 2. Run: bun scripts/generate-sdk-types.ts
+// 类型由 coreSchemas.ts 中的 Zod schemas 生成。
+// 如需修改类型：
+// 1. 编辑 coreSchemas.ts 中的 Zod schemas
+// 2. 运行：bun scripts/generate-sdk-types.ts
 //
-// Schemas are available in coreSchemas.ts for runtime validation but are not
-// part of the public API.
+// runtime 校验可使用 coreSchemas.ts 中的 schemas，但它们不是
+// public API 的一部分。
 
-// Re-export sandbox types for SDK consumers
+// 为 SDK consumers re-export sandbox types
 export type {
   SandboxFilesystemConfig,
   SandboxIgnoreViolations,
   SandboxNetworkConfig,
   SandboxSettings,
 } from '../sandboxTypes.js'
-// Re-export all generated types
+// Re-export 所有生成的 types
 export * from './coreTypes.generated.js'
 
-// Re-export utility types that can't be expressed as Zod schemas
+// Re-export 无法用 Zod schemas 表达的 utility types
 export type { NonNullableUsage } from './sdkUtilityTypes.js'
 
-// Const arrays for runtime usage
+// 供 runtime 使用的 const 数组
 export const HOOK_EVENTS = [
   'PreToolUse',
   'PostToolUse',

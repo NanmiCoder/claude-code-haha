@@ -4,31 +4,31 @@ import {
   getDynamicConfig_CACHED_MAY_BE_STALE,
   getFeatureValue_CACHED_MAY_BE_STALE,
 } from '../services/analytics/growthbook.js'
-// Namespace import breaks the bridgeEnabled → auth → config → bridgeEnabled
-// cycle — authModule.foo is a live binding, so by the time the helpers below
-// call it, auth.js is fully loaded. Previously used require() for the same
-// deferral, but require() hits a CJS cache that diverges from the ESM
-// namespace after mock.module() (daemon/auth.test.ts), breaking spyOn.
+// 使用命名空间导入可以打破 bridgeEnabled → auth → config → bridgeEnabled
+// 的循环依赖。authModule.foo 是 live binding，因此等到下面的 helper 调用时，
+// auth.js 已经完整加载。此前这里用 require() 做相同延迟，但在
+// mock.module()（daemon/auth.test.ts）之后，require() 会命中与 ESM
+// namespace 不一致的 CJS 缓存，从而破坏 spyOn。
 import * as authModule from '../utils/auth.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
 import { lt } from '../utils/semver.js'
 
 /**
- * Runtime check for bridge mode entitlement.
+ * 运行时检查是否具备 bridge mode 权限。
  *
- * Remote Control requires a claude.ai subscription (the bridge auths to CCR
- * with the claude.ai OAuth token). isClaudeAISubscriber() excludes
- * Bedrock/Vertex/Foundry, apiKeyHelper/gateway deployments, env-var API keys,
- * and Console API logins — none of which have the OAuth token CCR needs.
- * See github.com/deshaw/anthropic-issues/issues/24.
+ * Remote Control 需要 claude.ai 订阅（bridge 会使用 claude.ai OAuth token
+ * 向 CCR 鉴权）。isClaudeAISubscriber() 会排除 Bedrock/Vertex/Foundry、
+ * apiKeyHelper/gateway 部署、环境变量 API key，以及 Console API 登录，
+ * 因为这些场景都没有 CCR 所需的 OAuth token。
+ * 参见 github.com/deshaw/anthropic-issues/issues/24。
  *
- * The `feature('BRIDGE_MODE')` guard ensures the GrowthBook string literal
- * is only referenced when bridge mode is enabled at build time.
+ * `feature('BRIDGE_MODE')` 这层保护可确保只有在构建期启用 bridge mode 时，
+ * 才会引用对应的 GrowthBook 字符串字面量。
  */
 export function isBridgeEnabled(): boolean {
-  // Positive ternary pattern — see docs/feature-gating.md.
-  // Negative pattern (if (!feature(...)) return) does not eliminate
-  // inline string literals from external builds.
+  // 使用正向三元表达式模式，见 docs/feature-gating.md。
+  // 负向模式（if (!feature(...)) return）无法从外部构建中消除
+  // 内联字符串字面量。
   return feature('BRIDGE_MODE')
     ? isClaudeAISubscriber() &&
         getFeatureValue_CACHED_MAY_BE_STALE('tengu_ccr_bridge', false)
@@ -36,16 +36,15 @@ export function isBridgeEnabled(): boolean {
 }
 
 /**
- * Blocking entitlement check for Remote Control.
+ * Remote Control 的阻塞式权限检查。
  *
- * Returns cached `true` immediately (fast path). If the disk cache says
- * `false` or is missing, awaits GrowthBook init and fetches the fresh
- * server value (slow path, max ~5s), then writes it to disk.
+ * 若缓存为 `true` 则立即返回（快速路径）。如果磁盘缓存为 `false` 或缺失，
+ * 则等待 GrowthBook 初始化并拉取最新服务端值（慢路径，最长约 5 秒），
+ * 然后写回磁盘。
  *
- * Use at entitlement gates where a stale `false` would unfairly block access.
- * For user-facing error paths, prefer `getBridgeDisabledReason()` which gives
- * a specific diagnostic. For render-body UI visibility checks, use
- * `isBridgeEnabled()` instead.
+ * 适用于陈旧的 `false` 会不公平阻断访问的权限门控点。
+ * 对用户可见的错误路径，优先使用 `getBridgeDisabledReason()` 获取更具体的诊断。
+ * 对渲染主体的 UI 可见性检查，则改用 `isBridgeEnabled()`。
  */
 export async function isBridgeEnabledBlocking(): Promise<boolean> {
   return feature('BRIDGE_MODE')
@@ -55,17 +54,16 @@ export async function isBridgeEnabledBlocking(): Promise<boolean> {
 }
 
 /**
- * Diagnostic message for why Remote Control is unavailable, or null if
- * it's enabled. Call this instead of a bare `isBridgeEnabledBlocking()`
- * check when you need to show the user an actionable error.
+ * 返回 Remote Control 不可用的诊断消息；如果已启用则返回 null。
+ * 当你需要向用户展示可操作的错误提示时，应调用这里，而不是裸用
+ * `isBridgeEnabledBlocking()` 检查。
  *
- * The GrowthBook gate targets on organizationUUID, which comes from
- * config.oauthAccount — populated by /api/oauth/profile during login.
- * That endpoint requires the user:profile scope. Tokens without it
- * (setup-token, CLAUDE_CODE_OAUTH_TOKEN env var, or pre-scope-expansion
- * logins) leave oauthAccount unpopulated, so the gate falls back to
- * false and users see a dead-end "not enabled" message with no hint
- * that re-login would fix it. See CC-1165 / gh-33105.
+ * GrowthBook gate 以 organizationUUID 为目标，它来自 config.oauthAccount，
+ * 而该字段在登录期间由 /api/oauth/profile 填充。这个接口要求 user:profile scope。
+ * 如果 token 不带该 scope（如 setup-token、CLAUDE_CODE_OAUTH_TOKEN 环境变量，
+ * 或 scope 扩展前的旧登录），oauthAccount 就不会被填充，于是 gate 会回落为
+ * false，用户只能看到一条无解的“not enabled”消息，而不知道重新登录即可修复。
+ * 参见 CC-1165 / gh-33105。
  */
 export async function getBridgeDisabledReason(): Promise<string | null> {
   if (feature('BRIDGE_MODE')) {
@@ -86,11 +84,12 @@ export async function getBridgeDisabledReason(): Promise<string | null> {
   return 'Remote Control is not available in this build.'
 }
 
-// try/catch: main.tsx:5698 calls isBridgeEnabled() while defining the Commander
-// program, before enableConfigs() runs. isClaudeAISubscriber() → getGlobalConfig()
-// throws "Config accessed before allowed" there. Pre-config, no OAuth token can
-// exist anyway — false is correct. Same swallow getFeatureValue_CACHED_MAY_BE_STALE
-// already does at growthbook.ts:775-780.
+// 之所以使用 try/catch：main.tsx:5698 在定义 Commander program 时就会调用
+// isBridgeEnabled()，而那时 enableConfigs() 尚未运行。
+// isClaudeAISubscriber() → getGlobalConfig() 会在那里抛出
+// "Config accessed before allowed"。在配置初始化前，本来也不可能存在 OAuth token，
+// 因此返回 false 是正确的。growthbook.ts:775-780 中的
+// getFeatureValue_CACHED_MAY_BE_STALE 也已有相同的吞错处理。
 function isClaudeAISubscriber(): boolean {
   try {
     return authModule.isClaudeAISubscriber()
@@ -116,12 +115,12 @@ function getOauthAccountInfo(): ReturnType<
 }
 
 /**
- * Runtime check for the env-less (v2) REPL bridge path.
- * Returns true when the GrowthBook flag `tengu_bridge_repl_v2` is enabled.
+ * 对 env-less（v2）REPL bridge 路径的运行时检查。
+ * 当 GrowthBook flag `tengu_bridge_repl_v2` 开启时返回 true。
  *
- * This gates which implementation initReplBridge uses — NOT whether bridge
- * is available at all (see isBridgeEnabled above). Daemon/print paths stay
- * on the env-based implementation regardless of this gate.
+ * 它控制 initReplBridge 选择哪套实现，而不是控制 bridge 是否可用
+ * （见上方 isBridgeEnabled）。无论该 gate 如何，daemon/print 路径都继续使用
+ * 基于 env 的实现。
  */
 export function isEnvLessBridgeEnabled(): boolean {
   return feature('BRIDGE_MODE')
@@ -130,13 +129,13 @@ export function isEnvLessBridgeEnabled(): boolean {
 }
 
 /**
- * Kill-switch for the `cse_*` → `session_*` client-side retag shim.
+ * 用于 `cse_*` → `session_*` 客户端重标记 shim 的 kill-switch。
  *
- * The shim exists because compat/convert.go:27 validates TagSession and the
- * claude.ai frontend routes on `session_*`, while v2 worker endpoints hand out
- * `cse_*`. Once the server tags by environment_kind and the frontend accepts
- * `cse_*` directly, flip this to false to make toCompatSessionId a no-op.
- * Defaults to true — the shim stays active until explicitly disabled.
+ * 该 shim 存在的原因是 compat/convert.go:27 会校验 TagSession，且 claude.ai
+ * 前端路由依赖 `session_*`，而 v2 worker endpoint 返回的是 `cse_*`。
+ * 一旦服务端改为按 environment_kind 打 tag，且前端也能直接接受 `cse_*`，
+ * 就可以把它切为 false，让 toCompatSessionId 退化为 no-op。
+ * 默认值为 true，即在显式关闭前 shim 一直有效。
  */
 export function isCseShimEnabled(): boolean {
   return feature('BRIDGE_MODE')
@@ -148,19 +147,18 @@ export function isCseShimEnabled(): boolean {
 }
 
 /**
- * Returns an error message if the current CLI version is below the
- * minimum required for the v1 (env-based) Remote Control path, or null if the
- * version is fine. The v2 (env-less) path uses checkEnvLessBridgeMinVersion()
- * in envLessBridgeConfig.ts instead — the two implementations have independent
- * version floors.
+ * 如果当前 CLI 版本低于 v1（基于 env）Remote Control 路径所需的最小版本，
+ * 则返回错误消息；否则返回 null。v2（env-less）路径则改用
+ * envLessBridgeConfig.ts 中的 checkEnvLessBridgeMinVersion()，两套实现的
+ * 版本下限彼此独立。
  *
- * Uses cached (non-blocking) GrowthBook config. If GrowthBook hasn't
- * loaded yet, the default '0.0.0' means the check passes — a safe fallback.
+ * 使用缓存的（非阻塞）GrowthBook 配置。如果 GrowthBook 尚未加载，默认值
+ * '0.0.0' 会让检查通过，这是安全的回退行为。
  */
 export function checkBridgeMinVersion(): string | null {
-  // Positive pattern — see docs/feature-gating.md.
-  // Negative pattern (if (!feature(...)) return) does not eliminate
-  // inline string literals from external builds.
+  // 使用正向模式，见 docs/feature-gating.md。
+  // 负向模式（if (!feature(...)) return）无法从外部构建中消除
+  // 内联字符串字面量。
   if (feature('BRIDGE_MODE')) {
     const config = getDynamicConfig_CACHED_MAY_BE_STALE<{
       minVersion: string
@@ -173,14 +171,14 @@ export function checkBridgeMinVersion(): string | null {
 }
 
 /**
- * Default for remoteControlAtStartup when the user hasn't explicitly set it.
- * When the CCR_AUTO_CONNECT build flag is present (ant-only) and the
- * tengu_cobalt_harbor GrowthBook gate is on, all sessions connect to CCR by
- * default — the user can still opt out by setting remoteControlAtStartup=false
- * in config (explicit settings always win over this default).
+ * 当用户未显式设置时，remoteControlAtStartup 的默认值。
+ * 当存在 CCR_AUTO_CONNECT 构建 flag（ant-only）且
+ * tengu_cobalt_harbor GrowthBook gate 开启时，所有 session 默认连接到 CCR。
+ * 用户仍可通过在 config 中设置 remoteControlAtStartup=false 来显式退出，
+ * 显式设置始终优先于该默认值。
  *
- * Defined here rather than in config.ts to avoid a direct
- * config.ts → growthbook.ts import cycle (growthbook.ts → user.ts → config.ts).
+ * 之所以定义在这里而不是 config.ts 中，是为了避免直接形成
+ * config.ts → growthbook.ts 的导入环（growthbook.ts → user.ts → config.ts）。
  */
 export function getCcrAutoConnectDefault(): boolean {
   return feature('CCR_AUTO_CONNECT')
@@ -189,10 +187,10 @@ export function getCcrAutoConnectDefault(): boolean {
 }
 
 /**
- * Opt-in CCR mirror mode — every local session spawns an outbound-only
- * Remote Control session that receives forwarded events. Separate from
- * getCcrAutoConnectDefault (bidirectional Remote Control). Env var wins for
- * local opt-in; GrowthBook controls rollout.
+ * 选择加入的 CCR mirror 模式。每个本地 session 都会派生一个仅出站的
+ * Remote Control session，用于接收转发事件。它与
+ * getCcrAutoConnectDefault（双向 Remote Control）是分开的。
+ * 环境变量优先用于本地 opt-in；GrowthBook 控制 rollout。
  */
 export function isCcrMirrorEnabled(): boolean {
   return feature('CCR_MIRROR')

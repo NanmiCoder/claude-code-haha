@@ -2,8 +2,8 @@ import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/messages.js'
 import type { Command } from '../commands.js'
 import { isUltrareviewEnabled } from './review/ultrareviewEnabled.js'
 
-// Legal wants the explicit surface name plus a docs link visible before the
-// user triggers, so the description carries "Claude Code on the web" + URL.
+// 法务要求在用户触发之前，就明确显示 surface 名称和文档链接，
+// 所以 description 中要带上 "Claude Code on the web" + URL。
 const CCR_TERMS_URL = 'https://code.claude.com/docs/en/claude-code-on-the-web'
 
 const LOCAL_REVIEW_PROMPT = (args: string) => `
@@ -42,9 +42,9 @@ const review: Command = {
   },
 }
 
-// /ultrareview is the ONLY entry point to the remote bughunter path —
-// /review stays purely local. local-jsx type renders the overage permission
-// dialog when free reviews are exhausted.
+// /ultrareview 是远程 bughunter 路径唯一的入口，
+// /review 保持纯本地。local-jsx type 会在免费 review 用尽时渲染超额权限
+// 对话框。
 const ultrareview: Command = {
   type: 'local-jsx',
   name: 'ultrareview',

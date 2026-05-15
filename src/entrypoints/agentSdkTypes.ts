@@ -1,12 +1,12 @@
 /**
- * Main entrypoint for Claude Code Agent SDK types.
+ * Claude Code Agent SDK types 的主入口。
  *
- * This file re-exports the public SDK API from:
- * - sdk/coreTypes.ts - Common serializable types (messages, configs)
- * - sdk/runtimeTypes.ts - Non-serializable types (callbacks, interfaces)
+ * 这个文件会从以下位置 re-export 公开的 SDK API：
+ * - sdk/coreTypes.ts - 通用可序列化类型（messages、configs）
+ * - sdk/runtimeTypes.ts - 不可序列化类型（callbacks、interfaces）
  *
- * SDK builders who need control protocol types should import from
- * sdk/controlTypes.ts directly.
+ * 需要 control protocol types 的 SDK builders 应直接从
+ * sdk/controlTypes.ts 导入。
  */
 
 import type {
@@ -14,20 +14,20 @@ import type {
   ToolAnnotations,
 } from '@modelcontextprotocol/sdk/types.js'
 
-// Control protocol types for SDK builders (bridge subpath consumers)
+// 供 SDK builders 使用的 control protocol types（bridge 子路径消费者）
 /** @alpha */
 export type {
   SDKControlRequest,
   SDKControlResponse,
 } from './sdk/controlTypes.js'
-// Re-export core types (common serializable types)
+// Re-export core types（通用可序列化类型）
 export * from './sdk/coreTypes.js'
-// Re-export runtime types (callbacks, interfaces with methods)
+// Re-export runtime types（callbacks、带方法的 interfaces）
 export * from './sdk/runtimeTypes.js'
 
-// Re-export settings types (generated from settings JSON schema)
+// Re-export settings types（由 settings JSON schema 生成）
 export type { Settings } from './sdk/settingsTypes.generated.js'
-// Re-export tool types (all marked @internal until SDK API stabilizes)
+// Re-export tool types（在 SDK API 稳定前全部标记为 @internal）
 export * from './sdk/toolTypes.js'
 
 // ============================================================================
@@ -40,7 +40,7 @@ import type {
   SDKSessionInfo,
   SDKUserMessage,
 } from './sdk/coreTypes.js'
-// Import types needed for function signatures
+// 导入函数签名所需的 types
 import type {
   AnyZodRawShape,
   ForkSessionOptions,
@@ -144,7 +144,7 @@ export function unstable_v2_resumeSession(
   throw new Error('unstable_v2_resumeSession is not implemented in the SDK')
 }
 
-// @[MODEL LAUNCH]: Update the example model ID in this docstring.
+// @[MODEL LAUNCH]：更新此 docstring 中的示例 model ID。
 /**
  * V2 API - UNSTABLE
  * One-shot convenience function for single prompts.
@@ -273,7 +273,7 @@ export async function forkSession(
 }
 
 // ============================================================================
-// Assistant daemon primitives (internal)
+// Assistant daemon primitives（内部）
 // ============================================================================
 
 /**
@@ -317,7 +317,7 @@ export type ScheduledTaskEvent =
  * @internal
  */
 export type ScheduledTasksHandle = {
-  /** Async stream of fire/missed events. Drain with `for await`. */
+  /** fire/missed events 的异步流。使用 `for await` 消费。 */
   events(): AsyncGenerator<ScheduledTaskEvent>
   /**
    * Epoch ms of the soonest scheduled fire across all loaded tasks, or null

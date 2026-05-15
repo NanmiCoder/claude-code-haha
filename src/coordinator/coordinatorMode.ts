@@ -16,12 +16,12 @@ import { TEAM_CREATE_TOOL_NAME } from '../tools/TeamCreateTool/constants.js'
 import { TEAM_DELETE_TOOL_NAME } from '../tools/TeamDeleteTool/constants.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
 
-// Checks the same gate as isScratchpadEnabled() in
-// utils/permissions/filesystem.ts. Duplicated here because importing
-// filesystem.ts creates a circular dependency (filesystem -> permissions
-// -> ... -> coordinatorMode). The actual scratchpad path is passed in via
-// getCoordinatorUserContext's scratchpadDir parameter (dependency injection
-// from QueryEngine.ts, which lives higher in the dep graph).
+// 这里检查的是与 utils/permissions/filesystem.ts 中
+// isScratchpadEnabled() 相同的 gate。
+// 之所以在此重复实现，是因为直接导入 filesystem.ts 会形成循环依赖
+// （filesystem -> permissions -> ... -> coordinatorMode）。
+// 真正的 scratchpad 路径会通过 getCoordinatorUserContext 的 scratchpadDir
+// 参数传入，也就是由位于更高依赖层级的 QueryEngine.ts 注入。
 function isScratchpadGateEnabled(): boolean {
   return checkStatsigFeatureGate_CACHED_MAY_BE_STALE('tengu_scratch')
 }
@@ -41,15 +41,14 @@ export function isCoordinatorMode(): boolean {
 }
 
 /**
- * Checks if the current coordinator mode matches the session's stored mode.
- * If mismatched, flips the environment variable so isCoordinatorMode() returns
- * the correct value for the resumed session. Returns a warning message if
- * the mode was switched, or undefined if no switch was needed.
+ * 检查当前 coordinator mode 是否与 session 中持久化的 mode 一致。
+ * 如果不一致，就翻转环境变量，让 isCoordinatorMode() 对恢复后的 session
+ * 返回正确结果。若发生了模式切换，则返回一条警告消息；否则返回 undefined。
  */
 export function matchSessionMode(
   sessionMode: 'coordinator' | 'normal' | undefined,
 ): string | undefined {
-  // No stored mode (old session before mode tracking) — do nothing
+  // 没有存储的 mode（旧 session 还未记录模式）时，不做任何处理。
   if (!sessionMode) {
     return undefined
   }
@@ -61,7 +60,7 @@ export function matchSessionMode(
     return undefined
   }
 
-  // Flip the env var — isCoordinatorMode() reads it live, no caching
+  // 直接切换环境变量；isCoordinatorMode() 是实时读取的，不做缓存。
   if (sessionIsCoordinator) {
     process.env.CLAUDE_CODE_COORDINATOR_MODE = '1'
   } else {
@@ -237,14 +236,14 @@ When a worker reports failure (tests failed, build errors, file not found):
 Use ${TASK_STOP_TOOL_NAME} to stop a worker you sent in the wrong direction — for example, when you realize mid-flight that the approach is wrong, or the user changes requirements after you launched the worker. Pass the \`task_id\` from the ${AGENT_TOOL_NAME} tool's launch result. Stopped workers can be continued with ${SEND_MESSAGE_TOOL_NAME}.
 
 \`\`\`
-// Launched a worker to refactor auth to use JWT
+// 已启动一个 worker，把 auth 重构为 JWT。
 ${AGENT_TOOL_NAME}({ description: "Refactor auth to JWT", subagent_type: "worker", prompt: "Replace session-based auth with JWT..." })
 // ... returns task_id: "agent-x7q" ...
 
-// User clarifies: "Actually, keep sessions — just fix the null pointer"
+// 用户补充说明：“其实保留 session，只修空指针就行”。
 ${TASK_STOP_TOOL_NAME}({ task_id: "agent-x7q" })
 
-// Continue with corrected instructions
+// 用修正后的指令继续该 worker。
 ${SEND_MESSAGE_TOOL_NAME}({ to: "agent-x7q", message: "Stop the JWT refactor. Instead, fix the null pointer in src/auth/validate.ts:42..." })
 \`\`\`
 
@@ -259,11 +258,11 @@ When workers report research findings, **you must understand them before directi
 Never write "based on your findings" or "based on the research." These phrases delegate understanding to the worker instead of doing it yourself. You never hand off understanding to another worker.
 
 \`\`\`
-// Anti-pattern — lazy delegation (bad whether continuing or spawning)
+// 反例：懒惰式转交（无论是继续还是新开 worker 都不好）。
 ${AGENT_TOOL_NAME}({ prompt: "Based on your findings, fix the auth bug", ... })
 ${AGENT_TOOL_NAME}({ prompt: "The worker found an issue in the auth module. Please fix it.", ... })
 
-// Good — synthesized spec (works with either continue or spawn)
+// 正例：先综合后给出明确规格（无论继续还是新开 worker 都适用）。
 ${AGENT_TOOL_NAME}({ prompt: "Fix the null pointer in src/auth/validate.ts:42. The user field on Session (src/auth/types.ts:15) is undefined when sessions expire but the token remains cached. Add a null check before user.id access — if null, return 401 with 'Session expired'. Commit and report the hash.", ... })
 \`\`\`
 
@@ -296,12 +295,12 @@ There is no universal default. Think about how much of the worker's context over
 
 When continuing a worker with ${SEND_MESSAGE_TOOL_NAME}, it has full context from its previous run:
 \`\`\`
-// Continuation — worker finished research, now give it a synthesized implementation spec
+// 继续同一个 worker：它已完成调研，现在给它一份综合后的实现规格。
 ${SEND_MESSAGE_TOOL_NAME}({ to: "xyz-456", message: "Fix the null pointer in src/auth/validate.ts:42. The user field is undefined when Session.expired is true but the token is still cached. Add a null check before accessing user.id — if null, return 401 with 'Session expired'. Commit and report the hash." })
 \`\`\`
 
 \`\`\`
-// Correction — worker just reported test failures from its own change, keep it brief
+// 修正场景：worker 刚报告自己改动导致测试失败，这里保持简洁即可。
 ${SEND_MESSAGE_TOOL_NAME}({ to: "xyz-456", message: "Two tests still failing at lines 58 and 72 — update the assertions to match the new error message." })
 \`\`\`
 

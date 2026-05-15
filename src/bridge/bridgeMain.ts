@@ -63,9 +63,9 @@ export type BackoffConfig = {
   generalInitialMs: number
   generalCapMs: number
   generalGiveUpMs: number
-  /** SIGTERM→SIGKILL grace period on shutdown. Default 30s. */
+  /** 关闭时从 SIGTERM 到 SIGKILL 的宽限期。默认 30s。 */
   shutdownGraceMs?: number
-  /** stopWorkWithRetry base delay (1s/2s/4s backoff). Default 1000ms. */
+  /** stopWorkWithRetry 的基础延迟（1s/2s/4s 退避）。默认 1000ms。 */
   stopWorkBaseDelayMs?: number
 }
 
@@ -78,43 +78,42 @@ const DEFAULT_BACKOFF: BackoffConfig = {
   generalGiveUpMs: 600_000, // 10 minutes
 }
 
-/** Status update interval for the live display (ms). */
+/** 实时状态显示的更新间隔（毫秒）。 */
 const STATUS_UPDATE_INTERVAL_MS = 1_000
 const SPAWN_SESSIONS_DEFAULT = 32
 
 /**
- * GrowthBook gate for multi-session spawn modes (--spawn / --capacity / --create-session-in-dir).
- * Sibling of tengu_ccr_bridge_multi_environment (multiple envs per host:dir) —
- * this one enables multiple sessions per environment.
- * Rollout staged via targeting rules: ants first, then gradual external.
+ * 多 session spawn 模式（--spawn / --capacity / --create-session-in-dir）使用的
+ * 对应的 GrowthBook gate。
+ * 它与 tengu_ccr_bridge_multi_environment（每个 host:dir 支持多个 env）配套，
+ * 这个 gate 控制的是每个 environment 支持多个 session。
+ * rollout 通过 targeting rules 分阶段进行：先给 ants，再逐步开放给外部用户。
  *
- * Uses the blocking gate check so a stale disk-cache miss doesn't unfairly
- * deny access. The fast path (cache has true) is still instant; only the
- * cold-start path awaits the server fetch, and that fetch also seeds the
- * disk cache for next time.
+ * 这里使用阻塞式 gate 检查，避免因为陈旧磁盘缓存 miss 而不公平地拒绝访问。
+ * 快路径（缓存里已有 true）仍然是即时的；只有冷启动路径会等待服务端拉取，
+ * 而这次拉取也会顺便为下次写入磁盘缓存。
  */
 async function isMultiSessionSpawnEnabled(): Promise<boolean> {
   return checkGate_CACHED_OR_BLOCKING('tengu_ccr_bridge_multi_session')
 }
 
 /**
- * Returns the threshold for detecting system sleep/wake in the poll loop.
- * Must exceed the max backoff cap — otherwise normal backoff delays trigger
- * false sleep detection (resetting the error budget indefinitely). Using
- * 2× the connection backoff cap, matching the pattern in WebSocketTransport
- * and replBridge.
+ * 返回轮询循环中用于检测系统休眠/唤醒的阈值。
+ * 该值必须大于最大退避上限，否则普通退避延迟也会误触发休眠检测
+ * （导致错误预算被无限重置）。这里使用连接退避上限的 2 倍，
+ * 与 WebSocketTransport 和 replBridge 中的模式保持一致。
  */
 function pollSleepDetectionThresholdMs(backoff: BackoffConfig): number {
   return backoff.connCapMs * 2
 }
 
 /**
- * Returns the args that must precede CLI flags when spawning a child claude
- * process. In compiled binaries, process.execPath is the claude binary itself
- * and args go directly to it. In npm installs (node running cli.js),
- * process.execPath is the node runtime — the child spawn must pass the script
- * path as the first arg, otherwise node interprets --sdk-url as a node option
- * and exits with "bad option: --sdk-url". See anthropics/claude-code#28334.
+ * 返回在启动子 claude 进程时必须位于 CLI flags 之前的参数。
+ * 在编译后的二进制里，process.execPath 就是 claude 二进制本身，
+ * 参数可以直接传给它。在 npm 安装场景（由 node 运行 cli.js）中，
+ * process.execPath 是 node 运行时，因此子进程必须把脚本路径作为第一个参数传入；
+ * 否则 node 会把 --sdk-url 解释成 node 选项，并以
+ * "bad option: --sdk-url" 退出。见 anthropics/claude-code#28334。
  */
 function spawnScriptArgs(): string[] {
   if (isInBundledMode() || !process.argv[1]) {
@@ -123,7 +122,7 @@ function spawnScriptArgs(): string[] {
   return [process.argv[1]]
 }
 
-/** Attempt to spawn a session; returns error string if spawn throws. */
+/** 尝试启动一个 session；如果 spawn 抛错则返回错误字符串。 */
 function safeSpawn(
   spawner: SessionSpawner,
   opts: SessionSpawnOpts,
@@ -150,8 +149,8 @@ export async function runBridgeLoop(
   initialSessionId?: string,
   getAccessToken?: () => string | undefined | Promise<string | undefined>,
 ): Promise<void> {
-  // Local abort controller so that onSessionDone can stop the poll loop.
-  // Linked to the incoming signal so external aborts also work.
+  // 本地 abort controller，供 onSessionDone 停止轮询循环。
+  // 它会与传入 signal 关联，这样外部 abort 也能生效。
   const controller = new AbortController()
   if (signal.aborted) {
     controller.abort()
@@ -163,13 +162,13 @@ export async function runBridgeLoop(
   const activeSessions = new Map<string, SessionHandle>()
   const sessionStartTimes = new Map<string, number>()
   const sessionWorkIds = new Map<string, string>()
-  // Compat-surface ID (session_*) computed once at spawn and cached so
-  // cleanup and status-update ticks use the same key regardless of whether
-  // the tengu_bridge_repl_v2_cse_shim_enabled gate flips mid-session.
+  // Compat surface 的 ID（session_*）在 spawn 时计算一次并缓存，
+  // 这样 cleanup 和状态更新定时器就会始终使用同一个 key，
+  // 不受 tengu_bridge_repl_v2_cse_shim_enabled gate 在 session 中途切换影响。
   const sessionCompatIds = new Map<string, string>()
-  // Session ingress JWTs for heartbeat auth, keyed by sessionId.
-  // Stored separately from handle.accessToken because the token refresh
-  // scheduler overwrites that field with the OAuth token (~3h55m in).
+  // 用于 heartbeat 鉴权的 session ingress JWT，按 sessionId 索引。
+  // 它们单独存放，而不是放在 handle.accessToken 上，
+  // 因为 token refresh scheduler 会把那个字段覆盖成 OAuth token（约 3h55m 后）。
   const sessionIngressTokens = new Map<string, string>()
   const sessionTimers = new Map<string, ReturnType<typeof setTimeout>>()
   const completedWorkIds = new Set<string>()
@@ -182,22 +181,22 @@ export async function runBridgeLoop(
       hookBased?: boolean
     }
   >()
-  // Track sessions killed by the timeout watchdog so onSessionDone can
-  // distinguish them from server-initiated or shutdown interrupts.
+  // 记录被超时 watchdog 杀掉的 session，
+  // 这样 onSessionDone 能把它们与服务端中断或 shutdown 中断区分开。
   const timedOutSessions = new Set<string>()
-  // Sessions that already have a title (server-set or bridge-derived) so
-  // onFirstUserMessage doesn't clobber a user-assigned --name / web rename.
-  // Keyed by compatSessionId to match logger.setSessionTitle's key.
+  // 已经有标题的 session（服务端设置或 bridge 推导），
+  // 用来避免 onFirstUserMessage 覆盖用户指定的 --name / Web rename。
+  // 以 compatSessionId 为 key，与 logger.setSessionTitle 保持一致。
   const titledSessions = new Set<string>()
-  // Signal to wake the at-capacity sleep early when a session completes,
-  // so the bridge can immediately accept new work.
+  // 某个 session 完成时用来提前唤醒 at-capacity 休眠的信号，
+  // 让 bridge 能立即接收新的 work。
   const capacityWake = createCapacityWake(loopSignal)
 
   /**
-   * Heartbeat all active work items.
-   * Returns 'ok' if at least one heartbeat succeeded, 'auth_failed' if any
-   * got a 401/403 (JWT expired — re-queued via reconnectSession so the next
-   * poll delivers fresh work), or 'failed' if all failed for other reasons.
+   * 对所有活跃 work item 发送 heartbeat。
+   * 如果至少有一个 heartbeat 成功，返回 'ok'；如果任一请求收到 401/403
+   * （JWT 过期，会通过 reconnectSession 重新入队，因此下一次 poll 会拿到
+   * 新 work），返回 'auth_failed'；如果全都因其他原因失败，则返回 'failed'。
    */
   async function heartbeatActiveWorkItems(): Promise<
     'ok' | 'auth_failed' | 'fatal' | 'failed'
@@ -229,18 +228,18 @@ export async function runBridgeLoop(
           if (err.status === 401 || err.status === 403) {
             authFailedSessions.push(sessionId)
           } else {
-            // 404/410 = environment expired or deleted — no point retrying
+            // 404/410 = environment 已过期或已删除，没有重试价值。
             anyFatal = true
           }
         }
       }
     }
-    // JWT expired → trigger server-side re-dispatch. Without this, work stays
-    // ACK'd out of the Redis PEL and poll returns empty forever (CC-1263).
-    // The existingHandle path below delivers the fresh token to the child.
-    // sessionId is already in the format /bridge/reconnect expects: it comes
-    // from work.data.id, which matches the server's EnvironmentInstance store
-    // (cse_* under the compat gate, session_* otherwise).
+    // JWT 过期后要触发服务端重新分发。否则 work 会一直处于已 ACK、
+    // 但仍留在 Redis PEL 之外的状态，poll 将永久返回空结果（CC-1263）。
+    // 下方 existingHandle 路径会把新 token 传给子进程。
+    // 这里的 sessionId 已经符合 /bridge/reconnect 所需格式：它来自
+    // work.data.id，与服务端 EnvironmentInstance 存储一致
+    // （compat gate 下为 cse_*，否则为 session_*）。
     for (const sessionId of authFailedSessions) {
       logger.logVerbose(
         `Session ${sessionId} token expired — re-queuing via bridge/reconnect`,
@@ -269,18 +268,16 @@ export async function runBridgeLoop(
     return anySuccess ? 'ok' : 'failed'
   }
 
-  // Sessions spawned with CCR v2 env vars. v2 children cannot use OAuth
-  // tokens (CCR worker endpoints validate the JWT's session_id claim,
-  // register_worker.go:32), so onRefresh triggers server re-dispatch
-  // instead — the next poll delivers fresh work with a new JWT via the
-  // existingHandle path below.
+  // 通过 CCR v2 环境变量启动的 session。v2 子进程不能使用 OAuth token
+  // （CCR worker endpoint 会校验 JWT 的 session_id claim，见 register_worker.go:32），
+  // 因此 onRefresh 会改为触发服务端重新分发，随后下一次 poll 会通过
+  // 下方 existingHandle 路径带来新的 JWT work。
   const v2Sessions = new Set<string>()
 
-  // Proactive token refresh: schedules a timer 5min before the session
-  // ingress JWT expires. v1 delivers OAuth directly; v2 calls
-  // reconnectSession to trigger server re-dispatch (CC-1263: without
-  // this, v2 daemon sessions silently die at ~5h since the server does
-  // not auto-re-dispatch ACK'd work on lease expiry).
+  // 主动 token 刷新：在 session ingress JWT 过期前 5 分钟安排定时器。
+  // v1 会直接下发 OAuth；v2 则调用 reconnectSession 触发服务端重新分发
+  // （CC-1263：没有这一步时，v2 daemon session 会在约 5 小时后静默死亡，
+  // 因为服务端不会在 lease 过期时自动重新分发已 ACK 的 work）。
   const tokenRefresh = getAccessToken
     ? createTokenRefreshScheduler({
         getAccessToken,
@@ -312,8 +309,8 @@ export async function runBridgeLoop(
       })
     : null
   const loopStartTime = Date.now()
-  // Track all in-flight cleanup promises (stopWork, worktree removal) so
-  // the shutdown sequence can await them before process.exit().
+  // 跟踪所有进行中的 cleanup promise（stopWork、worktree 删除），
+  // 这样 shutdown 流程就能在 process.exit() 前等待它们完成。
   const pendingCleanups = new Set<Promise<unknown>>()
   function trackCleanup(p: Promise<unknown>): void {
     pendingCleanups.add(p)
@@ -325,9 +322,9 @@ export async function runBridgeLoop(
   let generalErrorStart: number | null = null
   let lastPollErrorTime: number | null = null
   let statusUpdateTimer: ReturnType<typeof setInterval> | null = null
-  // Set by BridgeFatalError and give-up paths so the shutdown block can
-  // skip the resume message (resume is impossible after env expiry/auth
-  // failure/sustained connection errors).
+  // 由 BridgeFatalError 和 give-up 路径设置，
+  // 用于让 shutdown 阶段跳过 resume 提示
+  // （env 过期、鉴权失败、持续连接错误后都无法 resume）。
   let fatalExit = false
 
   logForDebugging(
@@ -338,8 +335,8 @@ export async function runBridgeLoop(
     spawn_mode: config.spawnMode,
   })
 
-  // For ant users, show where session debug logs will land so they can tail them.
-  // sessionRunner.ts uses the same base path. File appears once a session spawns.
+  // 对 ant 用户显示 session debug 日志将写到哪里，方便他们 tail。
+  // sessionRunner.ts 使用相同的基础路径；session 启动后文件才会出现。
   if (process.env.USER_TYPE === 'ant') {
     let debugGlob: string
     if (config.debugFile) {
@@ -356,29 +353,29 @@ export async function runBridgeLoop(
 
   logger.printBanner(config, environmentId)
 
-  // Seed the logger's session count + spawn mode before any render. Without
-  // this, setAttached() below renders with the logger's default sessionMax=1,
-  // showing "Capacity: 0/1" until the status ticker kicks in (which is gated
-  // by !initialSessionId and only starts after the poll loop picks up work).
+  // 在首次渲染前先把 logger 的 session 数量和 spawn mode 设好。
+  // 否则下面的 setAttached() 会带着 logger 默认的 sessionMax=1 渲染，
+  // 在状态 ticker 启动前都会显示 "Capacity: 0/1"
+  // （而 ticker 受 !initialSessionId 限制，只有 poll loop 拿到 work 后才启动）。
   logger.updateSessionCount(0, config.maxSessions, config.spawnMode)
 
-  // If an initial session was pre-created, show its URL from the start so
-  // the user can click through immediately (matching /remote-control behavior).
+  // 如果已经预创建了一个初始 session，就从一开始显示它的 URL，
+  // 让用户可以立即点击进入（与 /remote-control 的行为保持一致）。
   if (initialSessionId) {
     logger.setAttached(initialSessionId)
   }
 
-  /** Refresh the inline status display. Shows idle or active depending on state. */
+  /** 刷新内联状态显示。会根据当前状态显示 idle 或 active。 */
   function updateStatusDisplay(): void {
-    // Push the session count (no-op when maxSessions === 1) so the
-    // next renderStatusLine tick shows the current count.
+    // 推送 session 数量（当 maxSessions === 1 时为 no-op），
+    // 让下一次 renderStatusLine tick 能显示当前计数。
     logger.updateSessionCount(
       activeSessions.size,
       config.maxSessions,
       config.spawnMode,
     )
 
-    // Push per-session activity into the multi-session display.
+    // 把每个 session 的活动状态推送到多 session 展示中。
     for (const [sid, handle] of activeSessions) {
       const act = handle.currentActivity
       if (act) {
@@ -391,26 +388,25 @@ export async function runBridgeLoop(
       return
     }
 
-    // Show the most recently started session that is still actively working.
-    // Sessions whose current activity is 'result' or 'error' are between
-    // turns — the CLI emitted its result but the process stays alive waiting
-    // for the next user message.  Skip updating so the status line keeps
-    // whatever state it had (Attached / session title).
+    // 显示最近启动、且仍在活跃工作的那个 session。
+    // 当前活动为 'result' 或 'error' 的 session 处于两轮交互之间：
+    // CLI 已经输出结果，但进程仍存活并等待下一条用户消息。
+    // 此时跳过更新，让状态行保留原有状态（Attached / session title）。
     const [sessionId, handle] = [...activeSessions.entries()].pop()!
     const startTime = sessionStartTimes.get(sessionId)
     if (!startTime) return
 
     const activity = handle.currentActivity
     if (!activity || activity.type === 'result' || activity.type === 'error') {
-      // Session is between turns — keep current status (Attached/titled).
-      // In multi-session mode, still refresh so bullet-list activities stay current.
+      // Session 处于两轮交互之间，保留当前状态（Attached/titled）。
+      // 在多 session 模式下仍要刷新，确保项目符号列表中的活动保持最新。
       if (config.maxSessions > 1) logger.refreshDisplay()
       return
     }
 
     const elapsed = formatDuration(Date.now() - startTime)
 
-    // Build trail from recent tool activities (last 5)
+    // 由最近的 tool 活动构建轨迹（最近 5 条）。
     const trail = handle.activities
       .filter(a => a.type === 'tool_start')
       .slice(-5)
@@ -419,11 +415,11 @@ export async function runBridgeLoop(
     logger.updateSessionStatus(sessionId, elapsed, activity, trail)
   }
 
-  /** Start the status display update ticker. */
+  /** 启动状态显示更新定时器。 */
   function startStatusUpdates(): void {
     stopStatusUpdates()
-    // Call immediately so the first transition (e.g. Connecting → Ready)
-    // happens without delay, avoiding concurrent timer races.
+    // 先立即调用一次，让第一次状态切换（例如 Connecting → Ready）
+    // 无需等待，同时避免并发定时器竞争。
     updateStatusDisplay()
     statusUpdateTimer = setInterval(
       updateStatusDisplay,
@@ -431,7 +427,7 @@ export async function runBridgeLoop(
     )
   }
 
-  /** Stop the status display update ticker. */
+  /** 停止状态显示更新定时器。 */
   function stopStatusUpdates(): void {
     if (statusUpdateTimer) {
       clearInterval(statusUpdateTimer)
@@ -455,20 +451,20 @@ export async function runBridgeLoop(
       logger.removeSession(compatId)
       titledSessions.delete(compatId)
       v2Sessions.delete(sessionId)
-      // Clear per-session timeout timer
+      // 清理每个 session 的超时定时器。
       const timer = sessionTimers.get(sessionId)
       if (timer) {
         clearTimeout(timer)
         sessionTimers.delete(sessionId)
       }
-      // Clear token refresh timer
+      // 清理 token 刷新定时器。
       tokenRefresh?.cancel(sessionId)
-      // Wake the at-capacity sleep so the bridge can accept new work immediately
+      // 唤醒 at-capacity 休眠，让 bridge 能立即接收新 work。
       capacityWake.wake()
 
-      // If the session was killed by the timeout watchdog, treat it as a
-      // failed session (not a server/shutdown interrupt) so we still call
-      // stopWork and archiveSession below.
+      // 如果 session 是被超时 watchdog 杀掉的，把它视为 failed session，
+      // 而不是服务端中断或 shutdown 中断，这样下面仍会调用
+      // stopWork 和 archiveSession。
       const wasTimedOut = timedOutSessions.delete(sessionId)
       const status: SessionDoneStatus =
         wasTimedOut && rawStatus === 'interrupted' ? 'failed' : rawStatus
@@ -487,11 +483,11 @@ export async function runBridgeLoop(
         duration_ms: durationMs,
       })
 
-      // Clear the status display before printing final log
+      // 在打印最终日志前先清空状态显示。
       logger.clearStatus()
       stopStatusUpdates()
 
-      // Build error message from stderr if available
+      // 如果有 stderr，就基于它构造错误消息。
       const stderrSummary =
         handle.lastStderr.length > 0 ? handle.lastStderr.join('\n') : undefined
       let failureMessage: string | undefined
@@ -501,10 +497,10 @@ export async function runBridgeLoop(
           logger.logSessionComplete(sessionId, durationMs)
           break
         case 'failed':
-          // Skip failure log during shutdown — the child exits non-zero when
-          // killed, which is expected and not a real failure.
-          // Also skip for timeout-killed sessions — the timeout watchdog
-          // already logged a clear timeout message.
+          // shutdown 期间跳过 failure 日志，因为子进程被 kill 后
+          // 非零退出是预期行为，不是真正的失败。
+          // 对超时杀掉的 session 也跳过，因为 timeout watchdog
+          // 已经记录过明确的超时消息。
           if (!wasTimedOut && !loopSignal.aborted) {
             failureMessage = stderrSummary ?? 'Process exited with error'
             logger.logSessionFailed(sessionId, failureMessage)
@@ -516,9 +512,9 @@ export async function runBridgeLoop(
           break
       }
 
-      // Notify the server that this work item is done. Skip for interrupted
-      // sessions — interrupts are either server-initiated (the server already
-      // knows) or caused by bridge shutdown (which calls stopWork() separately).
+      // 通知服务端该 work item 已完成。对 interrupted session 跳过：
+      // 中断要么由服务端发起（服务端已知晓），要么由 bridge shutdown 引起
+      // （后者会单独调用 stopWork()）。
       if (status !== 'interrupted' && workId) {
         trackCleanup(
           stopWorkWithRetry(
@@ -532,7 +528,7 @@ export async function runBridgeLoop(
         completedWorkIds.add(workId)
       }
 
-      // Clean up worktree if one was created for this session
+      // 如果该 session 创建过 worktree，就在这里清理。
       const wt = sessionWorktrees.get(sessionId)
       if (wt) {
         sessionWorktrees.delete(sessionId)
@@ -550,18 +546,15 @@ export async function runBridgeLoop(
         )
       }
 
-      // Lifecycle decision: in multi-session mode, keep the bridge running
-      // after a session completes. In single-session mode, abort the poll
-      // loop so the bridge exits cleanly.
+      // 生命周期决策：在 multi-session 模式下，session 完成后保持 bridge 继续运行；
+      // 在 single-session 模式下，中止 poll loop，让 bridge 干净退出。
       if (status !== 'interrupted' && !loopSignal.aborted) {
         if (config.spawnMode !== 'single-session') {
-          // Multi-session: archive the completed session so it doesn't linger
-          // as stale in the web UI. archiveSession is idempotent (409 if already
-          // archived), so double-archiving at shutdown is safe.
-          // sessionId arrived as cse_* from the work poll (infrastructure-layer
-          // tag). archiveSession hits /v1/sessions/{id}/archive which is the
-          // compat surface and validates TagSession (session_*). Re-tag — same
-          // UUID underneath.
+          // Multi-session：归档已完成的 session，避免它在 Web UI 中作为陈旧项滞留。
+          // archiveSession 是幂等的（已归档时返回 409），所以 shutdown 时重复归档也安全。
+          // 这里的 sessionId 来自 work poll，格式可能是 cse_*（基础设施层 tag）。
+          // archiveSession 调用的是 /v1/sessions/{id}/archive，这是 compat surface，
+          // 会校验 TagSession（session_*），因此需要重新打 tag，但底层 UUID 不变。
           trackCleanup(
             api
               .archiveSession(compatId)
@@ -575,7 +568,7 @@ export async function runBridgeLoop(
             `[bridge:session] Session ${status}, returning to idle (multi-session mode)`,
           )
         } else {
-          // Single-session: coupled lifecycle — tear down environment
+          // Single-session：生命周期绑定在一起，需要一并拆除 environment。
           logForDebugging(
             `[bridge:session] Session ${status}, aborting poll loop to tear down environment`,
           )
@@ -590,17 +583,16 @@ export async function runBridgeLoop(
     }
   }
 
-  // Start the idle status display immediately — unless we have a pre-created
-  // session, in which case setAttached() already set up the display and the
-  // poll loop will start status updates when it picks up the session.
+  // 立即启动 idle 状态显示，除非已经有预创建 session；
+  // 那种情况下 setAttached() 已经完成显示初始化，poll loop
+  // 会在接到该 session 时启动状态更新。
   if (!initialSessionId) {
     startStatusUpdates()
   }
 
   while (!loopSignal.aborted) {
-    // Fetched once per iteration — the GrowthBook cache refreshes every
-    // 5 min, so a loop running at the at-capacity rate picks up config
-    // changes within one sleep cycle.
+    // 每轮循环只获取一次。GrowthBook 缓存每 5 分钟刷新，
+    // 因此按 at-capacity 速率运行的循环，会在一个 sleep 周期内感知到配置变化。
     const pollConfig = getPollIntervalConfig()
 
     try {
@@ -611,7 +603,7 @@ export async function runBridgeLoop(
         pollConfig.reclaim_older_than_ms,
       )
 
-      // Log reconnection if we were previously disconnected
+      // 如果之前断开过，这里记录重连事件。
       const wasDisconnected =
         connErrorStart !== null || generalErrorStart !== null
       if (wasDisconnected) {
@@ -632,29 +624,29 @@ export async function runBridgeLoop(
       generalErrorStart = null
       lastPollErrorTime = null
 
-      // Null response = no work available in the queue.
-      // Add a minimum delay to avoid hammering the server.
+      // 返回 null 表示队列里当前没有可用 work。
+      // 加一个最小延迟，避免对服务端形成打点式轰炸。
       if (!work) {
-        // Use live check (not a snapshot) since sessions can end during poll.
+        // 使用实时检查而不是快照，因为 session 可能在 poll 期间结束。
         const atCap = activeSessions.size >= config.maxSessions
         if (atCap) {
           const atCapMs = pollConfig.multisession_poll_interval_ms_at_capacity
-          // Heartbeat loops WITHOUT polling. When at-capacity polling is also
-          // enabled (atCapMs > 0), the loop tracks a deadline and breaks out
-          // to poll at that interval — heartbeat and poll compose instead of
-          // one suppressing the other. We break out to poll when:
-          //   - Poll deadline reached (atCapMs > 0 only)
-          //   - Auth fails (JWT expired → poll refreshes tokens)
-          //   - Capacity wake fires (session ended → poll for new work)
-          //   - Loop aborted (shutdown)
+          // heartbeat 循环本身不做 polling。当同时开启 at-capacity polling
+          // （atCapMs > 0）时，循环会跟踪一个截止时间，并在到点时跳出重新 poll。
+          // 也就是说 heartbeat 与 poll 是组合关系，而不是互相压制。
+          // 在以下情况会跳出并执行 poll：
+          //   - 达到 poll 截止时间（仅当 atCapMs > 0）
+          //   - 鉴权失败（JWT 过期，需要 poll 刷新 token）
+          //   - capacity wake 触发（session 结束，需要 poll 新 work）
+          //   - 循环被中止（shutdown）
           if (pollConfig.non_exclusive_heartbeat_interval_ms > 0) {
             logEvent('tengu_bridge_heartbeat_mode_entered', {
               active_sessions: activeSessions.size,
               heartbeat_interval_ms:
                 pollConfig.non_exclusive_heartbeat_interval_ms,
             })
-            // Deadline computed once at entry — GB updates to atCapMs don't
-            // shift an in-flight deadline (next entry picks up the new value).
+            // 截止时间只在进入时计算一次，GB 对 atCapMs 的更新不会影响
+            // 当前正在进行的截止时间；下一次进入循环时才会使用新值。
             const pollDeadline = atCapMs > 0 ? Date.now() + atCapMs : null
             let hbResult: 'ok' | 'auth_failed' | 'fatal' | 'failed' = 'ok'
             let hbCycles = 0
@@ -663,13 +655,13 @@ export async function runBridgeLoop(
               activeSessions.size >= config.maxSessions &&
               (pollDeadline === null || Date.now() < pollDeadline)
             ) {
-              // Re-read config each cycle so GrowthBook updates take effect
+              // 每轮都重新读取配置，让 GrowthBook 更新能立即生效。
               const hbConfig = getPollIntervalConfig()
               if (hbConfig.non_exclusive_heartbeat_interval_ms <= 0) break
 
-              // Capture capacity signal BEFORE the async heartbeat call so
-              // a session ending during the HTTP request is caught by the
-              // subsequent sleep (instead of being lost to a replaced controller).
+              // 在异步 heartbeat 调用之前先捕获 capacity signal，
+              // 这样即使 HTTP 请求期间有 session 结束，也能被后续 sleep 捕获，
+              // 而不会因为 controller 被替换而丢失这次唤醒。
               const cap = capacityWake.signal()
 
               hbResult = await heartbeatActiveWorkItems()
@@ -686,7 +678,7 @@ export async function runBridgeLoop(
               cap.cleanup()
             }
 
-            // Determine exit reason for telemetry
+            // 为 telemetry 判断退出原因。
             const exitReason =
               hbResult === 'auth_failed' || hbResult === 'fatal'
                 ? hbResult
@@ -704,21 +696,22 @@ export async function runBridgeLoop(
               active_sessions: activeSessions.size,
             })
             if (exitReason === 'poll_due') {
-              // bridgeApi throttles empty-poll logs (EMPTY_POLL_LOG_INTERVAL=100)
-              // so the once-per-10min poll_due poll is invisible at counter=2.
-              // Log it here so verification runs see both endpoints in the debug log.
+              // bridgeApi 会对 empty-poll 日志做节流（EMPTY_POLL_LOG_INTERVAL=100），
+              // 因而这个每 10 分钟一次的 poll_due poll 在 counter=2 时不可见。
+              // 这里补打一条日志，便于验证时在 debug log 中看到两个 endpoint。
               logForDebugging(
                 `[bridge:poll] Heartbeat poll_due after ${hbCycles} cycles — falling through to pollForWork`,
               )
             }
 
-            // On auth_failed or fatal, sleep before polling to avoid a tight
-            // poll+heartbeat loop. Auth_failed: heartbeatActiveWorkItems
-            // already called reconnectSession — the sleep gives the server
-            // time to propagate the re-queue. Fatal (404/410): may be a
-            // single work item GCd while the environment is still valid.
-            // Use atCapMs if enabled, else the heartbeat interval as a floor
-            // (guaranteed > 0 here) so heartbeat-only configs don't tight-loop.
+            // 遇到 auth_failed 或 fatal 时，在下一次 poll 前先 sleep，
+            // 避免形成紧密的 poll+heartbeat 死循环。对于 auth_failed，
+            // heartbeatActiveWorkItems 已经调用过 reconnectSession，
+            // 这里的 sleep 是给服务端留出传播重新入队结果的时间。
+            // 对 fatal（404/410）来说，也可能只是某个 work item 被 GC，
+            // environment 本身仍然有效。
+            // 优先使用 atCapMs；如果没启用，就以 heartbeat 间隔作为下限
+            // （这里保证大于 0），避免仅 heartbeat 配置出现紧密循环。
             if (hbResult === 'auth_failed' || hbResult === 'fatal') {
               const cap = capacityWake.signal()
               await sleep(
@@ -730,7 +723,7 @@ export async function runBridgeLoop(
               cap.cleanup()
             }
           } else if (atCapMs > 0) {
-            // Heartbeat disabled: slow poll as liveness signal.
+            // heartbeat 已禁用：退回到慢速 poll，作为存活信号。
             const cap = capacityWake.signal()
             await sleep(atCapMs, cap.signal)
             cap.cleanup()
@@ -745,23 +738,21 @@ export async function runBridgeLoop(
         continue
       }
 
-      // At capacity — we polled to keep the heartbeat alive, but cannot
-      // accept new work right now. We still enter the switch below so that
-      // token refreshes for existing sessions are processed (the case
-      // 'session' handler checks for existing sessions before the inner
-      // capacity guard).
+      // 当前已满载。我们这次 poll 只是为了维持 heartbeat，
+      // 但此刻不能接收新的 work。即便如此，仍然要进入下面的 switch，
+      // 以便处理现有 session 的 token 刷新
+      // （'session' 分支会在内部 capacity guard 之前先检查 existing session）。
       const atCapacityBeforeSwitch = activeSessions.size >= config.maxSessions
 
-      // Skip work items that have already been completed and stopped.
-      // The server may re-deliver stale work before processing our stop
-      // request, which would otherwise cause a duplicate session spawn.
+      // 跳过那些已经完成并且 stop 过的 work item。
+      // 服务端可能会在处理完我们的 stop 请求前重新投递陈旧 work，
+      // 否则这里会导致重复启动同一个 session。
       if (completedWorkIds.has(work.id)) {
         logForDebugging(
           `[bridge:work] Skipping already-completed workId=${work.id}`,
         )
-        // Respect capacity throttle — without a sleep here, persistent stale
-        // redeliveries would tight-loop at poll-request speed (the !work
-        // branch above is the only sleep, and work != null skips it).
+        // 遵守 capacity throttle。否则持续的陈旧重投会以 poll 请求速度形成紧密循环
+        // （上面的 !work 分支是唯一会 sleep 的地方，而 work != null 会跳过它）。
         if (atCapacityBeforeSwitch) {
           const cap = capacityWake.signal()
           if (pollConfig.non_exclusive_heartbeat_interval_ms > 0) {
@@ -783,8 +774,8 @@ export async function runBridgeLoop(
         continue
       }
 
-      // Decode the work secret for session spawning and to extract the JWT
-      // used for the ack call below.
+      // 解码 work secret，用于后续启动 session，
+      // 以及提取下面 ack 调用所需的 JWT。
       let secret
       try {
         secret = decodeWorkSecret(work.secret)
@@ -794,9 +785,9 @@ export async function runBridgeLoop(
           `Failed to decode work secret for workId=${work.id}: ${errMsg}`,
         )
         logEvent('tengu_bridge_work_secret_failed', {})
-        // Can't ack (needs the JWT we failed to decode). stopWork uses OAuth,
-        // so it's callable here — prevents XAUTOCLAIM from re-delivering this
-        // poisoned item every reclaim_older_than_ms cycle.
+        // 无法 ack，因为 ack 需要我们刚才解码失败的 JWT。这里仍可以调用使用 OAuth 的
+        // stopWork，从而避免这个毒化 item 在每个 reclaim_older_than_ms 周期里
+        // 被 XAUTOCLAIM 反复重新投递。
         completedWorkIds.add(work.id)
         trackCleanup(
           stopWorkWithRetry(
@@ -807,9 +798,8 @@ export async function runBridgeLoop(
             backoffConfig.stopWorkBaseDelayMs,
           ),
         )
-        // Respect capacity throttle before retrying — without a sleep here,
-        // repeated decode failures at capacity would tight-loop at
-        // poll-request speed (work != null skips the !work sleep above).
+        // 在重试前同样遵守 capacity throttle。否则满载场景下反复解码失败会以
+        // poll 请求速度紧密循环（因为 work != null，会跳过上方 !work 的 sleep）。
         if (atCapacityBeforeSwitch) {
           const cap = capacityWake.signal()
           if (pollConfig.non_exclusive_heartbeat_interval_ms > 0) {
@@ -829,11 +819,11 @@ export async function runBridgeLoop(
         continue
       }
 
-      // Explicitly acknowledge after committing to handle the work — NOT
-      // before. The at-capacity guard inside case 'session' can break
-      // without spawning; acking there would permanently lose the work.
-      // Ack failures are non-fatal: server re-delivers, and existingHandle
-      // / completedWorkIds paths handle the dedup.
+      // 只有在确认要处理该 work 之后才显式 ack，而不是更早。
+      // case 'session' 内部的 at-capacity guard 可能会在未真正 spawn 的情况下直接 break；
+      // 如果在那里提前 ack，就会把这个 work 永久丢失。
+      // ack 失败不是致命错误：服务端会重新投递，后面的 existingHandle
+      // / completedWorkIds 路径会负责去重。
       const ackWork = async (): Promise<void> => {
         logForDebugging(`[bridge:work] Acknowledging workId=${work.id}`)
         try {
@@ -866,17 +856,16 @@ export async function runBridgeLoop(
             break
           }
 
-          // If the session is already running, deliver the fresh token so
-          // the child process can reconnect its WebSocket with the new
-          // session ingress token. This handles the case where the server
-          // re-dispatches work for an existing session after the WS drops.
+          // 如果该 session 已经在运行，就把新 token 送过去，
+          // 让子进程能用新的 session ingress token 重新连上 WebSocket。
+          // 这处理的是服务端在 WS 断开后，给已有 session 重新分发 work 的场景。
           const existingHandle = activeSessions.get(sessionId)
           if (existingHandle) {
             existingHandle.updateAccessToken(secret.session_ingress_token)
             sessionIngressTokens.set(sessionId, secret.session_ingress_token)
             sessionWorkIds.set(sessionId, work.id)
-            // Re-schedule next refresh from the fresh JWT's expiry. onRefresh
-            // branches on v2Sessions so both v1 and v2 are safe here.
+            // 基于新 JWT 的过期时间重新安排下一次刷新。
+            // onRefresh 会根据 v2Sessions 分支处理，因此这里对 v1 和 v2 都安全。
             tokenRefresh?.schedule(sessionId, secret.session_ingress_token)
             logForDebugging(
               `[bridge:work] Updated access token for existing sessionId=${sessionId} workId=${work.id}`,
@@ -885,9 +874,9 @@ export async function runBridgeLoop(
             break
           }
 
-          // At capacity — token refresh for existing sessions is handled
-          // above, but we cannot spawn new ones. The post-switch capacity
-          // sleep will throttle the loop; just break here.
+          // 已达到容量上限。已有 session 的 token 刷新在上面已经处理，
+          // 但此时不能再启动新的 session。switch 之后的 capacity sleep
+          // 会给循环做节流，这里直接 break 即可。
           if (activeSessions.size >= config.maxSessions) {
             logForDebugging(
               `[bridge:work] At capacity (${activeSessions.size}/${config.maxSessions}), cannot spawn new session for workId=${work.id}`,
@@ -898,26 +887,26 @@ export async function runBridgeLoop(
           await ackWork()
           const spawnStartTime = Date.now()
 
-          // CCR v2 path: register this bridge as the session worker, get the
-          // epoch, and point the child at /v1/code/sessions/{id}. The child
-          // already has the full v2 client (SSETransport + CCRClient) — same
-          // code path environment-manager launches in containers.
+          // CCR v2 路径：把当前 bridge 注册成这个 session 的 worker，拿到
+          // epoch，并把子进程指向 /v1/code/sessions/{id}。子进程本身已经带有完整的
+          // v2 client（SSETransport + CCRClient），与 environment-manager
+          // 在容器里启动时使用的是同一条代码路径。
           //
-          // v1 path: Session-Ingress WebSocket. Uses config.sessionIngressUrl
-          // (not secret.api_base_url, which may point to a remote proxy tunnel
-          // that doesn't know about locally-created sessions).
+          // v1 路径：Session-Ingress WebSocket。这里使用 config.sessionIngressUrl，
+          // 而不是 secret.api_base_url，因为后者可能指向一个并不了解
+          // 本地创建 session 的 remote proxy tunnel。
           let sdkUrl: string
           let useCcrV2 = false
           let workerEpoch: number | undefined
-          // Server decides per-session via the work secret; env var is the
-          // ant-dev override (e.g. forcing v2 before the server flag is on).
+          // 具体走哪条路径由服务端通过 work secret 按 session 决定；
+          // 环境变量只是 ant-dev 的覆盖开关（例如在服务端 flag 打开前强制启用 v2）。
           if (
             secret.use_code_sessions === true ||
             isEnvTruthy(process.env.CLAUDE_BRIDGE_USE_CCR_V2)
           ) {
             sdkUrl = buildCCRv2SdkUrl(config.apiBaseUrl, sessionId)
-            // Retry once on transient failure (network blip, 500) before
-            // permanently giving up and killing the session.
+            // 对瞬时失败（网络抖动、500）额外重试一次，
+            // 再决定永久放弃并杀掉该 session。
             for (let attempt = 1; attempt <= 2; attempt++) {
               try {
                 workerEpoch = await registerWorker(
@@ -960,16 +949,15 @@ export async function runBridgeLoop(
             sdkUrl = buildSdkUrl(config.sessionIngressUrl, sessionId)
           }
 
-          // In worktree mode, on-demand sessions get an isolated git worktree
-          // so concurrent sessions don't interfere with each other's file
-          // changes. The pre-created initial session (if any) runs in
-          // config.dir so the user's first session lands in the directory they
-          // invoked `rc` from — matching the old single-session UX.
-          // In same-dir and single-session modes, all sessions share config.dir.
-          // Capture spawnMode before the await below — the `w` key handler
-          // mutates config.spawnMode directly, and createAgentWorktree can
-          // take 1-2s, so reading config.spawnMode after the await can
-          // produce contradictory analytics (spawn_mode:'same-dir', in_worktree:true).
+          // 在 worktree 模式下，按需创建的 session 会获得独立的 git worktree，
+          // 避免并发 session 互相干扰文件修改。预创建的初始 session（如果有）
+          // 仍运行在 config.dir 中，这样用户的第一个 session 会落在他们执行 `rc`
+          // 时所在的目录里，与旧的 single-session 体验一致。
+          // 在 same-dir 和 single-session 模式下，所有 session 都共用 config.dir。
+          // 注意在下面 await 之前先捕获 spawnMode：`w` 键处理器会直接修改
+          // config.spawnMode，而 createAgentWorktree 可能耗时 1-2 秒，
+          // 如果 await 之后再读，就可能产出自相矛盾的埋点
+          // （spawn_mode:'same-dir'，但 in_worktree:true）。
           const spawnModeAtDecision = config.spawnMode
           let sessionDir = config.dir
           let worktreeCreateMs = 0
@@ -1018,9 +1006,9 @@ export async function runBridgeLoop(
             `[bridge:session] Spawning sessionId=${sessionId} sdkUrl=${sdkUrl}`,
           )
 
-          // compat-surface session_* form for logger/Sessions-API calls.
-          // Work poll returns cse_* under v2 compat; convert before spawn so
-          // the onFirstUserMessage callback can close over it.
+          // 为 logger / Sessions API 调用准备 compat surface 的 session_* 形式。
+          // 在 v2 compat 下，work poll 可能返回 cse_*，因此要在 spawn 前完成转换，
+          // 让 onFirstUserMessage 回调闭包捕获的是 compat 形式。
           const compatSessionId = toCompatSessionId(sessionId)
 
           const spawnResult = safeSpawn(
@@ -1032,10 +1020,10 @@ export async function runBridgeLoop(
               useCcrV2,
               workerEpoch,
               onFirstUserMessage: text => {
-                // Server-set titles (--name, web rename) win. fetchSessionTitle
-                // runs concurrently; if it already populated titledSessions,
-                // skip. If it hasn't resolved yet, the derived title sticks —
-                // acceptable since the server had no title at spawn time.
+                // 服务端设置的标题（--name、Web rename）优先级更高。
+                // fetchSessionTitle 会并发执行；如果它已经填充了 titledSessions，
+                // 这里就跳过。若它尚未返回，那么派生标题就会保留下来，
+                // 这也是可接受的，因为 spawn 时服务端本来就还没有标题。
                 if (titledSessions.has(compatSessionId)) return
                 titledSessions.add(compatSessionId)
                 const title = deriveSessionTitle(text)
@@ -1063,7 +1051,7 @@ export async function runBridgeLoop(
             logger.logError(
               `Failed to spawn session ${sessionId}: ${spawnResult}`,
             )
-            // Clean up worktree if one was created for this session
+            // 如果已经为该 session 创建了 worktree，这里要顺手清理掉。
             const wt = sessionWorktrees.get(sessionId)
             if (wt) {
               sessionWorktrees.delete(sessionId)
@@ -1119,10 +1107,10 @@ export async function runBridgeLoop(
           const startTime = Date.now()
           sessionStartTimes.set(sessionId, startTime)
 
-          // Use a generic prompt description since we no longer get startup_context
+          // 由于不再拿到 startup_context，这里使用一个通用的 prompt 描述。
           logger.logSessionStart(sessionId, `Session ${sessionId}`)
 
-          // Compute the actual debug file path (mirrors sessionRunner.ts logic)
+          // 计算实际的 debug 文件路径（与 sessionRunner.ts 的逻辑保持一致）。
           const safeId = safeFilenameId(sessionId)
           let sessionDebugFile: string | undefined
           if (config.debugFile) {
@@ -1144,21 +1132,20 @@ export async function runBridgeLoop(
             logger.logVerbose(`Debug log: ${sessionDebugFile}`)
           }
 
-          // Register in the sessions Map before starting status updates so the
-          // first render tick shows the correct count and bullet list in sync.
+          // 在启动状态更新前先注册到 sessions Map，
+          // 这样第一次渲染 tick 就能显示正确的计数，并让项目符号列表保持同步。
           logger.addSession(
             compatSessionId,
             getRemoteSessionUrl(compatSessionId, config.sessionIngressUrl),
           )
 
-          // Start live status updates and transition to "Attached" state.
+          // 启动实时状态更新，并切换到 "Attached" 状态。
           startStatusUpdates()
           logger.setAttached(compatSessionId)
 
-          // One-shot title fetch. If the session already has a title (set via
-          // --name, web rename, or /remote-control), display it and mark as
-          // titled so the first-user-message fallback doesn't overwrite it.
-          // Otherwise onFirstUserMessage derives one from the first prompt.
+          // 一次性的标题拉取。如果 session 已经有标题（来自 --name、Web rename
+          // 或 /remote-control），就显示并标记为 titled，避免 first-user-message
+          // 回退逻辑把它覆盖。否则就由 onFirstUserMessage 从第一条 prompt 派生标题。
           void fetchSessionTitle(compatSessionId, config.apiBaseUrl)
             .then(title => {
               if (title && activeSessions.has(sessionId)) {
@@ -1176,7 +1163,7 @@ export async function runBridgeLoop(
               ),
             )
 
-          // Start per-session timeout watchdog
+          // 启动每个 session 的超时 watchdog。
           const timeoutMs =
             config.sessionTimeoutMs ?? DEFAULT_SESSION_TIMEOUT_MS
           if (timeoutMs > 0) {
@@ -1192,9 +1179,9 @@ export async function runBridgeLoop(
             sessionTimers.set(sessionId, timer)
           }
 
-          // Schedule proactive token refresh before the JWT expires.
-          // onRefresh branches on v2Sessions: v1 delivers OAuth to the
-          // child, v2 triggers server re-dispatch via reconnectSession.
+          // 在 JWT 过期前安排主动 token 刷新。
+          // onRefresh 会根据 v2Sessions 分支：v1 直接把 OAuth 送给子进程，
+          // v2 则通过 reconnectSession 触发服务端重新分发。
           if (useCcrV2) {
             v2Sessions.add(sessionId)
           }
@@ -1205,18 +1192,18 @@ export async function runBridgeLoop(
         }
         default:
           await ackWork()
-          // Gracefully ignore unknown work types. The backend may send new
-          // types before the bridge client is updated.
+          // 平滑忽略未知 work 类型。后端可能会在 bridge client 更新前
+          // 就先开始发送新的类型。
           logForDebugging(
             `[bridge:work] Unknown work type: ${workType}, skipping`,
           )
           break
       }
 
-      // When at capacity, throttle the loop. The switch above still runs so
-      // existing-session token refreshes are processed, but we sleep here
-      // to avoid busy-looping. Include the capacity wake signal so the
-      // sleep is interrupted immediately when a session completes.
+      // 在达到容量上限时，对循环做节流。上面的 switch 仍会执行，
+      // 这样已有 session 的 token 刷新还能被处理；但这里仍要 sleep，
+      // 避免形成 busy loop。同时把 capacity wake signal 也纳入等待，
+      // 这样某个 session 一结束就能立刻中断休眠。
       if (atCapacityBeforeSwitch) {
         const cap = capacityWake.signal()
         if (pollConfig.non_exclusive_heartbeat_interval_ms > 0) {
@@ -1238,15 +1225,15 @@ export async function runBridgeLoop(
         break
       }
 
-      // Fatal errors (401/403) — no point retrying, auth won't fix itself
+      // 致命错误（401/403）没有重试价值，鉴权问题不会自己恢复。
       if (err instanceof BridgeFatalError) {
         fatalExit = true
-        // Server-enforced expiry gets a clean status message, not an error
+        // 服务端强制过期只展示干净的状态消息，不记为错误。
         if (isExpiredErrorType(err.errorType)) {
           logger.logStatus(err.message)
         } else if (isSuppressible403(err)) {
-          // Cosmetic 403 errors (e.g., external_poll_sessions scope,
-          // environments:manage permission) — don't show to user
+          // 外观层面的 403 错误（例如 external_poll_sessions scope、
+          // environments:manage 权限）不展示给用户。
           logForDebugging(`[bridge:work] Suppressed 403 error: ${err.message}`)
         } else {
           logger.logError(err.message)
@@ -1270,9 +1257,9 @@ export async function runBridgeLoop(
       if (isConnectionError(err) || isServerError(err)) {
         const now = Date.now()
 
-        // Detect system sleep/wake: if the gap since the last poll error
-        // greatly exceeds the expected backoff, the machine likely slept.
-        // Reset error tracking so the bridge retries with a fresh budget.
+        // 检测系统休眠/唤醒：如果距离上次 poll 错误的间隔远大于预期退避，
+        // 说明机器很可能睡眠过。此时要重置错误跟踪，
+        // 让 bridge 用全新的预算继续重试。
         if (
           lastPollErrorTime !== null &&
           now - lastPollErrorTime > pollSleepDetectionThresholdMs(backoffConfig)
@@ -1311,7 +1298,7 @@ export async function runBridgeLoop(
           break
         }
 
-        // Reset the other track when switching error types
+        // 当错误类型切换时，重置另一条跟踪轨道。
         generalErrorStart = null
         generalBackoff = 0
 
@@ -1326,11 +1313,10 @@ export async function runBridgeLoop(
           formatDelay(delay),
           formatDuration(elapsed),
         )
-        // The poll_due heartbeat-loop exit leaves a healthy lease exposed to
-        // this backoff path. Heartbeat before each sleep so /poll outages
-        // (the VerifyEnvironmentSecretAuth DB path heartbeat was introduced
-        // to avoid) don't kill the 300s lease TTL. No-op when activeSessions
-        // is empty or heartbeat is disabled.
+        // 由于 heartbeat loop 以 poll_due 退出时，lease 仍然是健康的，
+        // 所以这里在每次 sleep 前都补一次 heartbeat，避免 /poll 故障
+        // （也就是引入 VerifyEnvironmentSecretAuth DB path heartbeat 要规避的问题）
+        // 导致 300s 的 lease TTL 被耗尽。activeSessions 为空或 heartbeat 被禁用时为 no-op。
         if (getPollIntervalConfig().non_exclusive_heartbeat_interval_ms > 0) {
           await heartbeatActiveWorkItems()
         }
@@ -1338,7 +1324,7 @@ export async function runBridgeLoop(
       } else {
         const now = Date.now()
 
-        // Sleep detection for general errors (same logic as connection errors)
+        // 对一般错误也做休眠检测（逻辑与连接错误相同）。
         if (
           lastPollErrorTime !== null &&
           now - lastPollErrorTime > pollSleepDetectionThresholdMs(backoffConfig)
@@ -1377,7 +1363,7 @@ export async function runBridgeLoop(
           break
         }
 
-        // Reset the other track when switching error types
+        // 当错误类型切换时，重置另一条跟踪轨道。
         connErrorStart = null
         connBackoff = 0
 
@@ -1400,7 +1386,7 @@ export async function runBridgeLoop(
     }
   }
 
-  // Clean up
+  // 清理收尾。
   stopStatusUpdates()
   logger.clearStatus()
 
@@ -1414,20 +1400,18 @@ export async function runBridgeLoop(
     loop_duration_ms: loopDurationMs,
   })
 
-  // Graceful shutdown: kill active sessions, report them as interrupted,
-  // archive sessions, then deregister the environment so the web UI shows
-  // the bridge as offline.
+  // 优雅关闭流程：杀掉活跃 session，将它们标记为 interrupted，
+  // 归档 session，然后注销 environment，让 Web UI 显示 bridge 已离线。
 
-  // Collect all session IDs to archive on exit. This includes:
-  // 1. Active sessions (snapshot before killing — onSessionDone clears maps)
-  // 2. The initial auto-created session (may never have had work dispatched)
-  // api.archiveSession is idempotent (409 if already archived), so
-  // double-archiving is safe.
+  // 收集退出时需要归档的全部 session ID，包括：
+  // 1. 活跃 session（在 kill 前抓快照，因为 onSessionDone 会清掉这些 map）
+  // 2. 初始自动创建的 session（它可能从未真正拿到过 work）
+  // api.archiveSession 是幂等的（已归档时返回 409），因此重复归档是安全的。
   const sessionsToArchive = new Set(activeSessions.keys())
   if (initialSessionId) {
     sessionsToArchive.add(initialSessionId)
   }
-  // Snapshot before killing — onSessionDone clears sessionCompatIds.
+  // 在 kill 前抓一个快照，因为 onSessionDone 会清掉 sessionCompatIds。
   const compatIdSnapshot = new Map(sessionCompatIds)
 
   if (activeSessions.size > 0) {
@@ -1438,8 +1422,8 @@ export async function runBridgeLoop(
       `Shutting down ${activeSessions.size} active session(s)\u2026`,
     )
 
-    // Snapshot work IDs before killing — onSessionDone clears the maps when
-    // each child exits, so we need a copy for the stopWork calls below.
+    // 在 kill 前抓 work ID 快照，因为每个子进程退出时 onSessionDone 会清这些 map；
+    // 下面的 stopWork 调用要用到这份拷贝。
     const shutdownWorkIds = new Map(sessionWorkIds)
 
     for (const [sessionId, handle] of activeSessions.entries()) {
@@ -1456,23 +1440,22 @@ export async function runBridgeLoop(
     ])
     timeout.abort()
 
-    // SIGKILL any processes that didn't respond to SIGTERM within the grace window
+    // 对那些在宽限期内没有响应 SIGTERM 的进程发送 SIGKILL。
     for (const [sid, handle] of activeSessions.entries()) {
       logForDebugging(`[bridge:shutdown] Force-killing stuck sessionId=${sid}`)
       handle.forceKill()
     }
 
-    // Clear any remaining session timeout and refresh timers
+    // 清理残留的 session 超时定时器和刷新定时器。
     for (const timer of sessionTimers.values()) {
       clearTimeout(timer)
     }
     sessionTimers.clear()
     tokenRefresh?.cancelAll()
 
-    // Clean up any remaining worktrees from active sessions.
-    // Snapshot and clear the map first so onSessionDone (which may fire
-    // during the await below when handle.done resolves) won't try to
-    // remove the same worktrees again.
+    // 清理所有仍然残留的活跃 session worktree。
+    // 先抓快照并清空 map，这样下面 await 期间即使 handle.done 触发了 onSessionDone，
+    // 也不会再次尝试删除同一批 worktree。
     if (sessionWorktrees.size > 0) {
       const remainingWorktrees = [...sessionWorktrees.values()]
       sessionWorktrees.clear()
@@ -1491,7 +1474,7 @@ export async function runBridgeLoop(
       )
     }
 
-    // Stop all active work items so the server knows they're done
+    // 停掉所有活跃 work item，让服务端知道它们已经结束。
     await Promise.allSettled(
       [...shutdownWorkIds.entries()].map(([sessionId, workId]) => {
         return api
@@ -1505,23 +1488,21 @@ export async function runBridgeLoop(
     )
   }
 
-  // Ensure all in-flight cleanup (stopWork, worktree removal) from
-  // onSessionDone completes before deregistering — otherwise
-  // process.exit() can kill them mid-flight.
+  // 确保 onSessionDone 发起的所有进行中 cleanup（stopWork、worktree 删除）
+  // 都在 deregister 之前完成，否则 process.exit() 可能会把它们在半路杀掉。
   if (pendingCleanups.size > 0) {
     await Promise.allSettled([...pendingCleanups])
   }
 
-  // In single-session mode with a known session, leave the session and
-  // environment alive so `claude remote-control --session-id=<id>` can resume.
-  // The backend GCs stale environments via a 4h TTL (BRIDGE_LAST_POLL_TTL).
-  // Archiving the session or deregistering the environment would make the
-  // printed resume command a lie — deregister deletes Firestore + Redis stream.
-  // Skip when the loop exited fatally (env expired, auth failed, give-up) —
-  // resume is impossible in those cases and the message would contradict the
-  // error already printed.
-  // feature('KAIROS') gate: --session-id is ant-only; without the gate,
-  // revert to the pre-PR behavior (archive + deregister on every shutdown).
+  // 在 single-session 模式且已知 session ID 的情况下，保留 session 与 environment，
+  // 这样 `claude remote-control --session-id=<id>` 还能恢复。
+  // 后端会通过 4 小时 TTL（BRIDGE_LAST_POLL_TTL）清理陈旧 environment。
+  // 如果归档 session 或注销 environment，就会让打印出来的 resume 命令变成假话，
+  // 因为 deregister 会删除 Firestore + Redis stream。
+  // 如果循环是因致命错误退出（env 过期、鉴权失败、give-up），这里就跳过，
+  // 因为那种情况下无法恢复，而且提示信息会与上面已经打印的错误相冲突。
+  // feature('KAIROS') gate：--session-id 仅对 ant 用户开放；没有这个 gate 时，
+  // 仍退回到 PR 之前的行为（每次 shutdown 都 archive + deregister）。
   if (
     feature('KAIROS') &&
     config.spawnMode === 'single-session' &&
@@ -1537,8 +1518,8 @@ export async function runBridgeLoop(
     return
   }
 
-  // Archive all known sessions so they don't linger as idle/running on the
-  // server after the bridge goes offline.
+  // 归档所有已知 session，避免在 bridge 离线后它们仍以 idle/running 的形式
+  // 留在服务端。
   if (sessionsToArchive.size > 0) {
     logForDebugging(
       `[bridge:shutdown] Archiving ${sessionsToArchive.size} session(s)`,
@@ -1558,8 +1539,8 @@ export async function runBridgeLoop(
     )
   }
 
-  // Deregister the environment so the web UI shows the bridge as offline
-  // and the Redis stream is cleaned up.
+  // 注销 environment，让 Web UI 显示 bridge 已离线，
+  // 同时清理对应的 Redis stream。
   try {
     await api.deregisterEnvironment(environmentId)
     logForDebugging(
@@ -1570,9 +1551,9 @@ export async function runBridgeLoop(
     logger.logVerbose(`Failed to deregister environment: ${errorMessage(err)}`)
   }
 
-  // Clear the crash-recovery pointer — the env is gone, pointer would be
-  // stale. The early return above (resumable SIGINT shutdown) skips this,
-  // leaving the pointer as a backup for the printed --session-id hint.
+  // 清理 crash-recovery pointer，因为 env 已不存在，pointer 也会变陈旧。
+  // 上面那条可恢复的 SIGINT shutdown 早返回路径会跳过这里，
+  // 从而让该 pointer 继续作为打印出来的 --session-id 提示的后备信息。
   const { clearBridgePointer } = await import('./bridgePointer.js')
   await clearBridgePointer(config.dir)
 
@@ -1600,7 +1581,7 @@ export function isConnectionError(err: unknown): boolean {
   return false
 }
 
-/** Detect HTTP 5xx errors from axios (code: 'ERR_BAD_RESPONSE'). */
+/** 检测 axios 抛出的 HTTP 5xx 错误（code: 'ERR_BAD_RESPONSE'）。 */
 export function isServerError(err: unknown): boolean {
   return (
     !!err &&
@@ -1611,7 +1592,7 @@ export function isServerError(err: unknown): boolean {
   )
 }
 
-/** Add ±25% jitter to a delay value. */
+/** 为一个延迟值增加 ±25% 的抖动。 */
 function addJitter(ms: number): number {
   return Math.max(0, ms + ms * 0.25 * (2 * Math.random() - 1))
 }
@@ -1621,8 +1602,8 @@ function formatDelay(ms: number): string {
 }
 
 /**
- * Retry stopWork with exponential backoff (3 attempts, 1s/2s/4s).
- * Ensures the server learns the work item ended, preventing server-side zombies.
+ * 以指数退避方式重试 stopWork（3 次，1s/2s/4s）。
+ * 这样可以确保服务端知道该 work item 已经结束，避免产生服务端 zombie。
  */
 async function stopWorkWithRetry(
   api: BridgeApiClient,
@@ -1641,7 +1622,7 @@ async function stopWorkWithRetry(
       )
       return
     } catch (err) {
-      // Auth/permission errors won't be fixed by retrying
+      // 鉴权/权限错误靠重试无法修复。
       if (err instanceof BridgeFatalError) {
         if (isSuppressible403(err)) {
           logForDebugging(
@@ -1703,15 +1684,15 @@ export type ParsedArgs = {
   sessionTimeoutMs?: number
   permissionMode?: string
   name?: string
-  /** Value passed to --spawn (if any); undefined if no --spawn flag was given. */
+  /** 传给 --spawn 的值（如果有）；若未提供 --spawn，则为 undefined。 */
   spawnMode: SpawnMode | undefined
-  /** Value passed to --capacity (if any); undefined if no --capacity flag was given. */
+  /** 传给 --capacity 的值（如果有）；若未提供 --capacity，则为 undefined。 */
   capacity: number | undefined
-  /** --[no-]create-session-in-dir override; undefined = use default (on). */
+  /** --[no-]create-session-in-dir 的覆盖值；undefined 表示使用默认值（开启）。 */
   createSessionInDir: boolean | undefined
-  /** Resume an existing session instead of creating a new one. */
+  /** 恢复一个已有 session，而不是创建新的 session。 */
   sessionId?: string
-  /** Resume the last session in this directory (reads bridge-pointer.json). */
+  /** 恢复该目录中的最近一个 session（会读取 bridge-pointer.json）。 */
   continueSession: boolean
   help: boolean
   error?: string
@@ -1825,19 +1806,19 @@ export function parseArgs(args: string[]): ParsedArgs {
     }
   }
 
-  // Note: gate check for --spawn/--capacity/--create-session-in-dir is in bridgeMain
-  // (gate-aware error). Flag cross-validation happens here.
+  // 注意：--spawn/--capacity/--create-session-in-dir 的 gate 检查在 bridgeMain 中完成
+  // （那里能返回带 gate 感知的错误）。这里负责 flag 之间的交叉校验。
 
-  // --capacity only makes sense for multi-session modes.
+  // --capacity 只对 multi-session 模式有意义。
   if (spawnMode === 'single-session' && capacity !== undefined) {
     return makeError(
       `--capacity cannot be used with --spawn=session (single-session mode has fixed capacity 1).`,
     )
   }
 
-  // --session-id / --continue resume a specific session on its original
-  // environment; incompatible with spawn-related flags (which configure
-  // fresh session creation), and mutually exclusive with each other.
+  // --session-id / --continue 会在原始 environment 上恢复某个特定 session；
+  // 因此与 spawn 相关 flag（它们用于配置新 session 的创建）不兼容，
+  // 并且二者彼此也互斥。
   if (
     (sessionId || continueSession) &&
     (spawnMode !== undefined ||
@@ -1887,8 +1868,8 @@ export function parseArgs(args: string[]): ParsedArgs {
 }
 
 async function printHelp(): Promise<void> {
-  // Use EXTERNAL_PERMISSION_MODES for help text — internal modes (bubble)
-  // are ant-only and auto is feature-gated; they're still accepted by validation.
+  // 帮助文本里使用 EXTERNAL_PERMISSION_MODES。内部模式（bubble）仅对 ant 开放，
+  // 而 auto 又受 feature gate 控制；不过校验逻辑仍然会接受这些值。
   const { EXTERNAL_PERMISSION_MODES } = await import('../types/permissions.js')
   const modes = EXTERNAL_PERMISSION_MODES.join(', ')
   const showServer = await isMultiSessionSpawnEnabled()
@@ -1952,21 +1933,20 @@ ${serverNote}`
 
 const TITLE_MAX_LEN = 80
 
-/** Derive a session title from a user message: first line, truncated. */
+/** 根据用户消息派生 session 标题：取第一行并截断。 */
 function deriveSessionTitle(text: string): string {
-  // Collapse whitespace — newlines/tabs would break the single-line status display.
+  // 折叠空白字符，否则换行和制表符会破坏单行状态显示。
   const flat = text.replace(/\s+/g, ' ').trim()
   return truncateToWidth(flat, TITLE_MAX_LEN)
 }
 
 /**
- * One-shot fetch of a session's title via GET /v1/sessions/{id}.
+ * 通过 GET /v1/sessions/{id} 一次性拉取 session 标题。
  *
- * Uses `getBridgeSession` from createSession.ts (ccr-byoc headers + org UUID)
- * rather than the environments-level bridgeApi client, whose headers make the
- * Sessions API return 404. Returns undefined if the session has no title yet
- * or the fetch fails — the caller falls back to deriving a title from the
- * first user message.
+ * 这里使用 createSession.ts 中的 `getBridgeSession`（ccr-byoc headers + org UUID），
+ * 而不是面向 environments 的 bridgeApi client，因为后者的 headers 会让
+ * Sessions API 返回 404。如果 session 还没有标题，或拉取失败，则返回 undefined，
+ * 调用方会回退到从第一条用户消息派生标题。
  */
 async function fetchSessionTitle(
   compatSessionId: string,
@@ -2004,13 +1984,13 @@ export async function bridgeMain(args: string[]): Promise<void> {
     sessionId: parsedSessionId,
     continueSession,
   } = parsed
-  // Mutable so --continue can set it from the pointer file. The #20460
-  // resume flow below then treats it the same as an explicit --session-id.
+  // 这里需要可变，便于 --continue 从 pointer 文件中写入它。
+  // 下面的 #20460 恢复流程会把它与显式传入的 --session-id 等同处理。
   let resumeSessionId = parsedSessionId
-  // When --continue found a pointer, this is the directory it came from
-  // (may be a worktree sibling, not `dir`). On resume-flow deterministic
-  // failure, clear THIS file so --continue doesn't keep hitting the same
-  // dead session. Undefined for explicit --session-id (leaves pointer alone).
+  // 当 --continue 找到 pointer 时，这里记录它来自哪个目录
+  // （可能是某个 worktree 同级目录，而不是当前 `dir`）。
+  // 如果恢复流程发生确定性失败，就清理这个文件，避免 --continue 一直命中
+  // 同一个已失效 session。显式 --session-id 则保持 undefined，不去碰 pointer。
   let resumePointerDir: string | undefined
 
   const usedMultiSessionFeature =
@@ -2018,8 +1998,7 @@ export async function bridgeMain(args: string[]): Promise<void> {
     parsedCapacity !== undefined ||
     parsedCreateSessionInDir !== undefined
 
-  // Validate permission mode early so the user gets an error before
-  // the bridge starts polling for work.
+  // 尽早校验 permission mode，让用户在 bridge 开始轮询 work 之前就看到错误。
   if (permissionMode !== undefined) {
     const { PERMISSION_MODES } = await import('../types/permissions.js')
     const valid: readonly string[] = PERMISSION_MODES
@@ -2035,23 +2014,23 @@ export async function bridgeMain(args: string[]): Promise<void> {
 
   const dir = resolve('.')
 
-  // The bridge fast-path bypasses init.ts, so we must enable config reading
-  // before any code that transitively calls getGlobalConfig()
+  // bridge 的快速路径会绕过 init.ts，因此必须在任何会间接调用
+  // getGlobalConfig() 的代码之前先启用 config 读取。
   const { enableConfigs, checkHasTrustDialogAccepted } = await import(
     '../utils/config.js'
   )
   enableConfigs()
 
-  // Initialize analytics and error reporting sinks. The bridge bypasses the
-  // setup() init flow, so we call initSinks() directly to attach sinks here.
+  // 初始化 analytics 与错误上报 sinks。bridge 会绕过 setup() 的初始化流程，
+  // 所以这里直接调用 initSinks() 来挂载 sinks。
   const { initSinks } = await import('../utils/sinks.js')
   initSinks()
 
-  // Gate-aware validation: --spawn / --capacity / --create-session-in-dir require
-  // the multi-session gate. parseArgs has already validated flag combinations;
-  // here we only check the gate since that requires an async GrowthBook call.
-  // Runs after enableConfigs() (GrowthBook cache reads global config) and after
-  // initSinks() so the denial event can be enqueued.
+  // 带 gate 感知的校验：--spawn / --capacity / --create-session-in-dir
+  // 都要求 multi-session gate 开启。parseArgs 已经校验过 flag 组合；
+  // 这里仅检查 gate，因为这一步需要异步的 GrowthBook 调用。
+  // 它必须在 enableConfigs() 之后运行（GrowthBook 缓存会读取全局配置），
+  // 也要在 initSinks() 之后运行，这样拒绝事件才能被正确入队。
   const multiSessionEnabled = await isMultiSessionSpawnEnabled()
   if (usedMultiSessionFeature && !multiSessionEnabled) {
     await logEventAsync('tengu_bridge_multi_session_denied', {
@@ -2059,10 +2038,10 @@ export async function bridgeMain(args: string[]): Promise<void> {
       used_capacity: parsedCapacity !== undefined,
       used_create_session_in_dir: parsedCreateSessionInDir !== undefined,
     })
-    // logEventAsync only enqueues — process.exit() discards buffered events.
-    // Flush explicitly, capped at 500ms to match gracefulShutdown.ts.
-    // (sleep() doesn't unref its timer, but process.exit() follows immediately
-    // so the ref'd timer can't delay shutdown.)
+    // logEventAsync 只负责入队，而 process.exit() 会直接丢弃缓冲中的事件。
+    // 因此这里显式 flush，一并把上限控制在 500ms，与 gracefulShutdown.ts 保持一致。
+    // （sleep() 的定时器不会 unref，但后面立刻就会 process.exit()，
+    // 所以这个带引用的定时器也不会拖慢关闭。）
     await Promise.race([
       Promise.all([shutdown1PEventLogging(), shutdownDatadog()]),
       sleep(500, undefined, { unref: true }),
@@ -2075,14 +2054,14 @@ export async function bridgeMain(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  // Set the bootstrap CWD so that trust checks, project config lookups, and
-  // git utilities (getBranch, getRemoteUrl) resolve against the correct path.
+  // 设置 bootstrap CWD，让 trust 检查、项目配置查找以及 git 工具
+  // （getBranch、getRemoteUrl）都能基于正确路径解析。
   const { setOriginalCwd, setCwdState } = await import('../bootstrap/state.js')
   setOriginalCwd(dir)
   setCwdState(dir)
 
-  // The bridge bypasses main.tsx (which renders the interactive TrustDialog via showSetupScreens),
-  // so we must verify trust was previously established by a normal `claude` session.
+  // bridge 会绕过 main.tsx（后者会通过 showSetupScreens 渲染交互式 TrustDialog），
+  // 所以这里必须确认信任关系已经在正常 `claude` 会话中建立过。
   if (!checkHasTrustDialogAccepted()) {
     // biome-ignore lint/suspicious/noConsole:: intentional console output
     console.error(
@@ -2092,7 +2071,7 @@ export async function bridgeMain(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  // Resolve auth
+  // 解析鉴权信息。
   const { clearOAuthTokenCache, checkAndRefreshOAuthTokenIfNeeded } =
     await import('../utils/auth.js')
   const { getBridgeAccessToken, getBridgeBaseUrl } = await import(
@@ -2107,7 +2086,7 @@ export async function bridgeMain(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  // First-time remote dialog — explain what bridge does and get consent
+  // 首次使用 remote 的对话框：解释 bridge 的作用并征求用户同意。
   const {
     getGlobalConfig,
     saveGlobalConfig,
@@ -2138,14 +2117,14 @@ export async function bridgeMain(args: string[]): Promise<void> {
     }
   }
 
-  // --continue: resolve the most recent session from the crash-recovery
-  // pointer and chain into the #20460 --session-id flow. Worktree-aware:
-  // checks current dir first (fast path, zero exec), then fans out to git
-  // worktree siblings if that misses — the REPL bridge writes to
-  // getOriginalCwd() which EnterWorktreeTool/activeWorktreeSession can
-  // point at a worktree while the user's shell is at the repo root.
-  // KAIROS-gated at parseArgs — continueSession is always false in external
-  // builds, so this block tree-shakes.
+  // --continue：从 crash-recovery pointer 中解析最近的 session，
+  // 再串接到 #20460 的 --session-id 恢复流程。这里具备 worktree 感知能力：
+  // 会先检查当前目录（快路径，不执行外部命令），如果没命中，再扩散到 git
+  // worktree 同级目录，因为 REPL bridge 会写入 getOriginalCwd()，而
+  // EnterWorktreeTool/activeWorktreeSession 可能把它指向某个 worktree，
+  // 即使用户的 shell 当前还停在 repo 根目录。
+  // parseArgs 已经通过 KAIROS gate 做了约束，因此在 external build 中
+  // continueSession 永远为 false，这个分支会被 tree-shake 掉。
   if (feature('KAIROS') && continueSession) {
     const { readBridgePointerAcrossWorktrees } = await import(
       './bridgePointer.js'
@@ -2168,17 +2147,17 @@ export async function bridgeMain(args: string[]): Promise<void> {
       `Resuming session ${pointer.sessionId} (${ageStr} ago)${fromWt}\u2026`,
     )
     resumeSessionId = pointer.sessionId
-    // Track where the pointer came from so the #20460 exit(1) paths below
-    // clear the RIGHT file on deterministic failure — otherwise --continue
-    // would keep hitting the same dead session. May be a worktree sibling.
+    // 记录 pointer 来自哪里，这样下面 #20460 的 exit(1) 路径在确定性失败时
+    // 才能清掉正确的文件；否则 --continue 会反复命中同一个失效 session。
+    // 它也可能来自某个 worktree 同级目录。
     resumePointerDir = pointerDir
   }
 
-  // In production, baseUrl is the Anthropic API (from OAuth config).
-  // CLAUDE_BRIDGE_BASE_URL overrides this for ant local dev only.
+  // 在生产环境中，baseUrl 来自 OAuth config，对应 Anthropic API。
+  // CLAUDE_BRIDGE_BASE_URL 只用于 ant 本地开发场景做覆盖。
   const baseUrl = getBridgeBaseUrl()
 
-  // For non-localhost targets, require HTTPS to protect credentials.
+  // 对非 localhost 目标强制要求 HTTPS，以保护凭据安全。
   if (
     baseUrl.startsWith('http://') &&
     !baseUrl.includes('localhost') &&
@@ -2192,11 +2171,11 @@ export async function bridgeMain(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  // Session ingress URL for WebSocket connections. In production this is the
-  // same as baseUrl (Envoy routes /v1/session_ingress/* to session-ingress).
-  // Locally, session-ingress runs on a different port (9413) than the
-  // contain-provide-api (8211), so CLAUDE_BRIDGE_SESSION_INGRESS_URL must be
-  // set explicitly. Ant-only, matching CLAUDE_BRIDGE_BASE_URL.
+  // WebSocket 连接使用的 session ingress URL。在线上它与 baseUrl 相同，
+  // 因为 Envoy 会把 /v1/session_ingress/* 路由到 session-ingress。
+  // 在本地环境里，session-ingress 运行在与 contain-provide-api（8211）不同的端口
+  // （9413），因此必须显式设置 CLAUDE_BRIDGE_SESSION_INGRESS_URL。
+  // 这与 CLAUDE_BRIDGE_BASE_URL 一样，只对 ant 生效。
   const sessionIngressUrl =
     process.env.USER_TYPE === 'ant' &&
     process.env.CLAUDE_BRIDGE_SESSION_INGRESS_URL
@@ -2207,18 +2186,17 @@ export async function bridgeMain(args: string[]): Promise<void> {
     '../utils/git.js'
   )
 
-  // Precheck worktree availability for the first-run dialog and the `w`
-  // toggle. Unconditional so we know upfront whether worktree is an option.
+  // 为首次运行对话框和 `w` 切换键预先检查 worktree 是否可用。
+  // 这里无条件执行，便于我们一开始就知道 worktree 是否是一个有效选项。
   const { hasWorktreeCreateHook } = await import('../utils/hooks.js')
   const worktreeAvailable = hasWorktreeCreateHook() || findGitRoot(dir) !== null
 
-  // Load saved per-project spawn-mode preference. Gated by multiSessionEnabled
-  // so a GrowthBook rollback cleanly reverts users to single-session —
-  // otherwise a saved pref would silently re-enable multi-session behavior
-  // (worktree isolation, 32 max sessions, w toggle) despite the gate being off.
-  // Also guard against a stale worktree pref left over from when this dir WAS
-  // a git repo (or the user copied config) — clear it on disk so the warning
-  // doesn't repeat on every launch.
+  // 读取项目级已保存的 spawn-mode 偏好。这里受 multiSessionEnabled 控制，
+  // 这样一旦 GrowthBook 回滚，就能干净地让用户回到 single-session，
+  // 否则一个旧的偏好会在 gate 关闭的情况下悄悄重新启用 multi-session 行为
+  // （例如 worktree 隔离、32 上限、w 切换）。
+  // 同时也要防御一种情况：当前目录曾经是 git repo（或用户复制过配置）留下了
+  // 一个过期的 worktree 偏好。这里会把它从磁盘清掉，避免每次启动都重复警告。
   let savedSpawnMode = multiSessionEnabled
     ? getCurrentProjectConfig().remoteControlSpawnMode
     : undefined
@@ -2234,9 +2212,9 @@ export async function bridgeMain(args: string[]): Promise<void> {
     })
   }
 
-  // First-run spawn-mode choice: ask once per project when the choice is
-  // meaningful (gate on, both modes available, no explicit override, not
-  // resuming). Saves to ProjectConfig so subsequent runs skip this.
+  // 首次运行时的 spawn-mode 选择：仅当这个选择确实有意义时
+  // （gate 已开、两种模式都可用、没有显式覆盖、不是在恢复流程中）
+  // 才会按项目询问一次。结果会保存到 ProjectConfig，后续启动即可跳过。
   if (
     multiSessionEnabled &&
     !savedSpawnMode &&
@@ -2275,15 +2253,15 @@ export async function bridgeMain(args: string[]): Promise<void> {
     })
   }
 
-  // Determine effective spawn mode.
-  // Precedence: resume > explicit --spawn > saved project pref > gate default
-  // - resuming via --continue / --session-id: always single-session (resume
-  //   targets one specific session in its original directory)
-  // - explicit --spawn flag: use that value directly (does not persist)
-  // - saved ProjectConfig.remoteControlSpawnMode: set by first-run dialog or `w`
-  // - default with gate on: same-dir (persistent multi-session, shared cwd)
-  // - default with gate off: single-session (unchanged legacy behavior)
-  // Track how spawn mode was determined, for rollout analytics.
+  // 计算实际生效的 spawn mode。
+  // 优先级：resume > 显式 --spawn > 保存的项目偏好 > gate 默认值
+  // - 通过 --continue / --session-id 恢复时：始终使用 single-session
+  //   （恢复针对的是原始目录中的某一个特定 session）
+  // - 显式传入 --spawn：直接使用该值（不会持久化）
+  // - 已保存的 ProjectConfig.remoteControlSpawnMode：由首次运行对话框或 `w` 设置
+  // - gate 开启时的默认值：same-dir（持久化的 multi-session，共享 cwd）
+  // - gate 关闭时的默认值：single-session（保持旧行为不变）
+  // 同时记录 spawn mode 的来源，便于 rollout analytics。
   type SpawnModeSource = 'resume' | 'flag' | 'saved' | 'gate_default'
   let spawnModeSource: SpawnModeSource
   let spawnMode: SpawnMode
@@ -2304,30 +2282,28 @@ export async function bridgeMain(args: string[]): Promise<void> {
     spawnMode === 'single-session'
       ? 1
       : (parsedCapacity ?? SPAWN_SESSIONS_DEFAULT)
-  // Pre-create an empty session on start so the user has somewhere to type
-  // immediately, running in the current directory (exempted from worktree
-  // creation in the spawn loop). On by default; --no-create-session-in-dir
-  // opts out for a pure on-demand server where every session is isolated.
-  // The effectiveResumeSessionId guard at the creation site handles the
-  // resume case (skip creation when resume succeeded; fall through to
-  // fresh creation on env-mismatch fallback).
+  // 启动时预创建一个空 session，让用户立刻就有地方输入内容。
+  // 它运行在当前目录下（在 spawn 循环中不参与 worktree 创建）。
+  // 默认开启；--no-create-session-in-dir 可将其关闭，用于纯按需创建的模式，
+  // 使每个 session 都保持隔离。
+  // 创建位置处的 effectiveResumeSessionId 守卫会处理恢复场景：
+  // 恢复成功时跳过创建；若因 env mismatch 回退，则继续走新建流程。
   const preCreateSession = parsedCreateSessionInDir ?? true
 
-  // Without --continue: a leftover pointer means the previous run didn't
-  // shut down cleanly (crash, kill -9, terminal closed). Clear it so the
-  // stale env doesn't linger past its relevance. Runs in all modes
-  // (clearBridgePointer is a no-op when no file exists) — covers the
-  // gate-transition case where a user crashed in single-session mode then
-  // starts fresh in worktree mode. Only single-session mode writes new
-  // pointers.
+  // 如果没有使用 --continue，残留的 pointer 就意味着上一次运行没有正常关闭
+  // （比如 crash、kill -9、终端被直接关闭）。这里要把它清掉，避免陈旧 env
+  // 在失去意义后继续残留。这个逻辑会在所有模式下执行
+  // （没有文件时 clearBridgePointer 本身就是 no-op），也覆盖了这种情况：
+  // 用户在 single-session 模式下崩溃后，又以 worktree 模式重新启动。
+  // 只有 single-session 模式会写入新的 pointer。
   if (!resumeSessionId) {
     const { clearBridgePointer } = await import('./bridgePointer.js')
     await clearBridgePointer(dir)
   }
 
-  // Worktree mode requires either git or WorktreeCreate/WorktreeRemove hooks.
-  // Only reachable via explicit --spawn=worktree (default is same-dir);
-  // saved worktree pref was already guarded above.
+  // worktree 模式要求存在 git，或者配置了 WorktreeCreate/WorktreeRemove hook。
+  // 这里只有显式 --spawn=worktree 才会走到（默认是 same-dir）；
+  // 已保存的 worktree 偏好已在上方提前做过防护。
   if (spawnMode === 'worktree' && !worktreeAvailable) {
     // biome-ignore lint/suspicious/noConsole: intentional error output
     console.error(
@@ -2352,13 +2328,12 @@ export async function bridgeMain(args: string[]): Promise<void> {
     getTrustedDeviceToken,
   })
 
-  // When resuming a session via --session-id, fetch it to learn its
-  // environment_id and reuse that for registration (idempotent on the
-  // backend). Left undefined otherwise — the backend rejects
-  // client-generated UUIDs and will allocate a fresh environment.
-  // feature('KAIROS') gate: --session-id is ant-only; parseArgs already
-  // rejects the flag when the gate is off, so resumeSessionId is always
-  // undefined here in external builds — this guard is for tree-shaking.
+  // 通过 --session-id 恢复 session 时，需要先把它取回来拿到 environment_id，
+  // 然后在注册时复用该值（对后端来说这是幂等的）。否则就保持 undefined，
+  // 因为后端会拒绝客户端自生成的 UUID，并自行分配新的 environment。
+  // feature('KAIROS') gate：--session-id 仅对 ant 可用；parseArgs 在 gate 关闭时
+  // 已经拒绝了这个 flag，因此 external build 里这里的 resumeSessionId
+  // 始终会是 undefined。这个 guard 主要是为了 tree-shaking。
   let reuseEnvironmentId: string | undefined
   if (feature('KAIROS') && resumeSessionId) {
     try {
@@ -2371,9 +2346,9 @@ export async function bridgeMain(args: string[]): Promise<void> {
       // eslint-disable-next-line custom-rules/no-process-exit
       process.exit(1)
     }
-    // Proactively refresh the OAuth token — getBridgeSession uses raw axios
-    // without the withOAuthRetry 401-refresh logic. An expired-but-present
-    // token would otherwise produce a misleading "not found" error.
+    // 预先主动刷新 OAuth token。getBridgeSession 使用的是原始 axios，
+    // 不带 withOAuthRetry 的 401 刷新逻辑；如果 token 已过期但仍存在，
+    // 否则这里会产生一个具有误导性的“not found”错误。
     await checkAndRefreshOAuthTokenIfNeeded()
     clearOAuthTokenCache()
     const { getBridgeSession } = await import('./createSession.js')
@@ -2382,10 +2357,10 @@ export async function bridgeMain(args: string[]): Promise<void> {
       getAccessToken: getBridgeAccessToken,
     })
     if (!session) {
-      // Session gone on server → pointer is stale. Clear it so the user
-      // isn't re-prompted next launch. (Explicit --session-id leaves the
-      // pointer alone — it's an independent file they may not even have.)
-      // resumePointerDir may be a worktree sibling — clear THAT file.
+      // 如果服务端已不存在该 session，说明 pointer 已过期。
+      // 这里要把它清掉，避免用户下次启动时再次被提示。
+      // （显式 --session-id 不会动 pointer，因为那是独立文件，用户甚至可能并没有。）
+      // resumePointerDir 也可能是某个 worktree 同级目录，因此要清掉那个位置的文件。
       if (resumePointerDir) {
         const { clearBridgePointer } = await import('./bridgePointer.js')
         await clearBridgePointer(resumePointerDir)
@@ -2444,7 +2419,7 @@ export async function bridgeMain(args: string[]): Promise<void> {
     `[bridge:init] sandbox=${sandbox}${debugFile ? ` debugFile=${debugFile}` : ''}`,
   )
 
-  // Register the bridge environment before entering the poll loop.
+  // 在进入 poll loop 之前先注册 bridge environment。
   let environmentId: string
   let environmentSecret: string
   try {
@@ -2455,7 +2430,7 @@ export async function bridgeMain(args: string[]): Promise<void> {
     logEvent('tengu_bridge_registration_failed', {
       status: err instanceof BridgeFatalError ? err.status : undefined,
     })
-    // Registration failures are fatal — print a clean message instead of a stack trace.
+    // 注册失败属于致命错误，这里输出干净的提示，不打印 stack trace。
     // biome-ignore lint/suspicious/noConsole:: intentional console output
     console.error(
       err instanceof BridgeFatalError && err.status === 404
@@ -2466,16 +2441,15 @@ export async function bridgeMain(args: string[]): Promise<void> {
     process.exit(1)
   }
 
-  // Tracks whether the --session-id resume flow completed successfully.
-  // Used below to skip fresh session creation and seed initialSessionId.
-  // Cleared on env mismatch so we gracefully fall back to a new session.
+  // 记录 --session-id 恢复流程是否真正成功完成。
+  // 下面会用它来跳过全新 session 创建，并初始化 initialSessionId。
+  // 如果发生 env mismatch，会将其清空，从而平滑回退到新 session。
   let effectiveResumeSessionId: string | undefined
   if (feature('KAIROS') && resumeSessionId) {
     if (reuseEnvironmentId && environmentId !== reuseEnvironmentId) {
-      // Backend returned a different environment_id — the original env
-      // expired or was reaped. Reconnect won't work against the new env
-      // (session is bound to the old one). Log to sentry for visibility
-      // and fall through to fresh session creation on the new env.
+      // 后端返回了不同的 environment_id，说明原始 env 已经过期或被回收。
+      // reconnect 无法对这个新 env 生效（session 绑定在旧 env 上）。
+      // 这里记录到 sentry 便于观测，然后回落到在新 env 上创建全新 session。
       logError(
         new Error(
           `Bridge resume env mismatch: requested ${reuseEnvironmentId}, backend returned ${environmentId}. Falling back to fresh session.`,
@@ -2485,16 +2459,16 @@ export async function bridgeMain(args: string[]): Promise<void> {
       console.warn(
         `Warning: Could not resume session ${resumeSessionId} — its environment has expired. Creating a fresh session instead.`,
       )
-      // Don't deregister — we're going to use this new environment.
-      // effectiveResumeSessionId stays undefined → fresh session path below.
+      // 这里不要 deregister，因为我们接下来就要使用这个新的 environment。
+      // effectiveResumeSessionId 保持 undefined，下面会自然走全新 session 路径。
     } else {
-      // Force-stop any stale worker instances for this session and re-queue
-      // it so our poll loop picks it up. Must happen after registration so
-      // the backend knows a live worker exists for the environment.
+      // 强制停掉该 session 的所有陈旧 worker 实例，并把它重新入队，
+      // 这样我们的 poll loop 才能重新接手。必须在 registration 之后做，
+      // 这样后端才知道这个 environment 上已经存在一个活跃 worker。
       //
-      // The pointer stores a session_* ID but /bridge/reconnect looks
-      // sessions up by their infra tag (cse_*) when ccr_v2_compat_enabled
-      // is on. Try both; the conversion is a no-op if already cse_*.
+      // pointer 里存的是 session_* ID，但当 ccr_v2_compat_enabled 打开时，
+      // /bridge/reconnect 会按 infra tag（cse_*）查找 session。
+      // 因此这里两个都试；如果本来就是 cse_*，转换本身就是 no-op。
       const infraResumeId = toInfraSessionId(resumeSessionId)
       const reconnectCandidates =
         infraResumeId === resumeSessionId
@@ -2521,13 +2495,13 @@ export async function bridgeMain(args: string[]): Promise<void> {
       if (!reconnected) {
         const err = lastReconnectErr
 
-        // Do NOT deregister on transient reconnect failure — at this point
-        // environmentId IS the session's own environment. Deregistering
-        // would make retry impossible. The backend's 4h TTL cleans up.
+        // 遇到瞬时 reconnect 失败时绝对不能 deregister，因为此时
+        // environmentId 就是该 session 自己绑定的 environment。
+        // 一旦注销就彻底无法重试。后端的 4 小时 TTL 会负责清理。
         const isFatal = err instanceof BridgeFatalError
-        // Clear pointer only on fatal reconnect failure. Transient failures
-        // ("try running the same command again") should keep the pointer so
-        // next launch re-prompts — that IS the retry mechanism.
+        // 只有 fatal reconnect 失败时才清 pointer。瞬时失败
+        // （“try running the same command again”）必须保留 pointer，
+        // 让下次启动时继续提示恢复，这本身就是重试机制的一部分。
         if (resumePointerDir && isFatal) {
           const { clearBridgePointer } = await import('./bridgePointer.js')
           await clearBridgePointer(resumePointerDir)
@@ -2593,24 +2567,24 @@ export async function bridgeMain(args: string[]): Promise<void> {
   const logger = createBridgeLogger({ verbose })
   const { parseGitHubRepository } = await import('../utils/detectRepository.js')
   const ownerRepo = gitRepoUrl ? parseGitHubRepository(gitRepoUrl) : null
-  // Use the repo name from the parsed owner/repo, or fall back to the dir basename
+  // 优先使用解析出来的 owner/repo 中的 repo 名；拿不到时退回目录 basename。
   const repoName = ownerRepo ? ownerRepo.split('/').pop()! : basename(dir)
   logger.setRepoInfo(repoName, branch)
 
-  // `w` toggle is available iff we're in a multi-session mode AND worktree
-  // is a valid option. When unavailable, the mode suffix and hint are hidden.
+  // 只有当当前处于 multi-session 模式且 worktree 确实可用时，`w` 切换键才可用。
+  // 不可用时，界面上的模式后缀和提示也会一起隐藏。
   const toggleAvailable = spawnMode !== 'single-session' && worktreeAvailable
   if (toggleAvailable) {
-    // Safe cast: spawnMode is not single-session (checked above), and the
-    // saved-worktree-in-non-git guard + exit check above ensure worktree
-    // is only reached when available.
+    // 这里的类型断言是安全的：上面已经确保 spawnMode 不是 single-session，
+    // 而且前面关于“非 git 环境中的已保存 worktree 偏好”的防护和退出检查
+    // 也保证了只有在 worktree 可用时才会走到这里。
     logger.setSpawnModeDisplay(spawnMode as 'same-dir' | 'worktree')
   }
 
-  // Listen for keys: space toggles QR code, w toggles spawn mode
+  // 监听按键：空格切换 QR code 显示，`w` 切换 spawn mode。
   const onStdinData = (data: Buffer): void => {
     if (data[0] === 0x03 || data[0] === 0x04) {
-      // Ctrl+C / Ctrl+D — trigger graceful shutdown
+      // Ctrl+C / Ctrl+D：触发优雅关闭。
       process.emit('SIGINT')
       return
     }
@@ -2659,14 +2633,14 @@ export async function bridgeMain(args: string[]): Promise<void> {
   process.on('SIGINT', onSigint)
   process.on('SIGTERM', onSigterm)
 
-  // Auto-create an empty session so the user has somewhere to type
-  // immediately (matching /remote-control behavior). Controlled by
-  // preCreateSession: on by default; --no-create-session-in-dir opts out.
-  // When a --session-id resume succeeded, skip creation entirely — the
-  // session already exists and bridge/reconnect has re-queued it.
-  // When resume was requested but failed on env mismatch, effectiveResumeSessionId
-  // is undefined, so we fall through to fresh session creation (honoring the
-  // "Creating a fresh session instead" warning printed above).
+  // 自动创建一个空 session，让用户一开始就有地方输入内容
+  // （与 /remote-control 的行为保持一致）。是否开启由 preCreateSession 控制：
+  // 默认开启；--no-create-session-in-dir 可显式关闭。
+  // 如果 --session-id 恢复成功，则完全跳过创建，因为该 session 已存在，
+  // 且 bridge/reconnect 已经把它重新入队。
+  // 如果请求了恢复但因为 env mismatch 失败，effectiveResumeSessionId 会是 undefined，
+  // 于是会自然落回全新 session 创建路径，并保留上面那条
+  // “Creating a fresh session instead” 警告语义。
   let initialSessionId: string | null =
     feature('KAIROS') && effectiveResumeSessionId
       ? effectiveResumeSessionId
@@ -2697,19 +2671,19 @@ export async function bridgeMain(args: string[]): Promise<void> {
     }
   }
 
-  // Crash-recovery pointer: write immediately so kill -9 at any point
-  // after this leaves a recoverable trail. Covers both fresh sessions and
-  // resumed ones (so a second crash after resume is still recoverable).
-  // Cleared when runBridgeLoop falls through to archive+deregister; left in
-  // place on the SIGINT resumable-shutdown return (backup for when the user
-  // closes the terminal before copying the printed --session-id hint).
-  // Refreshed hourly so a 5h+ session that crashes still has a fresh
-  // pointer (staleness checks file mtime, backend TTL is rolling-from-poll).
+  // Crash-recovery pointer：立刻写入，这样从这里开始任意时刻即使被 kill -9，
+  // 也仍会留下可恢复的线索。它同时覆盖新建 session 和恢复后的 session
+  // （因此恢复后再次崩溃也仍可恢复）。
+  // 当 runBridgeLoop 走到 archive+deregister 的正常结束路径时会清掉它；
+  // 如果是 SIGINT 的可恢复 shutdown 提前返回，则会保留它，作为用户
+  // 还没来得及抄下打印出来的 --session-id 提示时的后备信息。
+  // 此外会每小时刷新一次，这样即使一个运行了 5 小时以上的 session 崩溃，
+  // pointer 仍然是新的（过期判断基于文件 mtime，而后端 TTL 是按 poll 滚动计算）。
   let pointerRefreshTimer: ReturnType<typeof setInterval> | null = null
-  // Single-session only: --continue forces single-session mode on resume,
-  // so a pointer written in multi-session mode would contradict the user's
-  // config when they try to resume. The resumable-shutdown path is also
-  // gated to single-session (line ~1254) so the pointer would be orphaned.
+  // 仅 single-session 模式会写 pointer：--continue 在恢复时会强制走
+  // single-session，因此如果在 multi-session 模式里写 pointer，用户恢复时
+  // 就会与自己的配置相矛盾。可恢复 shutdown 路径本身也只对 single-session 开放，
+  // 所以 multi-session 下写出来的 pointer 最终只会变成孤儿。
   if (initialSessionId && spawnMode === 'single-session') {
     const { writeBridgePointer } = await import('./bridgePointer.js')
     const pointerPayload = {
@@ -2724,7 +2698,7 @@ export async function bridgeMain(args: string[]): Promise<void> {
       config.dir,
       pointerPayload,
     )
-    // Don't let the interval keep the process alive on its own.
+    // 不要让这个 interval 单独阻止进程退出。
     pointerRefreshTimer.unref?.()
   }
 
@@ -2740,10 +2714,10 @@ export async function bridgeMain(args: string[]): Promise<void> {
       undefined,
       initialSessionId ?? undefined,
       async () => {
-        // Clear the memoized OAuth token cache so we re-read from secure
-        // storage, picking up tokens refreshed by child processes.
+        // 清空已记忆的 OAuth token 缓存，强制重新从安全存储读取，
+        // 这样才能拿到子进程刚刚刷新过的 token。
         clearOAuthTokenCache()
-        // Proactively refresh the token if it's expired on disk too.
+        // 如果磁盘上的 token 也过期了，这里再主动刷新一次。
         await checkAndRefreshOAuthTokenIfNeeded()
         return getBridgeAccessToken()
       },
@@ -2761,8 +2735,8 @@ export async function bridgeMain(args: string[]): Promise<void> {
     process.stdin.pause()
   }
 
-  // The bridge bypasses init.ts (and its graceful shutdown handler), so we
-  // must exit explicitly.
+  // bridge 会绕过 init.ts（以及其中的 graceful shutdown handler），
+  // 因此这里必须显式退出。
   // eslint-disable-next-line custom-rules/no-process-exit
   process.exit(0)
 }
@@ -2770,10 +2744,10 @@ export async function bridgeMain(args: string[]): Promise<void> {
 // ─── Headless bridge (daemon worker) ────────────────────────────────────────
 
 /**
- * Thrown by runBridgeHeadless for configuration issues the supervisor should
- * NOT retry (trust not accepted, worktree unavailable, http-not-https). The
- * daemon worker catches this and exits with EXIT_CODE_PERMANENT so the
- * supervisor parks the worker instead of respawning it on backoff.
+ * runBridgeHeadless 在遇到 supervisor 不应重试的配置问题时会抛出它
+ * （如 trust 未接受、worktree 不可用、http-not-https）。daemon worker
+ * 会捕获它并以 EXIT_CODE_PERMANENT 退出，从而让 supervisor 停放该 worker，
+ * 而不是继续按退避策略反复拉起。
  */
 export class BridgeHeadlessPermanentError extends Error {
   constructor(message: string) {
@@ -2797,15 +2771,15 @@ export type HeadlessBridgeOpts = {
 }
 
 /**
- * Non-interactive bridge entrypoint for the `remoteControl` daemon worker.
+ * `remoteControl` daemon worker 使用的非交互式 bridge 入口。
  *
- * Linear subset of bridgeMain(): no readline dialogs, no stdin key handlers,
- * no TUI, no process.exit(). Config comes from the caller (daemon.json), auth
- * comes via IPC (supervisor's AuthManager), logs go to the worker's stdout
- * pipe. Throws on fatal errors — the worker catches and maps permanent vs
- * transient to the right exit code.
+ * 它是 bridgeMain() 的线性子集：没有 readline 对话框，没有 stdin 按键处理，
+ * 没有 TUI，也不会调用 process.exit()。配置由调用方（daemon.json）提供，
+ * auth 通过 IPC 注入（supervisor 的 AuthManager），日志写到 worker 的 stdout
+ * 管道。遇到致命错误时会直接抛出，由 worker 捕获后把 permanent / transient
+ * 映射到正确的退出码。
  *
- * Resolves cleanly when `signal` aborts and the poll loop tears down.
+ * 当 `signal` abort 且 poll loop 完成拆除后，它会正常 resolve。
  */
 export async function runBridgeHeadless(
   opts: HeadlessBridgeOpts,
@@ -2813,9 +2787,9 @@ export async function runBridgeHeadless(
 ): Promise<void> {
   const { dir, log } = opts
 
-  // Worker inherits the supervisor's CWD. chdir first so git utilities
-  // (getBranch/getRemoteUrl) — which read from bootstrap CWD state set
-  // below — resolve against the right repo.
+  // worker 会继承 supervisor 的 CWD。这里先 chdir，确保 git 工具
+  // （getBranch/getRemoteUrl）在读取下方设置的 bootstrap CWD state 时，
+  // 能够对准正确的 repo。
   process.chdir(dir)
   const { setOriginalCwd, setCwdState } = await import('../bootstrap/state.js')
   setOriginalCwd(dir)
@@ -2835,7 +2809,7 @@ export async function runBridgeHeadless(
   }
 
   if (!opts.getAccessToken()) {
-    // Transient — supervisor's AuthManager may pick up a token on next cycle.
+    // 瞬时问题：supervisor 的 AuthManager 可能会在下一轮拿到 token。
     throw new Error(BRIDGE_LOGIN_ERROR)
   }
 
@@ -2909,7 +2883,7 @@ export async function runBridgeHeadless(
     environmentId = reg.environment_id
     environmentSecret = reg.environment_secret
   } catch (err) {
-    // Transient — let supervisor backoff-retry.
+    // 瞬时问题：交给 supervisor 按退避策略重试。
     throw new Error(`Bridge registration failed: ${errorMessage(err)}`)
   }
 
@@ -2964,7 +2938,7 @@ export async function runBridgeHeadless(
   )
 }
 
-/** BridgeLogger adapter that routes everything to a single line-log fn. */
+/** BridgeLogger 适配器：把所有输出都路由到单一的行日志函数。 */
 function createHeadlessBridgeLogger(log: (s: string) => void): BridgeLogger {
   const noop = (): void => {}
   return {

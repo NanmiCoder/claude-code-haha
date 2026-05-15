@@ -6,12 +6,12 @@ import type { Transport } from './Transport.js'
 import { WebSocketTransport } from './WebSocketTransport.js'
 
 /**
- * Helper function to get the appropriate transport for a URL.
+ * 根据 URL 选择合适的 transport。
  *
- * Transport selection priority:
- * 1. SSETransport (SSE reads + POST writes) when CLAUDE_CODE_USE_CCR_V2 is set
- * 2. HybridTransport (WS reads + POST writes) when CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2 is set
- * 3. WebSocketTransport (WS reads + WS writes) — default
+ * transport 的选择优先级如下：
+ * 1. 当设置了 CLAUDE_CODE_USE_CCR_V2 时，使用 SSETransport（SSE 读 + POST 写）
+ * 2. 当设置了 CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2 时，使用 HybridTransport（WS 读 + POST 写）
+ * 3. 默认使用 WebSocketTransport（WS 读 + WS 写）
  */
 export function getTransportForUrl(
   url: URL,
@@ -20,9 +20,9 @@ export function getTransportForUrl(
   refreshHeaders?: () => Record<string, string>,
 ): Transport {
   if (isEnvTruthy(process.env.CLAUDE_CODE_USE_CCR_V2)) {
-    // v2: SSE for reads, HTTP POST for writes
-    // --sdk-url is the session URL (.../sessions/{id});
-    // derive the SSE stream URL by appending /worker/events/stream
+    // v2：读取走 SSE，写入走 HTTP POST
+    // --sdk-url 是 session URL（.../sessions/{id}）；
+    // 通过追加 /worker/events/stream 推导出 SSE stream URL
     const sseUrl = new URL(url.href)
     if (sseUrl.protocol === 'wss:') {
       sseUrl.protocol = 'https:'

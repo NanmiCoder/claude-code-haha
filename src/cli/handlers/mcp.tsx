@@ -1,6 +1,7 @@
 /**
- * MCP subcommand handlers — extracted from main.tsx for lazy loading.
- * These are dynamically imported only when the corresponding `claude mcp *` command runs.
+ * MCP 子命令处理器。
+ * 它们从 main.tsx 中拆出，用于懒加载；只有对应的 `claude mcp *`
+ * 命令真正执行时才会动态导入。
  */
 
 import { stat } from 'fs/promises';
@@ -38,7 +39,7 @@ async function checkMcpServerHealth(name: string, server: ScopedMcpServerConfig)
   }
 }
 
-// mcp serve (lines 4512–4532)
+// mcp serve 子命令。
 export async function mcpServeHandler({
   debug,
   verbose
@@ -70,11 +71,11 @@ export async function mcpServeHandler({
   }
 }
 
-// mcp remove (lines 4545–4635)
+// mcp remove 子命令。
 export async function mcpRemoveHandler(name: string, options: {
   scope?: string;
 }): Promise<void> {
-  // Look up config before removing so we can clean up secure storage
+  // 先查配置再删除，这样才能顺手清理 secure storage。
   const serverBeforeRemoval = getMcpConfigByName(name);
   const cleanupSecureStorage = () => {
     if (serverBeforeRemoval && (serverBeforeRemoval.type === 'sse' || serverBeforeRemoval.type === 'http')) {
@@ -95,17 +96,17 @@ export async function mcpRemoveHandler(name: string, options: {
       cliOk(`File modified: ${describeMcpConfigFilePath(scope)}`);
     }
 
-    // If no scope specified, check where the server exists
+    // 如果没有指定 scope，就检查这个 server 实际存在于哪些 scope。
     const projectConfig = getCurrentProjectConfig();
     const globalConfig = getGlobalConfig();
 
-    // Check if server exists in project scope (.mcp.json)
+    // 检查 server 是否存在于 project scope（.mcp.json）。
     const {
       servers: projectServers
     } = getMcpConfigsByScope('project');
     const mcpJsonExists = !!projectServers[name];
 
-    // Count how many scopes contain this server
+    // 统计这个 server 同时出现在哪些 scope 中。
     const scopes: Array<Exclude<ConfigScope, 'dynamic'>> = [];
     if (projectConfig.mcpServers?.[name]) scopes.push('local');
     if (mcpJsonExists) scopes.push('project');
@@ -113,7 +114,7 @@ export async function mcpRemoveHandler(name: string, options: {
     if (scopes.length === 0) {
       cliError(`No MCP server found with name: "${name}"`);
     } else if (scopes.length === 1) {
-      // Server exists in only one scope, remove it
+      // server 只存在于一个 scope，直接删除即可。
       const scope = scopes[0]!;
       logEvent('tengu_mcp_delete', {
         name: name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -124,7 +125,7 @@ export async function mcpRemoveHandler(name: string, options: {
       process.stdout.write(`Removed MCP server "${name}" from ${scope} config\n`);
       cliOk(`File modified: ${describeMcpConfigFilePath(scope)}`);
     } else {
-      // Server exists in multiple scopes
+      // 这个 server 同时存在于多个 scope 中。
       process.stderr.write(`MCP server "${name}" exists in multiple scopes:\n`);
       scopes.forEach(scope => {
         process.stderr.write(`  - ${getScopeLabel(scope)} (${describeMcpConfigFilePath(scope)})\n`);
@@ -140,7 +141,7 @@ export async function mcpRemoveHandler(name: string, options: {
   }
 }
 
-// mcp list (lines 4641–4688)
+// mcp list 子命令。
 export async function mcpListHandler(): Promise<void> {
   logEvent('tengu_mcp_list', {});
   const {
@@ -153,7 +154,7 @@ export async function mcpListHandler(): Promise<void> {
     // biome-ignore lint/suspicious/noConsole:: intentional console output
     console.log('Checking MCP server health...\n');
 
-    // Check servers concurrently
+    // 并发检查所有 server 的健康状态。
     const entries = Object.entries(configs);
     const results = await pMap(entries, async ([name, server]) => ({
       name,
@@ -167,7 +168,7 @@ export async function mcpListHandler(): Promise<void> {
       server,
       status
     } of results) {
-      // Intentionally excluding sse-ide servers here since they're internal
+      // 故意不在这里列出 sse-ide servers，因为它们属于内部实现。
       if (server.type === 'sse') {
         // biome-ignore lint/suspicious/noConsole:: intentional console output
         console.log(`${name}: ${server.url} (SSE) - ${status}`);
@@ -184,12 +185,12 @@ export async function mcpListHandler(): Promise<void> {
       }
     }
   }
-  // Use gracefulShutdown to properly clean up MCP server connections
-  // (process.exit bypasses cleanup handlers, leaving child processes orphaned)
+  // 通过 gracefulShutdown 正确清理 MCP server 连接。
+  // process.exit 会绕过 cleanup handlers，导致子进程变成孤儿进程。
   await gracefulShutdown(0);
 }
 
-// mcp get (lines 4694–4786)
+// mcp get 子命令。
 export async function mcpGetHandler(name: string): Promise<void> {
   logEvent('tengu_mcp_get', {
     name: name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS
@@ -204,12 +205,12 @@ export async function mcpGetHandler(name: string): Promise<void> {
   // biome-ignore lint/suspicious/noConsole:: intentional console output
   console.log(`  Scope: ${getScopeLabel(server.scope)}`);
 
-  // Check server health
+  // 检查 server 健康状态。
   const status = await checkMcpServerHealth(name, server);
   // biome-ignore lint/suspicious/noConsole:: intentional console output
   console.log(`  Status: ${status}`);
 
-  // Intentionally excluding sse-ide servers here since they're internal
+  // 故意不在这里列出 sse-ide servers，因为它们属于内部实现。
   if (server.type === 'sse') {
     // biome-ignore lint/suspicious/noConsole:: intentional console output
     console.log(`  Type: sse`);
@@ -277,12 +278,12 @@ export async function mcpGetHandler(name: string): Promise<void> {
   }
   // biome-ignore lint/suspicious/noConsole:: intentional console output
   console.log(`\nTo remove this server, run: claude mcp remove "${name}" -s ${server.scope}`);
-  // Use gracefulShutdown to properly clean up MCP server connections
-  // (process.exit bypasses cleanup handlers, leaving child processes orphaned)
+  // 通过 gracefulShutdown 正确清理 MCP server 连接。
+  // process.exit 会绕过 cleanup handlers，导致子进程变成孤儿进程。
   await gracefulShutdown(0);
 }
 
-// mcp add-json (lines 4801–4870)
+// mcp add-json 子命令。
 export async function mcpAddJsonHandler(name: string, json: string, options: {
   scope?: string;
   clientSecret?: true;
@@ -291,7 +292,7 @@ export async function mcpAddJsonHandler(name: string, json: string, options: {
     const scope = ensureConfigScope(options.scope);
     const parsedJson = safeParseJSON(json);
 
-    // Read secret before writing config so cancellation doesn't leave partial state
+    // 先读 secret 再写配置，避免中途取消后留下半完成状态。
     const needsSecret = options.clientSecret && parsedJson && typeof parsedJson === 'object' && 'type' in parsedJson && (parsedJson.type === 'sse' || parsedJson.type === 'http') && 'url' in parsedJson && typeof parsedJson.url === 'string' && 'oauth' in parsedJson && parsedJson.oauth && typeof parsedJson.oauth === 'object' && 'clientId' in parsedJson.oauth;
     const clientSecret = needsSecret ? await readClientSecret() : undefined;
     await addMcpConfig(name, parsedJson, scope);
@@ -313,7 +314,7 @@ export async function mcpAddJsonHandler(name: string, json: string, options: {
   }
 }
 
-// mcp add-from-claude-desktop (lines 4881–4927)
+// mcp add-from-claude-desktop 子命令。
 export async function mcpAddFromDesktopHandler(options: {
   scope?: string;
 }): Promise<void> {
@@ -348,7 +349,7 @@ export async function mcpAddFromDesktopHandler(options: {
   }
 }
 
-// mcp reset-project-choices (lines 4935–4952)
+// mcp reset-project-choices 子命令。
 export async function mcpResetChoicesHandler(): Promise<void> {
   logEvent('tengu_mcp_reset_mcpjson_choices', {});
   saveCurrentProjectConfig(current => ({

@@ -1,7 +1,7 @@
 /**
- * Vim Operator Functions
+ * Vim operator 执行函数。
  *
- * Pure functions for executing vim operators (delete, change, yank, etc.)
+ * 这里放的是执行 vim operator（如 delete、change、yank 等）的纯函数。
  */
 
 import { Cursor } from '../utils/Cursor.js'
@@ -21,7 +21,7 @@ import type {
 } from './types.js'
 
 /**
- * Context for operator execution.
+ * operator 执行时使用的上下文。
  */
 export type OperatorContext = {
   cursor: Cursor
@@ -37,7 +37,7 @@ export type OperatorContext = {
 }
 
 /**
- * Execute an operator with a simple motion.
+ * 执行一个带简单 motion 的 operator。
  */
 export function executeOperatorMotion(
   op: Operator,
@@ -54,7 +54,7 @@ export function executeOperatorMotion(
 }
 
 /**
- * Execute an operator with a find motion.
+ * 执行一个带 find motion 的 operator。
  */
 export function executeOperatorFind(
   op: Operator,
@@ -75,7 +75,7 @@ export function executeOperatorFind(
 }
 
 /**
- * Execute an operator with a text object.
+ * 执行一个带 text object 的 operator。
  */
 export function executeOperatorTextObj(
   op: Operator,
@@ -97,7 +97,7 @@ export function executeOperatorTextObj(
 }
 
 /**
- * Execute a line operation (dd, cc, yy).
+ * 执行整行操作（dd、cc、yy）。
  */
 export function executeLineOp(
   op: Operator,
@@ -106,8 +106,8 @@ export function executeLineOp(
 ): void {
   const text = ctx.text
   const lines = text.split('\n')
-  // Calculate logical line by counting newlines before cursor offset
-  // (cursor.getPosition() returns wrapped line which is wrong for this)
+  // 通过统计光标前的换行数来计算逻辑行号。
+  // 这里不能用 cursor.getPosition()，因为它返回的是折行后的显示行。
   const currentLine = countCharInString(text.slice(0, ctx.cursor.offset), '\n')
   const linesToAffect = Math.min(count, lines.length - currentLine)
   const lineStart = ctx.cursor.startOfLogicalLine().offset
@@ -118,7 +118,7 @@ export function executeLineOp(
   }
 
   let content = text.slice(lineStart, lineEnd)
-  // Ensure linewise content ends with newline for paste detection
+  // 保证 linewise 内容以换行结尾，便于后续识别粘贴行为。
   if (!content.endsWith('\n')) {
     content = content + '\n'
   }
@@ -130,8 +130,8 @@ export function executeLineOp(
     let deleteStart = lineStart
     const deleteEnd = lineEnd
 
-    // If deleting to end of file and there's a preceding newline, include it
-    // This ensures deleting the last line doesn't leave a trailing newline
+    // 如果删除范围一直到文件末尾，且前面有换行符，就把它一起删掉。
+    // 这样删除最后一行时不会遗留多余的尾随换行。
     if (
       deleteEnd === text.length &&
       deleteStart > 0 &&
@@ -148,12 +148,12 @@ export function executeLineOp(
     )
     ctx.setOffset(Math.min(deleteStart, maxOff))
   } else if (op === 'change') {
-    // For single line, just clear it
+    // 只有一行时，直接清空即可。
     if (lines.length === 1) {
       ctx.setText('')
       ctx.enterInsert(0)
     } else {
-      // Delete all affected lines, replace with single empty line, enter insert
+      // 删除受影响的所有行，替换成一条空行，并进入插入模式。
       const beforeLines = lines.slice(0, currentLine)
       const afterLines = lines.slice(currentLine + linesToAffect)
       const newText = [...beforeLines, '', ...afterLines].join('\n')
@@ -166,14 +166,14 @@ export function executeLineOp(
 }
 
 /**
- * Execute delete character (x command).
+ * 执行删除字符命令（x）。
  */
 export function executeX(count: number, ctx: OperatorContext): void {
   const from = ctx.cursor.offset
 
   if (from >= ctx.text.length) return
 
-  // Advance by graphemes, not code units
+  // 按 grapheme 前进，而不是按 code unit。
   let endCursor = ctx.cursor
   for (let i = 0; i < count && !endCursor.isAtEnd(); i++) {
     endCursor = endCursor.right()
@@ -194,7 +194,7 @@ export function executeX(count: number, ctx: OperatorContext): void {
 }
 
 /**
- * Execute replace character (r command).
+ * 执行替换字符命令（r）。
  */
 export function executeReplace(
   char: string,
@@ -217,7 +217,7 @@ export function executeReplace(
 }
 
 /**
- * Execute toggle case (~ command).
+ * 执行大小写切换命令（~）。
  */
 export function executeToggleCase(count: number, ctx: OperatorContext): void {
   const startOffset = ctx.cursor.offset
@@ -246,14 +246,14 @@ export function executeToggleCase(count: number, ctx: OperatorContext): void {
   }
 
   ctx.setText(newText)
-  // Cursor moves to position after the last toggled character
-  // At end of line, cursor can be at the "end" position
+  // 光标会移动到最后一个被切换字符之后。
+  // 如果位于行尾，光标可以停在“末尾位置”。
   ctx.setOffset(offset)
   ctx.recordChange({ type: 'toggleCase', count })
 }
 
 /**
- * Execute join lines (J command).
+ * 执行拼接行命令（J）。
  */
 export function executeJoin(count: number, ctx: OperatorContext): void {
   const text = ctx.text
@@ -289,7 +289,7 @@ export function executeJoin(count: number, ctx: OperatorContext): void {
 }
 
 /**
- * Execute paste (p/P command).
+ * 执行粘贴命令（p/P）。
  */
 export function executePaste(
   after: boolean,
@@ -343,7 +343,7 @@ export function executePaste(
 }
 
 /**
- * Execute indent (>> command).
+ * 执行缩进命令（>>）。
  */
 export function executeIndent(
   dir: '>' | '<',
@@ -367,7 +367,7 @@ export function executeIndent(
     } else if (line.startsWith('\t')) {
       lines[lineIdx] = line.slice(1)
     } else {
-      // Remove as much leading whitespace as possible up to indent length
+      // 尽量移除前导空白，但最多只移到一个缩进宽度。
       let removed = 0
       let idx = 0
       while (
@@ -392,7 +392,7 @@ export function executeIndent(
 }
 
 /**
- * Execute open line (o/O command).
+ * 执行打开新行命令（o/O）。
  */
 export function executeOpenLine(
   direction: 'above' | 'below',
@@ -416,11 +416,11 @@ export function executeOpenLine(
 }
 
 // ============================================================================
-// Internal Helpers
+// 内部辅助函数
 // ============================================================================
 
 /**
- * Calculate the offset of a line's start position.
+ * 计算某一行起始位置对应的 offset。
  */
 function getLineStartOffset(lines: string[], lineIndex: number): number {
   return lines.slice(0, lineIndex).join('\n').length + (lineIndex > 0 ? 1 : 0)
@@ -437,9 +437,9 @@ function getOperatorRange(
   let to = Math.max(cursor.offset, target.offset)
   let linewise = false
 
-  // Special case: cw/cW changes to end of word, not start of next word
+  // 特殊情况：cw/cW 应该改到当前词尾，而不是下一个词的开头。
   if (op === 'change' && (motion === 'w' || motion === 'W')) {
-    // For cw with count, move forward (count-1) words, then find end of that word
+    // 对带 count 的 cw，先前进 (count-1) 个词，再找那个词的结尾。
     let wordCursor = cursor
     for (let i = 0; i < count - 1; i++) {
       wordCursor =
@@ -449,12 +449,12 @@ function getOperatorRange(
       motion === 'w' ? wordCursor.endOfVimWord() : wordCursor.endOfWORD()
     to = cursor.measuredText.nextOffset(wordEnd.offset)
   } else if (isLinewiseMotion(motion)) {
-    // Linewise motions extend to include entire lines
+    // Linewise motion 需要扩展为覆盖整行。
     linewise = true
     const text = cursor.text
     const nextNewline = text.indexOf('\n', to)
     if (nextNewline === -1) {
-      // Deleting to end of file - include the preceding newline if exists
+      // 如果删除到文件末尾，且前面存在换行，也要一并包含进去。
       to = text.length
       if (from > 0 && text[from - 1] === '\n') {
         from -= 1
@@ -466,8 +466,8 @@ function getOperatorRange(
     to = cursor.measuredText.nextOffset(to)
   }
 
-  // Word motions can land inside an [Image #N] chip; extend the range to
-  // cover the whole chip so dw/cw/yw never leave a partial placeholder.
+  // 词级 motion 可能会落在 [Image #N] 这种 chip 内部；
+  // 这里把范围扩展到整个 chip，避免 dw/cw/yw 留下半截占位符。
   from = cursor.snapOutOfImageRef(from, 'start')
   to = cursor.snapOutOfImageRef(to, 'end')
 
@@ -475,9 +475,9 @@ function getOperatorRange(
 }
 
 /**
- * Get the range for a find-based operator.
- * Note: _findType is unused because Cursor.findCharacter already adjusts
- * the offset for t/T motions. All find types are treated as inclusive here.
+ * 获取基于 find 的 operator 作用范围。
+ * 注意：这里的 _findType 实际未使用，因为 Cursor.findCharacter 已经处理了
+ * t/T motion 的偏移修正，因此这里统一按 inclusive 范围对待。
  */
 function getOperatorRangeForFind(
   cursor: Cursor,
@@ -498,7 +498,7 @@ function applyOperator(
   linewise: boolean = false,
 ): void {
   let content = ctx.text.slice(from, to)
-  // Ensure linewise content ends with newline for paste detection
+  // 保证 linewise 内容以换行结束，方便后续识别粘贴类型。
   if (linewise && !content.endsWith('\n')) {
     content = content + '\n'
   }
@@ -526,8 +526,8 @@ export function executeOperatorG(
   count: number,
   ctx: OperatorContext,
 ): void {
-  // count=1 means no count given, target = end of file
-  // otherwise target = line N
+  // count=1 表示没有显式 count，此时目标为文件末尾。
+  // 否则目标为第 N 行。
   const target =
     count === 1 ? ctx.cursor.startOfLastLine() : ctx.cursor.goToLine(count)
 
@@ -543,8 +543,8 @@ export function executeOperatorGg(
   count: number,
   ctx: OperatorContext,
 ): void {
-  // count=1 means no count given, target = first line
-  // otherwise target = line N
+  // count=1 表示没有显式 count，此时目标为第一行。
+  // 否则目标为第 N 行。
   const target =
     count === 1 ? ctx.cursor.startOfFirstLine() : ctx.cursor.goToLine(count)
 

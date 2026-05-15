@@ -13,15 +13,15 @@ import { getCompanion } from './companion.js';
 import { renderFace, renderSprite, spriteFrameCount } from './sprites.js';
 import { RARITY_COLORS } from './types.js';
 const TICK_MS = 500;
-const BUBBLE_SHOW = 20; // ticks → ~10s at 500ms
-const FADE_WINDOW = 6; // last ~3s the bubble dims so you know it's about to go
-const PET_BURST_MS = 2500; // how long hearts float after /buddy pet
+const BUBBLE_SHOW = 20; // 在 500ms 间隔下，20 个 tick 约为 10 秒
+const FADE_WINDOW = 6; // 最后约 3 秒气泡会变暗，提示它快要消失
+const PET_BURST_MS = 2500; // /buddy pet 后爱心漂浮的持续时长
 
-// Idle sequence: mostly rest (frame 0), occasional fidget (frames 1-2), rare blink.
-// Sequence indices map to sprite frames; -1 means "blink on frame 0".
+// 待机序列：大多静止（frame 0），偶尔小动作（frames 1-2），很少眨眼。
+// 序列索引映射到 sprite 帧；-1 表示“在 frame 0 上眨眼”。
 const IDLE_SEQUENCE = [0, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 2, 0, 0, 0];
 
-// Hearts float up-and-out over 5 ticks (~2.5s). Prepended above the sprite.
+// 爱心会在 5 个 tick（约 2.5 秒）内向上飘散，显示时会加在 sprite 上方。
 const H = figures.heart;
 const PET_HEARTS = [`   ${H}    ${H}   `, `  ${H}  ${H}   ${H}  `, ` ${H}   ${H}  ${H}   `, `${H}  ${H}      ${H} `, '·    ·   ·  '];
 function wrap(text: string, width: number): string[] {
@@ -150,19 +150,19 @@ function SpeechBubble(t0) {
 }
 export const MIN_COLS_FOR_FULL_SPRITE = 100;
 const SPRITE_BODY_WIDTH = 12;
-const NAME_ROW_PAD = 2; // focused state wraps name in spaces: ` name `
+const NAME_ROW_PAD = 2; // 聚焦状态会在名字两侧包上空格：` name `
 const SPRITE_PADDING_X = 2;
-const BUBBLE_WIDTH = 36; // SpeechBubble box (34) + tail column
+const BUBBLE_WIDTH = 36; // SpeechBubble 盒子（34）+ 尾巴列
 const NARROW_QUIP_CAP = 24;
 function spriteColWidth(nameWidth: number): number {
   return Math.max(SPRITE_BODY_WIDTH, nameWidth + NAME_ROW_PAD);
 }
 
-// Width the sprite area consumes. PromptInput subtracts this so text wraps
-// correctly. In fullscreen the bubble floats over scrollback (no extra
-// width); in non-fullscreen it sits inline and needs BUBBLE_WIDTH more.
-// Narrow terminals: 0 — REPL.tsx stacks the one-liner on its own row
-// (above input in fullscreen, below in scrollback), so no reservation.
+// sprite 区域占用的宽度。PromptInput 会减去这个值，以便文本正确换行。
+// 全屏时气泡浮在 scrollback 上方（不额外占宽）；非全屏时它内联显示，
+// 还需要额外的 BUBBLE_WIDTH。
+// 窄终端返回 0——REPL.tsx 会把这一行单独堆到自己的行里
+// （全屏时在输入框上方，scrollback 中在下方），因此无需预留宽度。
 export function companionReservedColumns(terminalColumns: number, speaking: boolean): number {
   const companion = getCompanion();
   if (!companion || getGlobalConfig().companionMuted) return 0;
@@ -181,8 +181,8 @@ export function CompanionSprite(): React.ReactNode {
   } = useTerminalSize();
   const [tick, setTick] = useState(0);
   const lastSpokeTick = useRef(0);
-  // Sync-during-render (not useEffect) so the first post-pet render already
-  // has petStartTick=tick and petAge=0 — otherwise frame 0 is skipped.
+  // 在 render 期间同步（而不是用 useEffect），这样 pet 后的第一次 render 就已经
+  // 有 petStartTick=tick 和 petAge=0——否则会跳过 frame 0。
   const [{
     petStartTick,
     forPetAt
@@ -219,8 +219,8 @@ export function CompanionSprite(): React.ReactNode {
   const petAge = petAt ? tick - petStartTick : Infinity;
   const petting = petAge * TICK_MS < PET_BURST_MS;
 
-  // Narrow terminals: collapse to one-line face. When speaking, the quip
-  // replaces the name beside the face (no room for a bubble).
+  // 窄终端下折叠为单行表情。说话时，短句会取代表情旁边的名字
+  // （没有空间放气泡）。
   if (columns < MIN_COLS_FOR_FULL_SPRITE) {
     const quip = reaction && reaction.length > NARROW_QUIP_CAP ? reaction.slice(0, NARROW_QUIP_CAP - 1) + '…' : reaction;
     const label = quip ? `"${quip}"` : focused ? ` ${companion.name} ` : companion.name;
@@ -241,7 +241,7 @@ export function CompanionSprite(): React.ReactNode {
   let spriteFrame: number;
   let blink = false;
   if (reaction || petting) {
-    // Excited: cycle all fidget frames fast
+    // 兴奋状态：快速循环所有小动作帧
     spriteFrame = tick % frameCount;
   } else {
     const step = IDLE_SEQUENCE[tick % IDLE_SEQUENCE.length]!;
@@ -255,11 +255,11 @@ export function CompanionSprite(): React.ReactNode {
   const body = renderSprite(companion, spriteFrame).map(line => blink ? line.replaceAll(companion.eye, '-') : line);
   const sprite = heartFrame ? [heartFrame, ...body] : body;
 
-  // Name row doubles as hint row — unfocused shows dim name + ↓ discovery,
-  // focused shows inverse name. The enter-to-open hint lives in
-  // PromptInputFooter's right column so this row stays one line and the
-  // sprite doesn't jump up when selected. flexShrink=0 stops the
-  // inline-bubble row wrapper from squeezing the sprite to fit.
+  // 名字行同时也承担提示行的作用——未聚焦时显示变暗的名字 + ↓ 提示，
+  // 聚焦时显示反色名字。按 Enter 打开的提示放在
+  // PromptInputFooter 的右侧列里，这样这一行能保持单行，
+  // 选中时 sprite 也不会向上跳。flexShrink=0 可防止
+  // 内联气泡那一行的包装容器为了适配宽度而挤压 sprite。
   const spriteColumn = <Box flexDirection="column" flexShrink={0} alignItems="center" width={colWidth}>
       {sprite.map((line, i) => <Text key={i} color={i === 0 && heartFrame ? 'autoAccept' : color}>
           {line}
@@ -272,11 +272,11 @@ export function CompanionSprite(): React.ReactNode {
     return <Box paddingX={1}>{spriteColumn}</Box>;
   }
 
-  // Fullscreen: bubble renders separately via CompanionFloatingBubble in
-  // FullscreenLayout's bottomFloat slot (the bottom slot's overflowY:hidden
-  // would clip a position:absolute overlay here). Sprite body only.
-  // Non-fullscreen: bubble sits inline beside the sprite (input shrinks)
-  // because floating into Static scrollback can't be cleared.
+  // 全屏时：气泡会通过 CompanionFloatingBubble 单独渲染到
+  // FullscreenLayout 的 bottomFloat 槽位中（这里底部槽位的 overflowY:hidden
+  // 会裁掉 position:absolute 的覆盖层）。这里只渲染 sprite 本体。
+  // 非全屏时：气泡内联放在 sprite 旁边（输入区会变窄），
+  // 因为浮到 Static scrollback 中后无法清除。
   if (isFullscreenActive()) {
     return <Box paddingX={1}>{spriteColumn}</Box>;
   }
@@ -286,10 +286,10 @@ export function CompanionSprite(): React.ReactNode {
     </Box>;
 }
 
-// Floating bubble overlay for fullscreen mode. Mounted in FullscreenLayout's
-// bottomFloat slot (outside the overflowY:hidden clip) so it can extend into
-// the ScrollBox region. CompanionSprite owns the clear-after-10s timer; this
-// just reads companionReaction and renders the fade.
+// 全屏模式下的悬浮气泡覆盖层。挂载在 FullscreenLayout 的
+// bottomFloat 槽位中（位于 overflowY:hidden 裁剪区域之外），因此可以延伸到
+// ScrollBox 区域。10 秒后清除的定时器由 CompanionSprite 管理；这里
+// 只读取 companionReaction 并渲染淡出效果。
 export function CompanionFloatingBubble() {
   const $ = _c(8);
   const reaction = useAppState(_temp);

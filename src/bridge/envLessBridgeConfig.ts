@@ -5,39 +5,38 @@ import { lt } from '../utils/semver.js'
 import { isEnvLessBridgeEnabled } from './bridgeEnabled.js'
 
 export type EnvLessBridgeConfig = {
-  // withRetry — init-phase backoff (createSession, POST /bridge, recovery /bridge)
+  // withRetry：初始化阶段退避（createSession、POST /bridge、恢复用 /bridge）
   init_retry_max_attempts: number
   init_retry_base_delay_ms: number
   init_retry_jitter_fraction: number
   init_retry_max_delay_ms: number
-  // axios timeout for POST /sessions, POST /bridge, POST /archive
+  // POST /sessions、POST /bridge、POST /archive 的 axios 超时
   http_timeout_ms: number
-  // BoundedUUIDSet ring size (echo + re-delivery dedup)
+  // BoundedUUIDSet 环大小（echo + 重新投递去重）
   uuid_dedup_buffer_size: number
-  // CCRClient worker heartbeat cadence. Server TTL is 60s — 20s gives 3× margin.
+  // CCRClient worker heartbeat 节奏。服务端 TTL 为 60s，20s 提供 3 倍余量。
   heartbeat_interval_ms: number
-  // ±fraction of interval — per-beat jitter to spread fleet load.
+  // 间隔的 ±fraction，按次 heartbeat 加抖动以分散集群负载。
   heartbeat_jitter_fraction: number
-  // Fire proactive JWT refresh this long before expires_in. Larger buffer =
-  // more frequent refresh (refresh cadence ≈ expires_in - buffer).
+  // 在距 expires_in 还有这么久时触发主动 JWT 刷新。buffer 越大，
+  // 刷新越频繁（刷新周期约等于 expires_in - buffer）。
   token_refresh_buffer_ms: number
-  // Archive POST timeout in teardown(). Distinct from http_timeout_ms because
-  // gracefulShutdown races runCleanupFunctions() against a 2s cap — a 10s
-  // axios timeout on a slow/stalled archive burns the whole budget on a
-  // request that forceExit will kill anyway.
+  // teardown() 中 Archive POST 的超时。之所以不同于 http_timeout_ms，
+  // 是因为 gracefulShutdown 会让 runCleanupFunctions() 与 2s 上限竞速。
+  // 如果一个缓慢/卡住的 archive 还保留 10s axios 超时，就会耗尽整个预算，
+  // 但最终 forceExit 仍会把这个请求杀掉。
   teardown_archive_timeout_ms: number
-  // Deadline for onConnect after transport.connect(). If neither onConnect
-  // nor onClose fires before this, emit tengu_bridge_repl_connect_timeout
-  // — the only telemetry for the ~1% of sessions that emit `started` then
-  // go silent (no error, no event, just nothing).
+  // transport.connect() 之后等待 onConnect 的截止时间。如果在此之前既没有
+  // onConnect 也没有 onClose 触发，就发出 tengu_bridge_repl_connect_timeout。
+  // 这是对那约 1% 只发出 `started` 然后沉默的 session 的唯一遥测
+  // （没有错误、没有事件，什么都没有）。
   connect_timeout_ms: number
-  // Semver floor for the env-less bridge path. Separate from the v1
-  // tengu_bridge_min_version config so a v2-specific bug can force upgrades
-  // without blocking v1 (env-based) clients, and vice versa.
+  // env-less bridge 路径的 semver 下限。它独立于 v1 的
+  // tengu_bridge_min_version 配置，这样 v2 特有 bug 可以强制升级，
+  // 但不会阻塞 v1（基于 env）客户端，反之亦然。
   min_version: string
-  // When true, tell users their claude.ai app may be too old to see v2
-  // sessions — lets us roll the v2 bridge before the app ships the new
-  // session-list query.
+  // 为 true 时，提示用户其 claude.ai 应用版本可能太旧，无法看到 v2
+  // session。这让我们能在应用发布新 session-list query 之前先 rollout v2 bridge。
   should_show_app_upgrade_message: boolean
 }
 
@@ -57,8 +56,8 @@ export const DEFAULT_ENV_LESS_BRIDGE_CONFIG: EnvLessBridgeConfig = {
   should_show_app_upgrade_message: false,
 }
 
-// Floors reject the whole object on violation (fall back to DEFAULT) rather
-// than partially trusting — same defense-in-depth as pollConfig.ts.
+// 这些下限在违反约束时会拒绝整个对象（回退到 DEFAULT），而不是部分信任，
+// 与 pollConfig.ts 中的防御性策略相同。
 const envLessBridgeConfigSchema = lazySchema(() =>
   z.object({
     init_retry_max_attempts: z.number().int().min(1).max(10).default(3),
@@ -67,39 +66,37 @@ const envLessBridgeConfigSchema = lazySchema(() =>
     init_retry_max_delay_ms: z.number().int().min(500).default(4000),
     http_timeout_ms: z.number().int().min(2000).default(10_000),
     uuid_dedup_buffer_size: z.number().int().min(100).max(50_000).default(2000),
-    // Server TTL is 60s. Floor 5s prevents thrash; cap 30s keeps ≥2× margin.
+    // 服务端 TTL 为 60s。5s 下限可防止抖动；30s 上限保留至少 2 倍余量。
     heartbeat_interval_ms: z
       .number()
       .int()
       .min(5000)
       .max(30_000)
       .default(20_000),
-    // ±fraction per beat. Cap 0.5: at max interval (30s) × 1.5 = 45s worst case,
-    // still under the 60s TTL.
+    // 每次 heartbeat 使用 ±fraction 抖动。上限 0.5：在最大间隔 30s 下，
+    // 乘以 1.5 的最坏情况是 45s，仍低于 60s TTL。
     heartbeat_jitter_fraction: z.number().min(0).max(0.5).default(0.1),
-    // Floor 30s prevents tight-looping. Cap 30min rejects buffer-vs-delay
-    // semantic inversion: ops entering expires_in-5min (the *delay until
-    // refresh*) instead of 5min (the *buffer before expiry*) yields
-    // delayMs = expires_in - buffer ≈ 5min instead of ≈4h. Both are positive
-    // durations so .min() alone can't distinguish; .max() catches the
-    // inverted value since buffer ≥ 30min is nonsensical for a multi-hour JWT.
+    // 30s 下限可防止紧密循环。30min 上限用于拦截 buffer 与 delay 的语义反转：
+    // 如果 ops 填的是 expires_in-5min（距离刷新还有多久），而不是 5min
+    // （过期前的 buffer），就会得到 delayMs = expires_in - buffer ≈ 5min，
+    // 而不是 ≈4h。两者都是正时长，单靠 .min() 无法区分；.max() 能捕获这种
+    // 反转，因为对于多小时 JWT 来说，buffer ≥ 30min 明显不合理。
     token_refresh_buffer_ms: z
       .number()
       .int()
       .min(30_000)
       .max(1_800_000)
       .default(300_000),
-    // Cap 2000 keeps this under gracefulShutdown's 2s cleanup race — a higher
-    // timeout just lies to axios since forceExit kills the socket regardless.
+    // 2000 上限保证它低于 gracefulShutdown 的 2s cleanup 竞速窗口；更高的
+    // 超时只是对 axios 的假象，因为无论如何 forceExit 都会杀掉 socket。
     teardown_archive_timeout_ms: z
       .number()
       .int()
       .min(500)
       .max(2000)
       .default(1500),
-    // Observed p99 connect is ~2-3s; 15s is ~5× headroom. Floor 5s bounds
-    // false-positive rate under transient slowness; cap 60s bounds how long
-    // a truly-stalled session stays dark.
+    // 观测到的 p99 connect 大约是 2-3s；15s 提供约 5 倍余量。5s 下限可限制
+    // 瞬时变慢时的误报率；60s 上限可限制真正卡死的 session 保持沉默的时长。
     connect_timeout_ms: z.number().int().min(5_000).max(60_000).default(15_000),
     min_version: z
       .string()
@@ -117,15 +114,14 @@ const envLessBridgeConfigSchema = lazySchema(() =>
 )
 
 /**
- * Fetch the env-less bridge timing config from GrowthBook. Read once per
- * initEnvLessBridgeCore call — config is fixed for the lifetime of a bridge
- * session.
+ * 从 GrowthBook 获取 env-less bridge 的时序配置。每次调用
+ * initEnvLessBridgeCore 只读取一次，bridge session 生命周期内该配置固定。
  *
- * Uses the blocking getter (not _CACHED_MAY_BE_STALE) because /remote-control
- * runs well after GrowthBook init — initializeGrowthBook() resolves instantly,
- * so there's no startup penalty, and we get the fresh in-memory remoteEval
- * value instead of the stale-on-first-read disk cache. The _DEPRECATED suffix
- * warns against startup-path usage, which this isn't.
+ * 这里使用阻塞 getter（不是 _CACHED_MAY_BE_STALE），因为 /remote-control
+ * 运行时机远晚于 GrowthBook 初始化。initializeGrowthBook() 会立刻完成，
+ * 因此没有启动惩罚，而且我们拿到的是内存中最新的 remoteEval 值，而不是
+ * 首次读取时可能陈旧的磁盘缓存。_DEPRECATED 后缀只是提醒不要用于启动路径，
+ * 这里并不属于那种情况。
  */
 export async function getEnvLessBridgeConfig(): Promise<EnvLessBridgeConfig> {
   const raw = await getFeatureValue_DEPRECATED<unknown>(
@@ -137,12 +133,12 @@ export async function getEnvLessBridgeConfig(): Promise<EnvLessBridgeConfig> {
 }
 
 /**
- * Returns an error message if the current CLI version is below the minimum
- * required for the env-less (v2) bridge path, or null if the version is fine.
+ * 如果当前 CLI 版本低于 env-less（v2）bridge 路径要求的最小版本，
+ * 则返回错误消息；否则返回 null。
  *
- * v2 analogue of checkBridgeMinVersion() — reads from tengu_bridge_repl_v2_config
- * instead of tengu_bridge_min_version so the two implementations can enforce
- * independent floors.
+ * 这是 checkBridgeMinVersion() 的 v2 对应实现。它读取的是
+ * tengu_bridge_repl_v2_config，而不是 tengu_bridge_min_version，
+ * 从而让两套实现可以各自维护独立下限。
  */
 export async function checkEnvLessBridgeMinVersion(): Promise<string | null> {
   const cfg = await getEnvLessBridgeConfig()
@@ -153,10 +149,9 @@ export async function checkEnvLessBridgeMinVersion(): Promise<string | null> {
 }
 
 /**
- * Whether to nudge users toward upgrading their claude.ai app when a
- * Remote Control session starts. True only when the v2 bridge is active
- * AND the should_show_app_upgrade_message config bit is set — lets us
- * roll the v2 bridge before the app ships the new session-list query.
+ * Remote Control session 启动时，是否提示用户升级 claude.ai 应用。
+ * 只有在 v2 bridge 激活且 should_show_app_upgrade_message 配置位开启时才为 true，
+ * 这样我们就能在应用发布新 session-list query 之前先 rollout v2 bridge。
  */
 export async function shouldShowAppUpgradeMessage(): Promise<boolean> {
   if (!isEnvLessBridgeEnabled()) return false

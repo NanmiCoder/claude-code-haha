@@ -10,7 +10,7 @@ import {
   type SpeculationResult,
   type SpeculationState,
 } from '../../state/AppStateStore.js'
-import { commandHasAnyCd } from '../../tools/BashTool/bashPermissions.js'
+import { commandHasAnyCd } from '../../tools/BashTool/commandMatching.js'
 import { checkReadOnlyConstraints } from '../../tools/BashTool/readOnlyValidation.js'
 import type { SpeculationAcceptMessage } from '../../types/logs.js'
 import type { Message } from '../../types/message.js'

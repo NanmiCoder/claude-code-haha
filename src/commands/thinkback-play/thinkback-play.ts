@@ -16,7 +16,7 @@ function getPluginId(): string {
 }
 
 export async function call(): Promise<LocalCommandResult> {
-  // Get skill directory from installed plugins config
+  // 从已安装 plugins 的配置中获取 skill 目录
   const v2Data = loadInstalledPluginsV2()
   const pluginId = getPluginId()
   const installations = v2Data.plugins[pluginId]

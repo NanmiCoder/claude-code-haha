@@ -10,8 +10,8 @@ type Props = {
 };
 
 /**
- * Dialog shown when switching from latest to stable channel.
- * Allows user to choose whether to downgrade or stay on current version.
+ * 从 latest 切换到 stable channel 时展示的对话框。
+ * 用户可以选择降级，或继续停留在当前版本。
  */
 export function ChannelDowngradeDialog(t0) {
   const $ = _c(17);

@@ -1,22 +1,21 @@
 /**
- * MCP tool schemas for the computer-use server. Mirrors
- * claude-for-chrome-mcp/src/browserTools.ts in shape (plain `Tool`-shaped
- * object literals, no zod).
+ * computer-use server 的 MCP tool schema。
+ * 结构上对齐 claude-for-chrome-mcp/src/browserTools.ts，
+ * 也就是普通的 `Tool` 形状对象字面量，不使用 zod。
  *
- * Coordinate descriptions are baked in at tool-list build time from the
- * `chicago_coordinate_mode` gate. The model sees exactly ONE coordinate
- * convention in the param descriptions and never learns the other exists.
- * The host (`serverDef.ts`) reads the same frozen gate value for
- * `scaleCoord` — both must agree or clicks land in the wrong space.
+ * 坐标描述会在构建工具列表时，根据 `chicago_coordinate_mode` gate 固化进去。
+ * 模型在参数说明里只会看到一种坐标约定，不会知道另一种模式存在。
+ * host（`serverDef.ts`）在 `scaleCoord` 中也必须读取同一个冻结值，
+ * 否则点击会落到错误位置。
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 import type { CoordinateMode } from "./types.js";
 
-// See packages/desktop/computer-use-mcp/COORDINATES.md before touching any
-// model-facing coordinate text. Chrome's browserTools.ts:143 is the reference
-// phrasing — "pixels from the left edge", no geometry, no number to do math with.
+// 修改任何面向模型的坐标文案前，先看 packages/desktop/computer-use-mcp/COORDINATES.md。
+// Chrome 的 browserTools.ts:143 是参考表述：
+// 使用“距离左边缘多少像素”这种说法，不讲几何推导，也不给模型做数学的额外数字。
 const COORD_DESC: Record<CoordinateMode, { x: string; y: string }> = {
   pixels: {
     x: "Horizontal pixel position read directly from the most recent screenshot image, measured from the left edge. The server handles all scaling.",
@@ -32,10 +31,9 @@ const FRONTMOST_GATE_DESC =
   "The frontmost application must be in the session allowlist at the time of this call, or this tool returns an error and does nothing.";
 
 /**
- * Item schema for the `actions` array in `computer_batch`, `teach_step`, and
- * `teach_batch`. All three dispatch through the same `dispatchAction` path
- * with the same validation — keep this enum in sync with `BATCHABLE_ACTIONS`
- * in toolCalls.ts.
+ * `computer_batch`、`teach_step` 与 `teach_batch` 中 `actions` 数组的单项 schema。
+ * 三者都走同一条 `dispatchAction` 路径，也共享相同校验逻辑，
+ * 因此这里的 enum 必须与 toolCalls.ts 中的 `BATCHABLE_ACTIONS` 保持同步。
  */
 const BATCH_ACTION_ITEM_SCHEMA = {
   type: "object",
@@ -103,23 +101,23 @@ const BATCH_ACTION_ITEM_SCHEMA = {
 };
 
 /**
- * Build the tool list. Parameterized by capabilities and coordinate mode so
- * descriptions are honest and unambiguous (plan §1 — "Unfiltered + honest").
+ * 构建工具列表。
+ * 它按 capabilities 与 coordinate mode 参数化，确保文案真实且无歧义。
  *
- * `coordinateMode` MUST match what the host passes to `scaleCoord` at tool-
- * -call time. Both should read the same frozen-at-load gate constant.
+ * `coordinateMode` 必须与 host 在运行期传给 `scaleCoord` 的值完全一致，
+ * 二者都应读取同一个加载时冻结的 gate 常量。
  *
- * `installedAppNames` — optional pre-sanitized list of app display names to
- * enumerate in the `request_access` description. The caller is responsible
- * for sanitization (length cap, character allowlist, sort, count cap) —
- * this function just splices the list into the description verbatim. Omit
- * to fall back to the generic "display names or bundle IDs" wording.
+ * `installedAppNames` 是可选的、已预清洗的 app 展示名列表，
+ * 会被枚举进 `request_access` 的描述里。
+ * 调用方负责清洗它（长度上限、字符白名单、排序、数量上限）；
+ * 这个函数只会原样拼接进去。省略时则回退到通用的
+ * “display names or bundle IDs” 表述。
  */
 export function buildComputerUseTools(
   caps: {
     screenshotFiltering: "native" | "none";
     platform: "darwin" | "win32";
-    /** Include request_teach_access + teach_step. Read once at server construction. */
+    /** 是否包含 request_teach_access 与 teach_step。会在 server 构造时读取一次。 */
     teachMode?: boolean;
   },
   coordinateMode: CoordinateMode,
@@ -127,16 +125,14 @@ export function buildComputerUseTools(
 ): Tool[] {
   const coord = COORD_DESC[coordinateMode];
 
-  // Shared hint suffix for BOTH request_access and request_teach_access —
-  // they use the same resolveRequestedApps path, so the model should get
-  // the same enumeration for both.
+  // request_access 与 request_teach_access 共用的提示后缀。
+  // 两者走的是同一条 resolveRequestedApps 路径，因此模型应看到相同的枚举列表。
   const installedAppsHint =
     installedAppNames && installedAppNames.length > 0
       ? ` Available applications on this machine: ${installedAppNames.join(", ")}.`
       : "";
 
-  // [x, y]` tuple — param shape for all
-  // click/move/scroll tools.
+  // [x, y] 元组：所有 click/move/scroll 工具共用的参数形状。
   const coordinateTuple = {
     type: "array",
     items: { type: "number" },
@@ -144,7 +140,7 @@ export function buildComputerUseTools(
     maxItems: 2,
     description: `(x, y): ${coord.x}`,
   };
-  // Modifier hold during click. Shared across all 5 click variants.
+  // 点击期间按住的修饰键。5 种 click 变体共用。
   const clickModifierText = {
     type: "string",
     description:
@@ -571,18 +567,18 @@ export function buildComputerUseTools(
 }
 
 /**
- * Teach-mode tools. Split out so the spread above stays a single expression;
- * takes `coord` so `teach_step.anchor`'s description uses the same
- * frozen coordinate-mode phrasing as click coords, and `installedAppsHint`
- * so `request_teach_access.apps` gets the same enumeration as
- * `request_access.apps` (same resolution path → same hint).
+ * teach-mode 专用工具。
+ * 单独拆出来是为了让上面的 spread 保持为单个表达式；
+ * 同时接收 `coord`，让 `teach_step.anchor` 的描述与 click 坐标使用同一套冻结坐标文案；
+ * 也接收 `installedAppsHint`，让 `request_teach_access.apps` 与
+ * `request_access.apps` 拿到相同的枚举提示。
  */
 function buildTeachTools(
   coord: { x: string; y: string },
   installedAppsHint: string,
 ): Tool[] {
-  // Shared between teach_step (top-level) and teach_batch (inside steps[]
-  // items). Depends on coord, so it lives inside this factory.
+  // teach_step（顶层）与 teach_batch（steps[] 内部项）共用。
+  // 它依赖 coord，因此定义在这个工厂函数内部。
   const teachStepProperties = {
     explanation: {
       type: "string",
@@ -608,7 +604,7 @@ function buildTeachTools(
     },
     actions: {
       type: "array",
-      // Empty allowed — "read this, click Next" steps.
+      // 允许空数组，对应“先读说明，再点 Next”的纯讲解步骤。
       items: BATCH_ACTION_ITEM_SCHEMA,
       description:
         "Actions to execute when the user clicks Next. Same item schema as computer_batch.actions. " +

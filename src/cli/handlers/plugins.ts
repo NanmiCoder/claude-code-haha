@@ -1,6 +1,7 @@
 /**
- * Plugin and marketplace subcommand handlers — extracted from main.tsx for lazy loading.
- * These are dynamically imported only when `claude plugin *` or `claude plugin marketplace *` runs.
+ * plugin 与 marketplace 子命令处理器。
+ * 它们从 main.tsx 中拆出，用于懒加载；只有执行 `claude plugin *`
+ * 或 `claude plugin marketplace *` 时才会动态导入。
  */
 /* eslint-disable custom-rules/no-process-exit -- CLI subcommand handlers intentionally exit */
 import figures from 'figures'
@@ -59,11 +60,11 @@ import { jsonStringify } from '../../utils/slowOperations.js'
 import { plural } from '../../utils/stringUtils.js'
 import { cliError, cliOk } from '../exit.js'
 
-// Re-export for main.tsx to reference in option definitions
+// 重新导出，供 main.tsx 在选项定义中引用。
 export { VALID_INSTALLABLE_SCOPES, VALID_UPDATE_SCOPES }
 
 /**
- * Helper function to handle marketplace command errors consistently.
+ * 统一处理 marketplace 命令错误的辅助函数。
  */
 export function handleMarketplaceError(error: unknown, action: string): never {
   logError(error)
@@ -97,7 +98,7 @@ function printValidationResult(result: ValidationResult): void {
   }
 }
 
-// plugin validate
+// plugin validate 子命令。
 export async function pluginValidateHandler(
   manifestPath: string,
   options: { cowork?: boolean },
@@ -110,10 +111,9 @@ export async function pluginValidateHandler(
     console.log(`Validating ${result.fileType} manifest: ${result.filePath}\n`)
     printValidationResult(result)
 
-    // If this is a plugin manifest located inside a .claude-plugin directory,
-    // also validate the plugin's content files (skills, agents, commands,
-    // hooks). Works whether the user passed a directory or the plugin.json
-    // path directly.
+    // 如果这是位于 .claude-plugin 目录中的 plugin manifest，
+    // 还需要额外校验该 plugin 的内容文件（skills、agents、commands、hooks）。
+    // 无论用户传入的是目录，还是 plugin.json 的直接路径，这里都能正常工作。
     let contentResults: ValidationResult[] = []
     if (result.fileType === 'plugin') {
       const manifestDir = dirname(result.filePath)
@@ -153,7 +153,7 @@ export async function pluginValidateHandler(
   }
 }
 
-// plugin list (lines 5217–5416)
+// plugin list 子命令。
 export async function pluginListHandler(options: {
   json?: boolean
   available?: boolean
@@ -170,11 +170,11 @@ export async function pluginListHandler(options: {
 
   const pluginIds = Object.keys(installedData.plugins)
 
-  // Load all plugins once. The JSON and human paths both need:
-  //  - loadErrors (to show load failures per plugin)
-  //  - inline plugins (session-only via --plugin-dir, source='name@inline')
-  //    which are NOT in installedData.plugins (V2 bookkeeping) — they must
-  //    be surfaced separately or `plugin list` silently ignores --plugin-dir.
+  // 所有 plugin 只加载一次，JSON 输出和人类可读输出都依赖这些信息：
+  //  - loadErrors：用于展示每个 plugin 的加载失败信息
+  //  - inline plugins：通过 --plugin-dir 注入、仅存在于 session 中，source='name@inline'
+  //    它们不在 installedData.plugins（V2 bookkeeping）里，
+  //    必须单独暴露，否则 `plugin list` 会静默忽略 --plugin-dir。
   const {
     enabled: loadedEnabled,
     disabled: loadedDisabled,
@@ -184,16 +184,16 @@ export async function pluginListHandler(options: {
   const inlinePlugins = allLoadedPlugins.filter(p =>
     p.source.endsWith('@inline'),
   )
-  // Path-level inline failures (dir doesn't exist, parse error before
-  // manifest is read) use source='inline[N]'. Plugin-level errors after
-  // manifest read use source='name@inline'. Collect both for the session
-  // section — these are otherwise invisible since they have no pluginId.
+  // 路径级的 inline 失败（目录不存在、读取 manifest 前就解析失败）
+  // 会使用 source='inline[N]'；而 manifest 读取后的 plugin 级错误
+  // 会使用 source='name@inline'。两类都要收集到 session 分区里，
+  // 否则它们因为没有 pluginId 而完全不可见。
   const inlineLoadErrors = loadErrors.filter(
     e => e.source.endsWith('@inline') || e.source.startsWith('inline['),
   )
 
   if (options.json) {
-    // Create a map of plugin source to loaded plugin for quick lookup
+    // 建一个从 plugin source 到已加载 plugin 的映射，便于快速查找。
     const loadedPluginMap = new Map(allLoadedPlugins.map(p => [p.source, p]))
 
     const plugins: Array<{
@@ -213,7 +213,7 @@ export async function pluginListHandler(options: {
       const installations = installedData.plugins[pluginId]
       if (!installations || installations.length === 0) continue
 
-      // Find loading errors for this plugin
+      // 找出这个 plugin 对应的加载错误。
       const pluginName = parsePluginIdentifier(pluginId).name
       const pluginErrors = loadErrors
         .filter(
@@ -223,12 +223,12 @@ export async function pluginListHandler(options: {
         .map(getPluginErrorMessage)
 
       for (const installation of installations) {
-        // Try to find the loaded plugin to get MCP servers
+        // 尝试找到已加载的 plugin，以便拿到它暴露的 MCP servers。
         const loadedPlugin = loadedPluginMap.get(pluginId)
         let mcpServers: Record<string, unknown> | undefined
 
         if (loadedPlugin) {
-          // Load MCP servers if not already cached
+          // 如果 MCP servers 还没缓存，就在这里补加载。
           const servers =
             loadedPlugin.mcpServers ||
             (await loadPluginMcpServers(loadedPlugin))
@@ -252,14 +252,14 @@ export async function pluginListHandler(options: {
       }
     }
 
-    // Session-only plugins: scope='session', no install metadata.
-    // Filter from inlineLoadErrors (not loadErrors) so an installed plugin
-    // with the same manifest name doesn't cross-contaminate via e.plugin.
-    // The e.plugin fallback catches the dirName≠manifestName case:
-    // createPluginFromPath tags errors with `${dirName}@inline` but
-    // plugin.source is reassigned to `${manifest.name}@inline` afterward
-    // (pluginLoader.ts loadInlinePlugins), so e.source !== p.source when
-    // a dev checkout dir like ~/code/my-fork/ has manifest name 'cool-plugin'.
+    // 仅 session 存在的 plugins：scope='session'，没有安装元数据。
+    // 这里从 inlineLoadErrors 而不是 loadErrors 里过滤，
+    // 避免一个已安装 plugin 与同 manifest 名称的 inline plugin 通过 e.plugin 相互污染。
+    // e.plugin 这个 fallback 还覆盖了 dirName≠manifestName 的情况：
+    // createPluginFromPath 会把错误标成 `${dirName}@inline`，但之后
+    // plugin.source 会被重写成 `${manifest.name}@inline`，
+    // 所以当开发目录像 ~/code/my-fork/ 而 manifest 名是 'cool-plugin' 时，
+    // e.source 与 p.source 并不相等。
     for (const p of inlinePlugins) {
       const servers = p.mcpServers || (await loadPluginMcpServers(p))
       const pErrors = inlineLoadErrors
@@ -278,9 +278,9 @@ export async function pluginListHandler(options: {
         errors: pErrors.length > 0 ? pErrors : undefined,
       })
     }
-    // Path-level inline failures (--plugin-dir /nonexistent): no LoadedPlugin
-    // exists so the loop above can't surface them. Mirror the human-path
-    // handling so JSON consumers see the failure instead of silent omission.
+    // 路径级 inline 失败（例如 --plugin-dir /nonexistent）不会生成 LoadedPlugin，
+    // 所以上面的循环无法把它们展示出来。这里补齐与人类可读路径一致的处理，
+    // 让 JSON 消费方也能看到失败，而不是被静默省略。
     for (const e of inlineLoadErrors.filter(e =>
       e.source.startsWith('inline['),
     )) {
@@ -294,7 +294,7 @@ export async function pluginListHandler(options: {
       })
     }
 
-    // If --available is set, also load available plugins from marketplaces
+    // 如果传了 --available，还要额外加载 marketplace 中可用但尚未安装的 plugins。
     if (options.available) {
       const available: Array<{
         pluginId: string
@@ -321,7 +321,7 @@ export async function pluginListHandler(options: {
           if (marketplace) {
             for (const entry of marketplace.plugins) {
               const pluginId = createPluginId(entry.name, marketplaceName)
-              // Only include plugins that are not already installed
+              // 只列出那些当前尚未安装的 plugins。
               if (!isPluginInstalled(pluginId)) {
                 available.push({
                   pluginId,
@@ -337,7 +337,7 @@ export async function pluginListHandler(options: {
           }
         }
       } catch {
-        // Silently ignore marketplace loading errors
+        // marketplace 加载失败时，这里选择静默忽略。
       }
 
       cliOk(jsonStringify({ installed: plugins, available }, null, 2))
@@ -347,9 +347,9 @@ export async function pluginListHandler(options: {
   }
 
   if (pluginIds.length === 0 && inlinePlugins.length === 0) {
-    // inlineLoadErrors can exist with zero inline plugins (e.g. --plugin-dir
-    // points at a nonexistent path). Don't early-exit over them — fall
-    // through to the session section so the failure is visible.
+    // 即使 inlinePlugins 为 0，inlineLoadErrors 仍可能存在，
+    // 例如 --plugin-dir 指向了一个不存在的路径。
+    // 这里不能提前退出，而要继续走到 session 分区，把失败展示出来。
     if (inlineLoadErrors.length === 0) {
       cliOk(
         'No plugins installed. Use `claude plugin install` to install a plugin.',
@@ -366,7 +366,7 @@ export async function pluginListHandler(options: {
     const installations = installedData.plugins[pluginId]
     if (!installations || installations.length === 0) continue
 
-    // Find loading errors for this plugin
+    // 找出这个 plugin 的加载错误。
     const pluginName = parsePluginIdentifier(pluginId).name
     const pluginErrors = loadErrors.filter(
       e => e.source === pluginId || ('plugin' in e && e.plugin === pluginName),
@@ -404,8 +404,8 @@ export async function pluginListHandler(options: {
     // biome-ignore lint/suspicious/noConsole:: intentional console output
     console.log('Session-only plugins (--plugin-dir):\n')
     for (const p of inlinePlugins) {
-      // Same dirName≠manifestName fallback as the JSON path above — error
-      // sources use the dir basename but p.source uses the manifest name.
+      // 与 JSON 路径相同，这里也要兼容 dirName≠manifestName 的情况：
+      // error source 使用目录 basename，而 p.source 使用 manifest 名称。
       const pErrors = inlineLoadErrors.filter(
         e => e.source === p.source || ('plugin' in e && e.plugin === p.name),
       )
@@ -428,8 +428,8 @@ export async function pluginListHandler(options: {
       // biome-ignore lint/suspicious/noConsole:: intentional console output
       console.log('')
     }
-    // Path-level failures: no LoadedPlugin object exists. Show them so
-    // `--plugin-dir /typo` doesn't just silently produce nothing.
+    // 路径级失败不会产生 LoadedPlugin 对象。
+    // 这里必须显式展示，避免 `--plugin-dir /typo` 只是静默没有任何输出。
     for (const e of inlineLoadErrors.filter(e =>
       e.source.startsWith('inline['),
     )) {
@@ -443,7 +443,7 @@ export async function pluginListHandler(options: {
   cliOk()
 }
 
-// marketplace add (lines 5433–5487)
+// marketplace add 子命令。
 export async function marketplaceAddHandler(
   source: string,
   options: { cowork?: boolean; sparse?: string[]; scope?: string },
@@ -462,7 +462,7 @@ export async function marketplaceAddHandler(
       cliError(`${figures.cross} ${parsed.error}`)
     }
 
-    // Validate scope
+    // 校验 scope。
     const scope = options.scope ?? 'user'
     if (scope !== 'user' && scope !== 'project' && scope !== 'local') {
       cliError(
@@ -498,7 +498,7 @@ export async function marketplaceAddHandler(
         console.log(message)
       })
 
-    // Write intent to settings at the requested scope
+    // 把声明意图写入请求的 settings scope。
     saveMarketplaceToSettings(name, { source: resolvedSource }, settingSource)
 
     clearAllCaches()
@@ -523,7 +523,7 @@ export async function marketplaceAddHandler(
   }
 }
 
-// marketplace list (lines 5497–5565)
+// marketplace list 子命令。
 export async function marketplaceListHandler(options: {
   json?: boolean
   cowork?: boolean
@@ -591,7 +591,7 @@ export async function marketplaceListHandler(options: {
   }
 }
 
-// marketplace remove (lines 5576–5598)
+// marketplace remove 子命令。
 export async function marketplaceRemoveHandler(
   name: string,
   options: { cowork?: boolean },
@@ -612,7 +612,7 @@ export async function marketplaceRemoveHandler(
   }
 }
 
-// marketplace update (lines 5609–5672)
+// marketplace update 子命令。
 export async function marketplaceUpdateHandler(
   name: string | undefined,
   options: { cowork?: boolean },
@@ -664,7 +664,7 @@ export async function marketplaceUpdateHandler(
   }
 }
 
-// plugin install (lines 5690–5721)
+// plugin install 子命令。
 export async function pluginInstallHandler(
   plugin: string,
   options: { scope?: string; cowork?: boolean },
@@ -683,10 +683,10 @@ export async function pluginInstallHandler(
       `Invalid scope: ${scope}. Must be one of: ${VALID_INSTALLABLE_SCOPES.join(', ')}.`,
     )
   }
-  // _PROTO_* routes to PII-tagged plugin_name/marketplace_name BQ columns.
-  // Unredacted plugin arg was previously logged to general-access
-  // additional_metadata for all users — dropped in favor of the privileged
-  // column route. marketplace may be undefined (fires before resolution).
+  // _PROTO_* 会路由到带 PII 标记的 plugin_name/marketplace_name BQ 字段。
+  // 以前未脱敏的 plugin 参数会写入所有用户都可访问的 additional_metadata；
+  // 现在已经移除，改走受限字段。marketplace 可能为 undefined，
+  // 因为埋点发生在解析完成之前。
   const { name, marketplace } = parsePluginIdentifier(plugin)
   logEvent('tengu_plugin_install_command', {
     _PROTO_plugin_name: name as AnalyticsMetadata_I_VERIFIED_THIS_IS_PII_TAGGED,
@@ -700,7 +700,7 @@ export async function pluginInstallHandler(
   await installPlugin(plugin, scope as 'user' | 'project' | 'local')
 }
 
-// plugin uninstall (lines 5738–5769)
+// plugin uninstall 子命令。
 export async function pluginUninstallHandler(
   plugin: string,
   options: { scope?: string; cowork?: boolean; keepData?: boolean },
@@ -736,7 +736,7 @@ export async function pluginUninstallHandler(
   )
 }
 
-// plugin enable (lines 5783–5818)
+// plugin enable 子命令。
 export async function pluginEnableHandler(
   plugin: string,
   options: { scope?: string; cowork?: boolean },
@@ -759,7 +759,7 @@ export async function pluginEnableHandler(
     cliError('--cowork can only be used with user scope')
   }
 
-  // --cowork always operates at user scope
+  // --cowork 始终只在 user scope 下生效。
   if (options.cowork && scope === undefined) {
     scope = 'user'
   }
@@ -778,7 +778,7 @@ export async function pluginEnableHandler(
   await enablePlugin(plugin, scope)
 }
 
-// plugin disable (lines 5833–5902)
+// plugin disable 子命令。
 export async function pluginDisableHandler(
   plugin: string | undefined,
   options: { scope?: string; cowork?: boolean; all?: boolean },
@@ -798,8 +798,8 @@ export async function pluginDisableHandler(
       cliError('Cannot use --scope with --all')
     }
 
-    // No _PROTO_plugin_name here — --all disables all plugins.
-    // Distinguishable from the specific-plugin branch by plugin_name IS NULL.
+    // 这里没有 _PROTO_plugin_name，因为 --all 表示禁用全部 plugins。
+    // 与“禁用某个具体 plugin”的分支可通过 plugin_name 为 NULL 区分。
     logEvent('tengu_plugin_disable_command', {})
 
     await disableAllPlugins()
@@ -823,7 +823,7 @@ export async function pluginDisableHandler(
     cliError('--cowork can only be used with user scope')
   }
 
-  // --cowork always operates at user scope
+  // --cowork 始终只在 user scope 下生效。
   if (options.cowork && scope === undefined) {
     scope = 'user'
   }
@@ -842,7 +842,7 @@ export async function pluginDisableHandler(
   await disablePlugin(plugin!, scope)
 }
 
-// plugin update (lines 5918–5948)
+// plugin update 子命令。
 export async function pluginUpdateHandler(
   plugin: string,
   options: { scope?: string; cowork?: boolean },

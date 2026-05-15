@@ -40,11 +40,10 @@ function getBackgroundUsageNote(): string | null {
 }
 
 function getCommitAndPRInstructions(): string {
-  // Defense-in-depth: undercover instructions must survive even if the user
-  // has disabled git instructions entirely. Attribution stripping and model-ID
-  // hiding are mechanical and work regardless, but the explicit "don't blow
-  // your cover" instructions are the last line of defense against the model
-  // volunteering an internal codename in a commit message.
+  // defense-in-depth：即便用户彻底关闭了 git instructions，undercover 指令仍必须保留。
+  // attribution stripping 和 model-ID hiding 这类机械处理始终会生效，
+  // 但显式的“不要暴露身份”指令，仍是防止模型在 commit message 中
+  // 主动泄露内部代号的最后一道防线。
   const undercoverSection =
     process.env.USER_TYPE === 'ant' && isUndercover()
       ? getUndercoverInstructions() + '\n'
@@ -52,7 +51,7 @@ function getCommitAndPRInstructions(): string {
 
   if (!shouldIncludeGitInstructions()) return undercoverSection
 
-  // For ant users, use the short version pointing to skills
+  // 对 ant 用户，使用指向 skills 的短版本说明。
   if (process.env.USER_TYPE === 'ant') {
     const skillsSection = !isEnvTruthy(process.env.CLAUDE_CODE_SIMPLE)
       ? `For git commits and pull requests, use the \`/commit\` and \`/commit-push-pr\` skills:
@@ -75,7 +74,7 @@ Use the gh command via the Bash tool for other GitHub-related tasks including wo
 - View comments on a Github PR: gh api repos/foo/bar/pulls/123/comments`
   }
 
-  // For external users, include full inline instructions
+  // 对外部用户，内联完整说明。
   const { commit: commitAttribution, pr: prAttribution } = getAttributionTexts()
 
   return `# Committing changes with git
@@ -160,10 +159,10 @@ Important:
 - View comments on a Github PR: gh api repos/foo/bar/pulls/123/comments`
 }
 
-// SandboxManager merges config from multiple sources (settings layers, defaults,
-// CLI flags) without deduping, so paths like ~/.cache appear 3× in allowOnly.
-// Dedup here before inlining into the prompt — affects only what the model sees,
-// not sandbox enforcement. Saves ~150-200 tokens/request when sandbox is enabled.
+// SandboxManager 会把多个来源的配置（settings 层级、默认值、CLI flags）直接合并，
+// 不做去重，因此像 ~/.cache 这样的路径可能会在 allowOnly 中出现 3 次。
+// 这里在把内容内联进 prompt 之前先去重，只影响模型看到的文本，
+// 不影响 sandbox 的实际执行。启用 sandbox 时每次请求大约能省 150-200 个 token。
 function dedup<T>(arr: T[] | undefined): T[] | undefined {
   if (!arr || arr.length === 0) return arr
   return [...new Set(arr)]
@@ -182,9 +181,9 @@ function getSimpleSandboxSection(): string {
   const allowUnsandboxedCommands =
     SandboxManager.areUnsandboxedCommandsAllowed()
 
-  // Replace the per-UID temp dir literal (e.g. /private/tmp/claude-1001/) with
-  // "$TMPDIR" so the prompt is identical across users — avoids busting the
-  // cross-user global prompt cache. The sandbox already sets $TMPDIR at runtime.
+  // 把按 UID 区分的临时目录字面量（例如 /private/tmp/claude-1001/）替换成
+  // "$TMPDIR"，这样不同用户看到的 prompt 就完全一致，避免打爆跨用户共享的
+  // 全局 prompt cache。sandbox 在运行时本来就会设置好 $TMPDIR。
   const claudeTempDir = getClaudeTempDir()
   const normalizeAllowOnly = (paths: string[]): string[] =>
     [...new Set(paths)].map(p => (p === claudeTempDir ? '$TMPDIR' : p))
@@ -273,8 +272,8 @@ function getSimpleSandboxSection(): string {
 }
 
 export function getSimplePrompt(): string {
-  // Ant-native builds alias find/grep to embedded bfs/ugrep in Claude's shell,
-  // so we don't steer away from them (and Glob/Grep tools are removed).
+  // 在 ant-native 构建中，Claude 的 shell 会把 find/grep 映射到内嵌的 bfs/ugrep，
+  // 因此这里不再把模型引导离开它们（同时 Glob/Grep 工具也会被移除）。
   const embedded = hasEmbeddedSearchTools()
 
   const toolPreferenceItems = [
@@ -342,10 +341,10 @@ export function getSimplePrompt(): string {
     sleepSubitems,
     ...(embedded
       ? [
-          // bfs (which backs `find`) uses Oniguruma for -regex, which picks the
-          // FIRST matching alternative (leftmost-first), unlike GNU find's
-          // POSIX leftmost-longest. This silently drops matches when a shorter
-          // alternative is a prefix of a longer one.
+          // bfs（也就是 `find` 的底层实现）在 -regex 中使用 Oniguruma，
+          // 它采用 FIRST matching alternative（leftmost-first），而不是 GNU find
+          // 的 POSIX leftmost-longest。若较短候选是较长候选的前缀，
+          // 这种差异会悄悄导致一部分匹配结果被丢掉。
           "When using `find -regex` with alternation, put the longest alternative first. Example: use `'.*\\.\\(tsx\\|ts\\)'` not `'.*\\.\\(ts\\|tsx\\)'` — the second form silently skips `.tsx` files.",
         ]
       : []),

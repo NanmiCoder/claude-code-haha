@@ -8,13 +8,13 @@ type TerminalEventInit = {
 }
 
 /**
- * Base class for all terminal events with DOM-style propagation.
+ * 所有采用 DOM 风格传播的终端事件的基类。
  *
- * Extends Event so existing event types (ClickEvent, InputEvent,
- * TerminalFocusEvent) share a common ancestor and can migrate later.
+ * 继承自 Event，使现有事件类型（ClickEvent、InputEvent、
+ * TerminalFocusEvent）共享同一个祖先类型，并可在后续平滑迁移。
  *
- * Mirrors the browser's Event API: target, currentTarget, eventPhase,
- * stopPropagation(), preventDefault(), timeStamp.
+ * 与浏览器的 Event API 保持一致：target、currentTarget、eventPhase、
+ * stopPropagation()、preventDefault()、timeStamp。
  */
 export class TerminalEvent extends Event {
   readonly type: string
@@ -67,7 +67,7 @@ export class TerminalEvent extends Event {
     }
   }
 
-  // -- Internal setters used by the Dispatcher
+  // -- Dispatcher 使用的内部 setter
 
   /** @internal */
   _setTarget(target: EventTarget): void {
@@ -95,8 +95,8 @@ export class TerminalEvent extends Event {
   }
 
   /**
-   * Hook for subclasses to do per-node setup before each handler fires.
-   * Default is a no-op.
+   * 子类可覆写的钩子，用于在每个 handler 触发前执行针对当前节点的准备逻辑。
+   * 默认不执行任何操作。
    */
   _prepareForTarget(_target: EventTarget): void {}
 }

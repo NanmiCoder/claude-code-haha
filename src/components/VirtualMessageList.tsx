@@ -11,16 +11,16 @@ import type { RenderableMessage } from '../types/message.js';
 import { TextHoverColorContext } from './design-system/ThemedText.js';
 import { ScrollChromeContext } from './FullscreenLayout.js';
 
-// Rows of breathing room above the target when we scrollTo.
+// scrollTo 时在目标上方保留的缓冲行数。
 const HEADROOM = 3;
 import { logForDebugging } from '../utils/debug.js';
 import { sleep } from '../utils/sleep.js';
 import { renderableSearchText } from '../utils/transcriptSearch.js';
 import { isNavigableMessage, type MessageActionsNav, type MessageActionsState, type NavigableMessage, stripSystemReminders, toolCallOf } from './messageActions.js';
 
-// Fallback extractor: lower + cache here for callers without the
-// Messages.tsx tool-lookup path (tests, static contexts). Messages.tsx
-// provides its own lowering cache that also handles tool extractSearchText.
+// 兜底提取器：在这里做小写化并缓存，供没有
+// Messages.tsx 工具查找路径的调用方使用（测试、静态上下文）。Messages.tsx
+// 自带一套小写化缓存，也会处理 tool extractSearchText。
 const fallbackLowerCache = new WeakMap<RenderableMessage, string>();
 function defaultExtractSearchText(msg: RenderableMessage): string {
   const cached = fallbackLowerCache.get(msg);
@@ -33,78 +33,77 @@ export type StickyPrompt = {
   text: string;
   scrollTo: () => void;
 }
-// Click sets this — header HIDES but padding stays collapsed (0) so
-// the content ❯ lands at screen row 0 instead of row 1. Cleared on
-// the next sticky-prompt compute (user scrolls again).
+// 点击后会设置这个值，header 会隐藏，但 padding 仍保持折叠为 0，因此
+// 内容 ❯ 会落在屏幕第 0 行而不是第 1 行。会在
+// 下一次 sticky-prompt 计算时清除（用户再次滚动时）。
 | 'clicked';
 
-/** Huge pasted prompts (cat file | claude) can be MBs. Header wraps into
- *  2 rows via overflow:hidden — this just bounds the React prop size. */
+/** 超长粘贴提示词（cat file | claude）可能达到 MB 级。Header 会通过
+ *  overflow:hidden 折成 2 行，这里只是限制 React prop 的大小。 */
 const STICKY_TEXT_CAP = 500;
 
-/** Imperative handle for transcript navigation. Methods compute matches
- *  HERE (renderableMessages indices are only valid inside this component —
- *  Messages.tsx filters and reorders, REPL can't compute externally). */
+/** transcript 导航的命令式句柄。匹配计算发生在
+ *  这里（renderableMessages 的索引只在这个组件内部有效，
+ *  因为 Messages.tsx 会做过滤和重排，REPL 无法在外部计算）。 */
 export type JumpHandle = {
   jumpToIndex: (i: number) => void;
   setSearchQuery: (q: string) => void;
   nextMatch: () => void;
   prevMatch: () => void;
-  /** Capture current scrollTop as the incsearch anchor. Typing jumps
-   *  around as preview; 0-matches snaps back here. Enter/n/N never
-   *  restore (they don't call setSearchQuery with empty). Next / call
-   *  overwrites. */
+  /** 将当前 scrollTop 记录为 incsearch 锚点。输入时会跳转预览；
+   *  匹配数为 0 时会回弹到这里。Enter/n/N 不会恢复
+   *  （它们不会用空值调用 setSearchQuery）。下一次 / 会覆盖它。 */
   setAnchor: () => void;
-  /** Warm the search-text cache by extracting every message's text.
-   *  Returns elapsed ms, or 0 if already warm (subsequent / in same
-   *  transcript session). Yields before work so the caller can paint
-   *  "indexing…" first. Caller shows "indexed in Xms" on resolve. */
+  /** 通过提取每条消息的文本来预热 search-text 缓存。
+   *  返回耗时毫秒数；如果已经预热则返回 0（同一
+   *  transcript 会话中后续再次 / 时）。正式工作前会先 yield，让调用方可以先渲染
+   *  "indexing…"。调用方在完成时显示 "indexed in Xms"。 */
   warmSearchIndex: () => Promise<number>;
-  /** Manual scroll (j/k/PgUp/wheel) exited the search context. Clear
-   *  positions (yellow goes away, inverse highlights stay). Next n/N
-   *  re-establishes via step()→jump(). Wired from ScrollKeybindingHandler's
-   *  onScroll — only fires for keyboard/wheel, not programmatic scrollTo. */
+  /** 手动滚动（j/k/PgUp/wheel）会退出搜索上下文。清除
+   *  positions（黄色高亮消失，反色高亮保留）。下一次 n/N
+   *  会通过 step()→jump() 重新建立。这个逻辑由 ScrollKeybindingHandler 的
+   *  onScroll 连接，只会在键盘/滚轮触发时执行，不会响应程序化 scrollTo。 */
   disarmSearch: () => void;
 };
 type Props = {
   messages: RenderableMessage[];
   scrollRef: RefObject<ScrollBoxHandle | null>;
-  /** Invalidates heightCache on change — cached heights from a different
-   *  width are wrong (text rewrap → black screen on scroll-up after widen). */
+  /** 变更时会使 heightCache 失效，不同宽度下缓存的高度
+   *  是错误的（文本重新换行后，变宽再向上滚可能出现黑屏）。 */
   columns: number;
   itemKey: (msg: RenderableMessage) => string;
   renderItem: (msg: RenderableMessage, index: number) => React.ReactNode;
-  /** Fires when a message Box is clicked (toggle per-message verbose). */
+  /** 当消息 Box 被点击时触发（切换单条消息的 verbose）。 */
   onItemClick?: (msg: RenderableMessage) => void;
-  /** Per-item filter — suppress hover/click for messages where the verbose
-   *  toggle does nothing (text, file edits, etc). Defaults to all-clickable. */
+  /** 按项过滤，对于 verbose
+   *  切换无效的消息（文本、文件编辑等）禁用 hover/click。默认全部可点击。 */
   isItemClickable?: (msg: RenderableMessage) => boolean;
-  /** Expanded items get a persistent grey bg (not just on hover). */
+  /** 展开的项会获得持续的灰色背景（不只是在 hover 时）。 */
   isItemExpanded?: (msg: RenderableMessage) => boolean;
-  /** PRE-LOWERED search text. Messages.tsx caches the lowered result
-   *  once at warm time so setSearchQuery's per-keystroke loop does
-   *  only indexOf (zero toLowerCase alloc). Falls back to a lowering
-   *  wrapper on renderableSearchText for callers without the cache. */
+  /** 预先转为小写的搜索文本。Messages.tsx 会在预热时
+   *  把小写结果缓存一次，这样 setSearchQuery 在每次按键时
+   *  只需做 indexOf（不再分配 toLowerCase）。没有缓存的调用方会退回到
+   *  基于 renderableSearchText 的小写包装器。 */
   extractSearchText?: (msg: RenderableMessage) => string;
-  /** Enable the sticky-prompt tracker. StickyTracker writes via
-   *  ScrollChromeContext (not a callback prop) so state lives in
-   *  FullscreenLayout instead of REPL. */
+  /** 开启 sticky-prompt 跟踪器。StickyTracker 通过
+   *  ScrollChromeContext 写入（而不是回调 prop），因此状态保存在
+   *  FullscreenLayout 而不是 REPL 中。 */
   trackStickyPrompt?: boolean;
   selectedIndex?: number;
-  /** Nav handle lives here because height measurement lives here. */
+  /** 导航句柄放在这里，因为高度测量也在这里。 */
   cursorNavRef?: React.Ref<MessageActionsNav>;
   setCursor?: (c: MessageActionsState | null) => void;
   jumpRef?: RefObject<JumpHandle | null>;
-  /** Fires when search matches change (query edit, n/N). current is
-   *  1-based for "3/47" display; 0 means no matches. */
+  /** 当搜索匹配变化时触发（查询编辑、n/N）。current
+   *  用 1 基计数显示如 "3/47"；0 表示没有匹配。 */
   onSearchMatchesChange?: (count: number, current: number) => void;
-  /** Paint existing DOM subtree to fresh Screen, scan. Element from the
-   *  main tree (all providers). Message-relative positions (row 0 = el
-   *  top). Works for any height — closes the tall-message gap. */
+  /** 将现有 DOM 子树绘制到新的 Screen 上并扫描。元素来自
+   *  主树（包含所有 provider）。返回消息相对位置（row 0 = 元素
+   *  顶部）。适用于任意高度，可消除超高消息的间隙问题。 */
   scanElement?: (el: DOMElement) => MatchPosition[];
-  /** Position-based CURRENT highlight. Positions known upfront (from
-   *  scanElement), navigation = index arithmetic + scrollTo. rowOffset
-   *  = message's current screen-top; positions stay stable. */
+  /** 基于位置的 CURRENT 高亮。位置会预先通过
+   *  scanElement 获得，导航就是索引运算 + scrollTo。rowOffset
+   *  等于消息当前在屏幕上的顶部位置；positions 本身保持稳定。 */
   setPositions?: (state: {
     positions: MatchPosition[];
     rowOffset: number;
@@ -113,29 +112,27 @@ type Props = {
 };
 
 /**
- * Returns the text of a real user prompt, or null for anything else.
- * "Real" = what the human typed: not tool results, not XML-wrapped payloads
- * (<bash-stdout>, <command-message>, <teammate-message>, etc.), not meta.
+ * 返回真实用户提示词的文本，其他情况返回 null。
+ * “真实”指人类实际输入的内容：不是 tool result，不是 XML 包裹的负载
+ * （如 <bash-stdout>、<command-message>、<teammate-message> 等），也不是 meta。
  *
- * Two shapes land here: NormalizedUserMessage (normal prompts) and
- * AttachmentMessage with type==='queued_command' (prompts sent mid-turn
- * while a tool was executing — they get drained as attachments on the
- * next turn, see query.ts:1410). Both render as ❯-prefixed UserTextMessage
- * in the UI so both should stick.
+ * 这里会落入两种形态：NormalizedUserMessage（普通提示词）和
+ * type==='queued_command' 的 AttachmentMessage（工具执行过程中在 turn 中途发送的
+ * 提示词，它们会在下一轮 turn 被作为 attachment 排空，见 query.ts:1410）。两者在 UI 中
+ * 都会渲染为带 ❯ 前缀的 UserTextMessage，因此都应参与 sticky。
  *
- * Leading <system-reminder> blocks are stripped before checking — they get
- * prepended to the stored text for Claude's context (memory updates, auto
- * mode reminders) but aren't what the user typed. Without stripping, any
- * prompt that happened to get a reminder is rejected by the startsWith('<')
- * check. Shows up on `cc -c` resumes where memory-update reminders are dense.
+ * 检查前会先移除前导的 <system-reminder> 块，它们会为了 Claude 的上下文
+ * （memory 更新、auto mode 提醒）被追加到存储文本前面，但那并不是用户真正输入的内容。
+ * 如果不剥离，任何恰好带有 reminder 的提示词都会被 startsWith('<')
+ * 判断错误地拒绝。在 `cc -c` 恢复且 memory-update reminder 很密集时会出现这个问题。
  */
 const promptTextCache = new WeakMap<RenderableMessage, string | null>();
 function stickyPromptText(msg: RenderableMessage): string | null {
-  // Cache keyed on message object — messages are append-only and don't
-  // mutate, so a WeakMap hit is always valid. The walk (StickyTracker,
-  // per-scroll-tick) calls this 5-50+ times with the SAME messages every
-  // tick; the system-reminder strip allocates a fresh string on each
-  // parse. WeakMap self-GCs on compaction/clear (messages[] replaced).
+  // 缓存以 message 对象为键，messages 是只追加、不变异的，
+  // 因此 WeakMap 命中始终有效。遍历逻辑（StickyTracker，
+  // 每次滚动 tick 执行）在每个 tick 中会对同一批消息调用 5 到 50 多次；
+  // system-reminder 的剥离在每次解析时都会分配新字符串。
+  // 在 compaction/clear 时（messages[] 被替换），WeakMap 会自行回收。
   const cached = promptTextCache.get(msg);
   if (cached !== undefined) return cached;
   const result = computeStickyPromptText(msg);
@@ -160,12 +157,12 @@ function computeStickyPromptText(msg: RenderableMessage): string | null {
 }
 
 /**
- * Virtualized message list for fullscreen mode. Split from Messages.tsx so
- * useVirtualScroll is called unconditionally (rules-of-hooks) — Messages.tsx
- * conditionally renders either this or a plain .map().
+ * fullscreen 模式下的虚拟化消息列表。从 Messages.tsx 中拆出，
+ * 这样 useVirtualScroll 就能无条件调用（遵守 rules-of-hooks），而 Messages.tsx
+ * 只负责按条件渲染这里或普通的 .map()。
  *
- * The wrapping <Box ref> is the measurement anchor — MessageRow doesn't take
- * a ref. Single-child column Box passes Yoga height through unchanged.
+ * 外层的 <Box ref> 是测量锚点，因为 MessageRow 不接收 ref。
+ * 单子节点的列布局 Box 会原样传递 Yoga 高度。
  */
 type VirtualItemProps = {
   itemKey: string;
@@ -181,19 +178,19 @@ type VirtualItemProps = {
   renderItem: (msg: RenderableMessage, idx: number) => React.ReactNode;
 };
 
-// Item wrapper with stable click handlers. The per-item closures were the
-// `operationNewArrowFunction` leafs → `FunctionExecutable::finalizeUnconditionally`
-// GC cleanup (16% of GC time during fast scroll). 3 closures × 60 mounted ×
-// 10 commits/sec = 1800 closures/sec. With stable onClickK/onEnterK/onLeaveK
-// threaded via itemKey, the closures here are per-item-per-render but CHEAP
-// (just wrap the stable callback with k bound) and don't close over msg/idx
-// which lets JIT inline them. The bigger win is inside: MessageRow.memo
-// bails for unchanged msgs, skipping marked.lexer + formatToken.
+// 带稳定点击处理器的 item 包装层。按项生成的闭包曾是
+// `operationNewArrowFunction` 叶子节点，对应 `FunctionExecutable::finalizeUnconditionally`
+// 的 GC 清理（快速滚动时占 GC 时间的 16%）。3 个闭包 × 60 个已挂载项 ×
+// 每秒 10 次提交 = 每秒 1800 个闭包。借助通过 itemKey 传入的稳定 onClickK/onEnterK/onLeaveK，
+// 这里的闭包虽然仍是按项按渲染创建，但成本很低
+// （只是用绑定了 k 的稳定回调做一层包装），而且不会闭包捕获 msg/idx，
+// 因此 JIT 可以内联它们。更大的收益在内部：MessageRow.memo
+// 会对未变化的消息直接 bail，跳过 marked.lexer + formatToken。
 //
-// NOT React.memo'd — renderItem captures changing state (cursor, selectedIdx,
-// verbose). Memoing with a comparator that ignores renderItem would use a
-// STALE closure on bail (wrong selection highlight, stale verbose). Including
-// renderItem in the comparator defeats memo since it's fresh each render.
+// 不使用 React.memo，因为 renderItem 会捕获变化中的状态（cursor、selectedIdx、
+// verbose）。如果用忽略 renderItem 的 comparator 做 memo，在 bail 时会拿到
+// 过期闭包（选择高亮错误、verbose 过期）。而把 renderItem 纳入 comparator
+// 又会让 memo 失效，因为它每次渲染都是新的。
 function VirtualItem(t0) {
   const $ = _c(30);
   const {
@@ -305,10 +302,10 @@ export function VirtualMessageList({
   scanElement,
   setPositions
 }: Props): React.ReactNode {
-  // Incremental key array. Streaming appends one message at a time; rebuilding
-  // the full string array on every commit allocates O(n) per message (~1MB
-  // churn at 27k messages). Append-only delta push when the prefix matches;
-  // fall back to full rebuild on compaction, /clear, or itemKey change.
+  // 增量维护 key 数组。流式场景下一次只追加一条消息；若每次提交都重建
+  // 整个字符串数组，会为每条消息产生 O(n) 分配（27k 消息时约有 1MB
+  // 抖动）。当前缀匹配时只做追加式 delta push；
+  // 在 compaction、/clear 或 itemKey 变化时再退回到完整重建。
   const keysRef = useRef<string[]>([]);
   const prevMessagesRef = useRef<typeof messages>(messages);
   const prevItemKeyRef = useRef(itemKey);
@@ -336,7 +333,7 @@ export function VirtualMessageList({
   } = useVirtualScroll(scrollRef, keys, columns);
   const [start, end] = range;
 
-  // Unmeasured (undefined height) falls through — assume visible.
+  // 未测量（高度未定义）的项直接放行，假定其可见。
   const isVisible = useCallback((i: number) => {
     const h = getItemHeight(i);
     if (h === 0) return false;
@@ -361,17 +358,17 @@ export function VirtualMessageList({
     };
     const isUser = (i: number) => isVisible(i) && messages[i]!.type === 'user';
     return {
-      // Entry via shift+↑ = same semantic as in-cursor shift+↑ (prevUser).
+      // 通过 shift+↑ 进入的语义与游标内 shift+↑ 相同（prevUser）。
       enterCursor: () => scan(messages.length - 1, -1, isUser),
       navigatePrev: () => scan(selIdx - 1, -1),
       navigateNext: () => {
         if (scan(selIdx + 1, 1)) return;
-        // Past last visible → exit + repin. Last message's TOP is at viewport
-        // top (selection-scroll effect); its BOTTOM may be below the fold.
+        // 超过最后一个可见项后，退出并重新固定。最后一条消息的顶部位于视口顶部
+        // （selection-scroll 的效果），但它的底部仍可能在折叠区域之外。
         scrollRef.current?.scrollToBottom();
         setCursor?.(null);
       },
-      // type:'user' only — queued_command attachments look like prompts but have no raw UserMessage to rewind to.
+      // 仅限 type:'user'，queued_command 附件看起来像提示词，但没有可供 rewind 的原始 UserMessage。
       navigatePrevUser: () => scan(selIdx - 1, -1, isUser),
       navigateNextUser: () => scan(selIdx + 1, 1, isUser),
       navigateTop: () => scan(0, 1),
@@ -379,9 +376,9 @@ export function VirtualMessageList({
       getSelected: () => selIdx >= 0 ? messages[selIdx] ?? null : null
     };
   }, [messages, selectedIndex, setCursor, isVisible]);
-  // Two-phase jump + search engine. Read-through-ref so the handle stays
-  // stable across renders — offsets/messages identity changes every render,
-  // can't go in useImperativeHandle deps without recreating the handle.
+  // 两阶段 jump + 搜索引擎。通过 ref 读取，保证 handle 在跨渲染时保持稳定，
+  // 因为 offsets/messages 的引用每次渲染都会变化，
+  // 如果放进 useImperativeHandle 的依赖里就会导致 handle 被重建。
   const jumpState = useRef({
     offsets,
     start,
@@ -399,10 +396,10 @@ export function VirtualMessageList({
     scrollToIndex
   };
 
-  // Keep cursor-selected message visible. offsets rebuilds every render
-  // — as a bare dep this re-pinned on every mousewheel tick. Read through
-  // jumpState instead; past-overscan jumps land via scrollToIndex, next
-  // nav is precise.
+  // 保持光标选中的消息可见。offsets 每次渲染都会重建，
+  // 如果把它裸放进依赖里，每次鼠标滚轮 tick 都会重新固定位置。改为经由
+  // jumpState 读取；越过 overscan 的跳转通过 scrollToIndex 落位，后续
+  // 导航再做精确定位。
   useEffect(() => {
     if (selectedIndex === undefined) return;
     const s = jumpState.current;
@@ -414,18 +411,18 @@ export function VirtualMessageList({
     }
   }, [selectedIndex, scrollRef]);
 
-  // Pending seek request. jump() sets this + bumps seekGen. The seek
-  // effect fires post-paint (passive effect — after resetAfterCommit),
-  // checks if target is mounted. Yes → scan+highlight. No → re-estimate
-  // with a fresher anchor (start moved toward idx) and scrollTo again.
+  // 待处理的 seek 请求。jump() 会设置它并递增 seekGen。seek
+  // effect 会在绘制后触发（被动 effect，在 resetAfterCommit 之后），
+  // 检查目标是否已挂载。已挂载则 scan+highlight；未挂载则用更新的锚点
+  // （start 更靠近 idx）重新估算后再次 scrollTo。
   const scanRequestRef = useRef<{
     idx: number;
     wantLast: boolean;
     tries: number;
   } | null>(null);
-  // Message-relative positions from scanElement. Row 0 = message top.
-  // Stable across scroll — highlight computes rowOffset fresh. msgIdx
-  // for computing rowOffset = getItemTop(msgIdx) - scrollTop.
+  // 来自 scanElement 的消息相对位置。row 0 表示消息顶部。
+  // 这些位置在滚动时保持稳定，highlight 会实时重新计算 rowOffset。msgIdx
+  // 用于计算 rowOffset = getItemTop(msgIdx) - scrollTop。
   const elementPositions = useRef<{
     msgIdx: number;
     positions: MatchPosition[];
@@ -433,51 +430,51 @@ export function VirtualMessageList({
     msgIdx: -1,
     positions: []
   });
-  // Wraparound guard. Auto-advance stops if ptr wraps back to here.
+  // 回绕保护。如果 ptr 回绕到这里，自动前进就会停止。
   const startPtrRef = useRef(-1);
-  // Phantom-burst cap. Resets on scan success.
+  // Phantom 连发上限。scan 成功时重置。
   const phantomBurstRef = useRef(0);
-  // One-deep queue: n/N arriving mid-seek gets stored (not dropped) and
-  // fires after the seek completes. Holding n stays smooth without
-  // queueing 30 jumps. Latest press overwrites — we want the direction
-  // the user is going NOW, not where they were 10 keypresses ago.
+  // 单层队列：在 seek 中途到来的 n/N 会被存起来（而不是丢弃），并在
+  // seek 完成后触发。长按 n 也能保持平滑，不会排出 30 个跳转。
+  // 最新一次按键会覆盖旧值，因为我们要的是用户现在的方向，
+  // 而不是 10 次按键前的方向。
   const pendingStepRef = useRef<1 | -1 | 0>(0);
-  // step + highlight via ref so the seek effect reads latest without
-  // closure-capture or deps churn.
+  // 通过 ref 保存 step + highlight，让 seek effect 读取到最新值，
+  // 避免闭包捕获或依赖抖动。
   const stepRef = useRef<(d: 1 | -1) => void>(() => {});
   const highlightRef = useRef<(ord: number) => void>(() => {});
   const searchState = useRef({
     matches: [] as number[],
-    // deduplicated msg indices
+    // 去重后的 msg 索引
     ptr: 0,
     screenOrd: 0,
-    // Cumulative engine-occurrence count before each matches[k]. Lets us
-    // compute a global current index: prefixSum[ptr] + screenOrd + 1.
-    // Engine-counted (indexOf on extractSearchText), not render-counted —
-    // close enough for the badge; exact counts would need scanElement on
-    // every matched message (~1-3ms × N). total = prefixSum[matches.length].
+    // 每个 matches[k] 之前的累计引擎匹配次数。这样我们就能
+    // 计算全局 current 索引：prefixSum[ptr] + screenOrd + 1。
+    // 这是引擎计数（对 extractSearchText 做 indexOf），不是渲染计数，
+    // 对 badge 来说已经足够接近；若要精确计数，就需要对
+    // 每条匹配消息都执行 scanElement（约 1-3ms × N）。total = prefixSum[matches.length]。
     prefixSum: [] as number[]
   });
-  // scrollTop at the moment / was pressed. Incsearch preview-jumps snap
-  // back here when matches drop to 0. -1 = no anchor (before first /).
+  // 按下 / 时刻的 scrollTop。incsearch 预览跳转在匹配降为 0 时会回弹到这里。
+  // -1 表示没有锚点（第一次 / 之前）。
   const searchAnchor = useRef(-1);
   const indexWarmed = useRef(false);
 
-  // Scroll target for message i: land at MESSAGE TOP. est = top - HEADROOM
-  // so lo = top - est = HEADROOM ≥ 0 (or lo = top if est clamped to 0).
-  // Post-clamp read-back in jump() handles the scrollHeight boundary.
-  // No frac (render transform didn't respect it), no monotone clamp
-  // (was a safety net for frac garbage — without frac, est IS the next
-  // message's top, spam-n/N converges because message tops are ordered).
+  // 消息 i 的滚动目标：落在 MESSAGE TOP。est = top - HEADROOM，
+  // 因此 lo = top - est = HEADROOM ≥ 0（如果 est 被钳到 0，则 lo = top）。
+  // jump() 中的 post-clamp 回读会处理 scrollHeight 边界。
+  // 不使用 frac（render transform 不尊重它），也不做 monotone clamp
+  // （原本是给 frac 垃圾值兜底的；没有 frac 时，est 就是下一条
+  // 消息的顶部，连续狂按 n/N 也会收敛，因为消息顶部是有序的）。
   function targetFor(i: number): number {
     const top = jumpState.current.getItemTop(i);
     return Math.max(0, top - HEADROOM);
   }
 
-  // Highlight positions[ord]. Positions are MESSAGE-RELATIVE (row 0 =
-  // element top, from scanElement). Compute rowOffset = getItemTop -
-  // scrollTop fresh. If ord's position is off-viewport, scroll to bring
-  // it in, recompute rowOffset. setPositions triggers overlay write.
+  // 高亮 positions[ord]。这些位置是消息相对坐标（row 0 =
+  // 元素顶部，由 scanElement 提供）。实时计算 rowOffset = getItemTop -
+  // scrollTop。如果 ord 对应的位置已离开视口，就滚动把它带回视口，
+  // 然后重新计算 rowOffset。setPositions 会触发 overlay 写入。
   function highlight(ord: number): void {
     const s = scrollRef.current;
     const {
@@ -491,18 +488,18 @@ export function VirtualMessageList({
     const idx = Math.max(0, Math.min(ord, positions.length - 1));
     const p = positions[idx]!;
     const top = jumpState.current.getItemTop(msgIdx);
-    // lo = item's position within scroll content (wrapper-relative).
-    // viewportTop = where the scroll content starts on SCREEN (after
-    // ScrollBox padding/border + any chrome above). Highlight writes to
-    // screen-absolute, so rowOffset = viewportTop + lo. Observed: off-by-
-    // 1+ without viewportTop (FullscreenLayout has paddingTop=1 on the
-    // ScrollBox, plus any header above).
+    // lo = 项目在滚动内容内的位置（相对于 wrapper）。
+    // viewportTop = 滚动内容在 SCREEN 上的起始位置（包含
+    // ScrollBox padding/border 和上方的任何 chrome）。高亮写入的是
+    // 屏幕绝对坐标，因此 rowOffset = viewportTop + lo。实测发现：
+    // 如果不加 viewportTop，会出现 1 行以上的偏差（FullscreenLayout 在
+    // ScrollBox 上有 paddingTop=1，且上方还可能有 header）。
     const vpTop = s.getViewportTop();
     let lo = top - s.getScrollTop();
     const vp = s.getViewportHeight();
     let screenRow = vpTop + lo + p.row;
-    // Off viewport → scroll to bring it in (HEADROOM from top).
-    // scrollTo commits sync; read-back after gives fresh lo.
+    // 离开视口则滚动把它带回视口（顶部保留 HEADROOM）。
+    // scrollTo 是同步提交的，之后再读可得到最新 lo。
     if (screenRow < vpTop || screenRow >= vpTop + vp) {
       s.scrollTo(Math.max(0, top + p.row - HEADROOM));
       lo = top - s.getScrollTop();
@@ -513,10 +510,10 @@ export function VirtualMessageList({
       rowOffset: vpTop + lo,
       currentIdx: idx
     });
-    // Badge: global current = sum of occurrences before this msg + ord+1.
-    // prefixSum[ptr] is engine-counted (indexOf on extractSearchText);
-    // may drift from render-count for ghost messages but close enough —
-    // badge is a rough location hint, not a proof.
+    // Badge：全局 current = 当前消息之前的出现次数之和 + ord+1。
+    // prefixSum[ptr] 是引擎计数（对 extractSearchText 做 indexOf）；
+    // 对 ghost message 来说可能与渲染计数有偏差，但已足够接近，
+    // badge 只是粗略位置提示，不是严格证明。
     const st = searchState.current;
     const total = st.prefixSum.at(-1) ?? 0;
     const current = (st.prefixSum[st.ptr] ?? 0) + idx + 1;
@@ -525,14 +522,14 @@ export function VirtualMessageList({
   }
   highlightRef.current = highlight;
 
-  // Seek effect. jump() sets scanRequestRef + scrollToIndex + bump.
-  // bump → re-render → useVirtualScroll mounts the target (scrollToIndex
-  // guarantees this — scrollTop and topSpacer agree via the same
-  // offsets value) → resetAfterCommit paints → this passive effect
-  // fires POST-PAINT with the element mounted. Precise scrollTo + scan.
+  // Seek effect。jump() 会设置 scanRequestRef + scrollToIndex + bump。
+  // bump → 重新渲染 → useVirtualScroll 挂载目标（scrollToIndex
+  // 保证这一点，scrollTop 和 topSpacer 通过同一份
+  // offsets 值保持一致）→ resetAfterCommit 绘制 → 这个被动 effect
+  // 在元素挂载后于绘制后触发。然后执行精确 scrollTo + scan。
   //
-  // Dep is ONLY seekGen — effect doesn't re-run on random renders
-  // (onSearchMatchesChange churn during incsearch).
+  // 依赖只有 seekGen，因此 effect 不会在随机渲染时重跑
+  // （例如 incsearch 期间 onSearchMatchesChange 的抖动）。
   const [seekGen, setSeekGen] = useState(0);
   const bumpSeek = useCallback(() => setSeekGen(g => g + 1), []);
   useEffect(() => {
@@ -553,9 +550,9 @@ export function VirtualMessageList({
     const el = getItemElement(idx);
     const h = el?.yogaNode?.getComputedHeight() ?? 0;
     if (!el || h === 0) {
-      // Not mounted after scrollToIndex. Shouldn't happen — scrollToIndex
-      // guarantees mount by construction (scrollTop and topSpacer agree
-      // via the same offsets value). Sanity: retry once, then skip.
+      // 在 scrollToIndex 之后仍未挂载。理论上不该发生，scrollToIndex
+      // 从构造上保证会挂载（scrollTop 和 topSpacer 通过同一份
+      // offsets 值保持一致）。保险起见：重试一次，否则跳过。
       if (tries > 1) {
         scanRequestRef.current = null;
         logForDebugging(`seek(i=${idx}): no mount after scrollToIndex, skip`);
@@ -572,9 +569,9 @@ export function VirtualMessageList({
       return;
     }
     scanRequestRef.current = null;
-    // Precise scrollTo — scrollToIndex got us in the neighborhood
-    // (item is mounted, maybe a few-dozen rows off due to overscan
-    // estimate drift). Now land it at top-HEADROOM.
+    // 精确 scrollTo。scrollToIndex 只是把我们带到附近
+    // （item 已挂载，但可能因 overscan 估算漂移而偏上或偏下几十行）。
+    // 现在把它精确落到 top-HEADROOM。
     s.scrollTo(Math.max(0, getItemTop(idx) - HEADROOM));
     const positions = scanElement?.(el) ?? [];
     elementPositions.current = {
@@ -583,7 +580,7 @@ export function VirtualMessageList({
     };
     logForDebugging(`seek(i=${idx} t=${tries}): ${positions.length} positions`);
     if (positions.length === 0) {
-      // Phantom — engine matched, render didn't. Auto-advance.
+      // Phantom：引擎匹配到了，但渲染没有。自动前进。
       if (++phantomBurstRef.current > 20) {
         phantomBurstRef.current = 0;
         return;
@@ -604,8 +601,8 @@ export function VirtualMessageList({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seekGen]);
 
-  // Scroll to message i's top, arm scanPending. scan-effect reads fresh
-  // screen next tick. wantLast: N-into-message — screenOrd = length-1.
+  // 滚动到消息 i 的顶部，并设置 scanPending。scan-effect 会在下一 tick
+  // 读取最新 screen。wantLast 表示 N 进入消息内部，因此 screenOrd = length-1。
   function jump(i: number, wantLast: boolean): void {
     const s = scrollRef.current;
     if (!s) return;
@@ -614,11 +611,11 @@ export function VirtualMessageList({
       getItemElement,
       scrollToIndex
     } = js;
-    // offsets is a Float64Array whose .length is the allocated buffer (only
-    // grows) — messages.length is the logical item count.
+    // offsets 是一个 Float64Array，它的 .length 是已分配缓冲区长度（只增不减），
+    // messages.length 才是逻辑上的 item 数量。
     if (i < 0 || i >= js.messages.length) return;
-    // Clear stale highlight before scroll. Between now and the seek
-    // effect's highlight, inverse-only from scan-highlight shows.
+    // 滚动前先清掉过期高亮。从现在到 seek effect 真正高亮之前，
+    // 只会显示 scan-highlight 的反色效果。
     setPositions?.(null);
     elementPositions.current = {
       msgIdx: -1,
@@ -631,10 +628,9 @@ export function VirtualMessageList({
     };
     const el = getItemElement(i);
     const h = el?.yogaNode?.getComputedHeight() ?? 0;
-    // Mounted → precise scrollTo. Unmounted → scrollToIndex mounts it
-    // (scrollTop and topSpacer agree via the same offsets value — exact
-    // by construction, no estimation). Seek effect does the precise
-    // scrollTo after paint either way.
+    // 已挂载则直接精确 scrollTo。未挂载则用 scrollToIndex 先挂载它
+    // （scrollTop 和 topSpacer 通过同一份 offsets 值保持一致，这是构造上精确的，
+    // 不依赖估算）。无论哪种情况，seek effect 都会在绘制后补一次精确 scrollTo。
     if (el && h > 0) {
       s.scrollTo(targetFor(i));
     } else {
@@ -643,10 +639,10 @@ export function VirtualMessageList({
     bumpSeek();
   }
 
-  // Advance screenOrd within elementPositions. Exhausted → ptr advances,
-  // jump to next matches[ptr], re-scan. Phantom (scan found 0 after
-  // jump) triggers auto-advance from scan-effect. Wraparound guard stops
-  // if every message is a phantom.
+  // 在 elementPositions 内推进 screenOrd。耗尽后就推进 ptr，
+  // 跳到下一个 matches[ptr] 再重新扫描。Phantom（jump 后 scan 得到 0）
+  // 会在 scan-effect 中触发自动前进。如果所有消息都是 phantom，
+  // 回绕保护会停止继续推进。
   function step(delta: 1 | -1): void {
     const st = searchState.current;
     const {
@@ -656,8 +652,8 @@ export function VirtualMessageList({
     const total = prefixSum.at(-1) ?? 0;
     if (matches.length === 0) return;
 
-    // Seek in-flight — queue this press (one-deep, latest overwrites).
-    // The seek effect fires it after highlight.
+    // seek 正在进行时，把这次按键排队（只保留一层，最新值覆盖旧值）。
+    // seek effect 会在高亮后触发它。
     if (scanRequestRef.current) {
       pendingStepRef.current = delta;
       return;
@@ -674,7 +670,7 @@ export function VirtualMessageList({
       return;
     }
 
-    // Exhausted visible. Advance ptr → jump → re-scan.
+    // 当前可见位置已耗尽。推进 ptr → jump → 重新扫描。
     const ptr = (st.ptr + delta + matches.length) % matches.length;
     if (ptr === startPtrRef.current) {
       setPositions?.(null);
@@ -685,22 +681,22 @@ export function VirtualMessageList({
     st.ptr = ptr;
     st.screenOrd = 0; // resolved after scan (wantLast → length-1)
     jump(matches[ptr]!, delta < 0);
-    // screenOrd will resolve after scan. Best-effort: prefixSum[ptr] + 0
-    // for n (first pos), prefixSum[ptr+1] for N (last pos = count-1).
-    // The scan-effect's highlight will be the real value; this is a
-    // pre-scan placeholder so the badge updates immediately.
+    // screenOrd 会在 scan 后确定。尽力给出占位值：n 用 prefixSum[ptr] + 0
+    // （第一个位置），N 用 prefixSum[ptr+1]（最后一个位置 = count-1）。
+    // 真正值会由 scan-effect 中的高亮写回；这里先给一个
+    // 扫描前占位值，让 badge 能立即更新。
     const placeholder = delta < 0 ? prefixSum[ptr + 1] ?? total : prefixSum[ptr]! + 1;
     onSearchMatchesChange?.(total, placeholder);
   }
   stepRef.current = step;
   useImperativeHandle(jumpRef, () => ({
-    // Non-search jump (sticky header click, etc). No scan, no positions.
+    // 非搜索跳转（sticky header 点击等）。不扫描，也不记录 positions。
     jumpToIndex: (i: number) => {
       const s = scrollRef.current;
       if (s) s.scrollTo(targetFor(i));
     },
     setSearchQuery: (q: string) => {
-      // New search invalidates everything.
+      // 新搜索会使之前的所有状态失效。
       scanRequestRef.current = null;
       elementPositions.current = {
         msgIdx: -1,
@@ -709,13 +705,13 @@ export function VirtualMessageList({
       startPtrRef.current = -1;
       setPositions?.(null);
       const lq = q.toLowerCase();
-      // One entry per MESSAGE (deduplicated). Boolean "does this msg
-      // contain the query". ~10ms for 9k messages with cached lowered.
+      // 每条 MESSAGE 只保留一个条目（去重后）。本质上是判断“这条消息
+      // 是否包含查询词”。在 9k 消息且已缓存小写结果时约需 10ms。
       const matches: number[] = [];
-      // Per-message occurrence count → prefixSum for global current
-      // index. Engine-counted (cheap indexOf loop); may differ from
-      // render-count (scanElement) for ghost/phantom messages but close
-      // enough for the badge. The badge is a rough location hint.
+      // 每条消息的出现次数会汇总成 prefixSum，用来计算全局 current
+      // 索引。它是引擎计数（廉价的 indexOf 循环）；对 ghost/phantom
+      // message 来说可能与渲染计数（scanElement）不同，但对 badge 已足够。
+      // badge 只是粗略的位置提示。
       const prefixSum: number[] = [0];
       if (lq) {
         const msgs = jumpState.current.messages;
@@ -734,7 +730,7 @@ export function VirtualMessageList({
         }
       }
       const total = prefixSum.at(-1)!;
-      // Nearest MESSAGE to the anchor. <= so ties go to later.
+      // 离锚点最近的 MESSAGE。使用 <=，平局时偏向更靠后的项。
       let ptr = 0;
       const s = scrollRef.current;
       const {
@@ -763,19 +759,19 @@ export function VirtualMessageList({
         prefixSum
       };
       if (matches.length > 0) {
-        // wantLast=true: preview the LAST occurrence in the nearest
-        // message. At sticky-bottom (common / entry), nearest is the
-        // last msg; its last occurrence is closest to where the user
-        // was — minimal view movement. n advances forward from there.
+        // wantLast=true：预览最近那条消息中的最后一次出现。
+        // 在 sticky-bottom（常见的 / 入口）时，最近的一般就是
+        // 最后一条消息；它的最后一次出现最接近用户当前位置，
+        // 视图移动最小。之后 n 会从那里继续向前推进。
         jump(matches[ptr]!, true);
       } else if (searchAnchor.current >= 0 && s) {
-        // /foob → 0 matches → snap back to anchor. less/vim incsearch.
+        // /foob → 0 个匹配 → 回弹到锚点。行为类似 less/vim 的 incsearch。
         s.scrollTo(searchAnchor.current);
       }
-      // Global occurrence count + 1-based current. wantLast=true so the
-      // scan will land on the last occurrence in matches[ptr]. Placeholder
-      // = prefixSum[ptr+1] (count through this msg). highlight() updates
-      // to the exact value after scan completes.
+      // 全局出现次数 + 1 基 current。wantLast=true，因此
+      // scan 会落在 matches[ptr] 中最后一次出现的位置。占位值
+      // = prefixSum[ptr+1]（累计到当前消息）。scan 完成后 highlight()
+      // 会把它更新为精确值。
       onSearchMatchesChange?.(total, matches.length > 0 ? prefixSum[ptr + 1] ?? total : 0);
     },
     nextMatch: () => step(1),
@@ -785,7 +781,7 @@ export function VirtualMessageList({
       if (s) searchAnchor.current = s.getScrollTop();
     },
     disarmSearch: () => {
-      // Manual scroll invalidates screen-absolute positions.
+      // 手动滚动会使屏幕绝对位置失效。
       setPositions?.(null);
       scanRequestRef.current = null;
       elementPositions.current = {
@@ -815,27 +811,25 @@ export function VirtualMessageList({
       return Math.round(workMs);
     }
   }),
-  // Closures over refs + callbacks. scrollRef stable; others are
-  // useCallback([]) or prop-drilled from REPL (stable).
+  // 这些闭包依赖 refs 和 callbacks。scrollRef 稳定；其他依赖要么是
+  // useCallback([])，要么是从 REPL 通过 props 传下来的稳定值。
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [scrollRef]);
 
-  // StickyTracker goes AFTER the list content. It returns null (no DOM node)
-  // so order shouldn't matter for layout — but putting it first means every
-  // fine-grained commit from its own scroll subscription reconciles THROUGH
-  // the sibling items (React walks children in order). After the items, it's
-  // a leaf reconcile. Defensive: also avoids any Yoga child-index quirks if
-  // the Ink reconciler ever materializes a placeholder for null returns.
+  // StickyTracker 放在列表内容之后。它返回 null（没有 DOM 节点），
+  // 因此从布局上说顺序不该有区别；但如果放在前面，它自身滚动订阅带来的
+  // 细粒度提交会穿过所有兄弟节点做 reconcile（React 会按顺序遍历 children）。
+  // 放在 items 后面时，它就是一个叶子 reconcile。额外的防御收益是：
+  // 如果 Ink reconciler 将来真的为 null 返回值实体化占位节点，也能避开任何 Yoga 子索引怪异情况。
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
-  // Stable click/hover handlers — called with k, dispatch from a ref so
-  // closure identity doesn't change per render. The per-item handler
-  // closures (`e => ...`, `() => setHoveredKey(k)`) were the
-  // `operationNewArrowFunction` leafs in the scroll CPU profile; their
-  // cleanup was 16% of GC time (`FunctionExecutable::finalizeUnconditionally`).
-  // Allocating 3 closures × 60 mounted items × 10 commits/sec during fast
-  // scroll = 1800 short-lived closures/sec. With stable refs the item
-  // wrapper props don't change → VirtualItem.memo bails for the ~35
-  // unchanged items, only ~25 fresh items pay createElement cost.
+  // 稳定的 click/hover 处理器。它们以 k 为参数调用，并通过 ref 分发，
+  // 因此闭包身份不会随着渲染变化。按项生成的处理器闭包
+  // （`e => ...`、`() => setHoveredKey(k)`）曾在滚动 CPU profile 中成为
+  // `operationNewArrowFunction` 叶子节点；它们的清理占 GC 时间的 16%
+  // （`FunctionExecutable::finalizeUnconditionally`）。
+  // 快速滚动时分配 3 个闭包 × 60 个挂载项 × 每秒 10 次提交 = 每秒 1800 个短命闭包。
+  // 使用稳定 ref 后，item wrapper 的 props 不再变化 → 对约 35 个
+  // 未变化项，VirtualItem.memo 可以直接 bail，只有约 25 个新项需要承担 createElement 成本。
   const handlersRef = useRef({
     onItemClick,
     setHoveredKey
@@ -909,10 +903,10 @@ function StickyTracker({
   const {
     setStickyPrompt
   } = useContext(ScrollChromeContext);
-  // Fine-grained subscription — snapshot is unquantized scrollTop+delta so
-  // every scroll action (wheel tick, PgUp, drag) triggers a re-render of
-  // THIS component only. Sticky bit folded into the sign so sticky→broken
-  // also triggers (scrollToBottom sets sticky without moving scrollTop).
+  // 细粒度订阅：snapshot 使用未经量化的 scrollTop+delta，因此
+  // 每次滚动动作（滚轮 tick、PgUp、拖拽）都只会触发
+  // 这个组件的重新渲染。sticky 状态位被折叠进符号，因此 sticky→broken
+  // 也会触发更新（scrollToBottom 会设置 sticky，但不一定移动 scrollTop）。
   const subscribe = useCallback((listener: () => void) => scrollRef.current?.subscribe(listener) ?? NOOP_UNSUB, [scrollRef]);
   useSyncExternalStore(subscribe, () => {
     const s = scrollRef.current;
@@ -921,16 +915,15 @@ function StickyTracker({
     return s.isSticky() ? -1 - t : t;
   });
 
-  // Read live scroll state on every render.
+  // 每次渲染都读取实时滚动状态。
   const isSticky = scrollRef.current?.isSticky() ?? true;
   const target = Math.max(0, (scrollRef.current?.getScrollTop() ?? 0) + (scrollRef.current?.getPendingDelta() ?? 0));
 
-  // Walk the mounted range to find the first item at-or-below the viewport
-  // top. `range` is from the parent's coarse-quantum render (may be slightly
-  // stale) but overscan guarantees it spans well past the viewport in both
-  // directions. Items without a Yoga layout yet (newly mounted this frame)
-  // are treated as at-or-below — they're somewhere in view, and assuming
-  // otherwise would show a sticky for a prompt that's actually on screen.
+  // 遍历已挂载区间，找出第一个位于视口顶部或其下方的项目。
+  // `range` 来自父组件按粗量化粒度的渲染（可能略旧），但 overscan 保证它在两个方向上
+  // 都明显覆盖视口之外的区域。那些还没有 Yoga 布局的项目（本帧新挂载）
+  // 会被视为位于顶部或以下，因为它们大概率就在可视区域内；若反过来假设，
+  // 就可能为其实仍在屏幕上的提示词错误显示 sticky header。
   let firstVisible = start;
   let firstVisibleTop = -1;
   for (let i = end - 1; i >= start; i--) {
@@ -947,12 +940,12 @@ function StickyTracker({
     for (let i = firstVisible - 1; i >= 0; i--) {
       const t = stickyPromptText(messages[i]!);
       if (t === null) continue;
-      // The prompt's wrapping Box top is above target (that's why it's in
-      // the [0, firstVisible) range), but its ❯ is at top+1 (marginTop=1).
-      // If the ❯ is at-or-below target, it's VISIBLE at viewport top —
-      // showing the same text in the header would duplicate it. Happens
-      // in the 1-row gap between Box top scrolling past and ❯ scrolling
-      // past. Skip to the next-older prompt (its ❯ is definitely above).
+      // 提示词外层 Box 的顶部位于 target 之上（这也是它落在
+      // [0, firstVisible) 区间里的原因），但它的 ❯ 位于 top+1（marginTop=1）。
+      // 如果 ❯ 仍在 target 处或其下方，那它其实在视口顶部仍然可见，
+      // 这时若在 header 里再显示同样文本就会重复。该情况出现在
+      // Box 顶部刚滚过去但 ❯ 还没滚过去的那 1 行间隙里。
+      // 此时应跳到更早的一条提示词（它的 ❯ 一定已经在上方）。
       const top = getItemTop(i);
       if (top >= 0 && top + 1 >= target) continue;
       idx = i;
@@ -963,41 +956,37 @@ function StickyTracker({
   const baseOffset = firstVisibleTop >= 0 ? firstVisibleTop - offsets[firstVisible]! : 0;
   const estimate = idx >= 0 ? Math.max(0, baseOffset + offsets[idx]!) : -1;
 
-  // For click-jumps to items not yet mounted (user scrolled far past,
-  // prompt is in the topSpacer). Click handler scrolls to the estimate
-  // to mount it; this anchors by element once it appears. scrollToElement
-  // defers the Yoga-position read to render time (render-node-to-output
-  // reads el.yogaNode.getComputedTop() in the SAME calculateLayout pass
-  // that produces scrollHeight) — no throttle race. Cap retries: a /clear
-  // race could unmount the item mid-sequence.
+  // 处理点击跳转到尚未挂载的项目（用户滚得很远，
+  // prompt 落在 topSpacer 中）。点击处理器会先滚到估算位置以触发挂载；
+  // 项目出现后再按元素锚定。scrollToElement 会把 Yoga 位置读取延后到渲染时
+  // （render-node-to-output 会在生成 scrollHeight 的同一次 calculateLayout 中
+  // 读取 el.yogaNode.getComputedTop()），因此不存在节流竞争。重试次数要有限制：
+  // /clear 的竞争条件可能让该项在过程中被卸载。
   const pending = useRef({
     idx: -1,
     tries: 0
   });
-  // Suppression state machine. The click handler arms; the onChange effect
-  // consumes (armed→force) then fires-and-clears on the render AFTER that
-  // (force→none). The force step poisons the dedup: after click, idx often
-  // recomputes to the SAME prompt (its top is still above target), so
-  // without force the last.idx===idx guard would hold 'clicked' until the
-  // user crossed a prompt boundary. Previously encoded in last.idx as
-  // -1/-2/-3 which overlapped with real indices — too clever.
+  // 抑制状态机。点击处理器负责置位；onChange effect 会消费它
+  // （armed→force），然后在下一次渲染中触发并清除
+  // （force→none）。force 这一步会故意破坏去重：点击后 idx 往往会重新算回
+  // 同一条提示词（因为它的顶部仍在 target 之上），如果没有 force，
+  // last.idx===idx 的保护会让 'clicked' 一直保留，直到用户跨过下一条提示词边界。
+  // 之前这里把状态编码进 last.idx 的 -1/-2/-3，和真实索引重叠，太取巧了。
   type Suppress = 'none' | 'armed' | 'force';
   const suppress = useRef<Suppress>('none');
-  // Dedup on idx only — estimate derives from firstVisibleTop which shifts
-  // every scroll tick, so including it in the key made the guard dead
-  // (setStickyPrompt fired a fresh {text,scrollTo} per-frame). The scrollTo
-  // closure still captures the current estimate; it just doesn't need to
-  // re-fire when only estimate moved.
+  // 只按 idx 去重。estimate 来源于 firstVisibleTop，而它会在每个滚动 tick 改变，
+  // 如果把 estimate 也纳入 key，保护逻辑就会失效
+  // （setStickyPrompt 会在每一帧都生成新的 {text,scrollTo}）。scrollTo
+  // 闭包仍然会捕获当前的 estimate，只是在只有 estimate 变化时无需重新触发。
   const lastIdx = useRef(-1);
 
-  // setStickyPrompt effect FIRST — must see pending.idx before the
-  // correction effect below clears it. On the estimate-fallback path, the
-  // render that mounts the item is ALSO the render where correction clears
-  // pending; if this ran second, the pending gate would be dead and
-  // setStickyPrompt(prevPrompt) would fire mid-jump, re-mounting the
-  // header over 'clicked'.
+  // setStickyPrompt effect 必须最先运行，它需要在下面的 correction effect 清掉
+  // pending.idx 之前先看到它。在 estimate-fallback 路径上，
+  // 挂载 item 的那次渲染同时也是 correction 清理 pending 的那次渲染；
+  // 如果这里排在后面，pending 保护门就会失效，
+  // setStickyPrompt(prevPrompt) 会在跳转中途触发，从而把 header 重新挂回到 'clicked' 之上。
   useEffect(() => {
-    // Hold while two-phase correction is in flight.
+    // 两阶段校正进行中时先保持不动。
     if (pending.current.idx >= 0) return;
     if (suppress.current === 'armed') {
       suppress.current = 'force';
@@ -1011,10 +1000,10 @@ function StickyTracker({
       setStickyPrompt(null);
       return;
     }
-    // First paragraph only (split on blank line) — a prompt like
-    // "still seeing bugs:\n\n1. foo\n2. bar" previews as just the
-    // lead-in. trimStart so a leading blank line (queued_command mid-
-    // turn messages sometimes have one) doesn't find paraEnd at 0.
+    // 只取第一段（按空行切分），例如
+    // "still seeing bugs:\n\n1. foo\n2. bar" 只预览前导说明。
+    // 先 trimStart，避免前导空行（queued_command 的中途消息有时会有）
+    // 让 paraEnd 被错误地判断为 0。
     const trimmed = text.trimStart();
     const paraEnd = trimmed.search(/\n\s*\n/);
     const collapsed = (paraEnd >= 0 ? trimmed.slice(0, paraEnd) : trimmed).slice(0, STICKY_TEXT_CAP).replace(/\s+/g, ' ').trim();
@@ -1027,22 +1016,22 @@ function StickyTracker({
     setStickyPrompt({
       text: collapsed,
       scrollTo: () => {
-        // Hide header, keep padding collapsed — FullscreenLayout's
-        // 'clicked' sentinel → scrollBox_y=0 + pad=0 → viewportTop=0.
+        // 隐藏 header，同时保持 padding 折叠。FullscreenLayout 的
+        // 'clicked' 哨兵会让 scrollBox_y=0 + pad=0 → viewportTop=0。
         setStickyPrompt('clicked');
         suppress.current = 'armed';
-        // scrollToElement anchors by DOMElement ref, not a number:
-        // render-node-to-output reads el.yogaNode.getComputedTop() at
-        // paint time (same Yoga pass as scrollHeight). No staleness from
-        // the throttled render — the ref is stable, the position read is
-        // deferred. offset=1 = UserPromptMessage marginTop.
+        // scrollToElement 是按 DOMElement ref 锚定的，而不是数字：
+        // render-node-to-output 会在绘制时读取 el.yogaNode.getComputedTop()
+        // （与计算 scrollHeight 属于同一轮 Yoga pass）。因此不会受到
+        // 节流渲染带来的陈旧值影响，ref 稳定，而位置读取被延后。offset=1
+        // 对应 UserPromptMessage 的 marginTop。
         const el = getItemElement(capturedIdx);
         if (el) {
           scrollRef.current?.scrollToElement(el, 1);
         } else {
-          // Not mounted (scrolled far past — in topSpacer). Jump to
-          // estimate to mount it; correction effect re-anchors once it
-          // appears. Estimate is DEFAULT_ESTIMATE-based — lands short.
+          // 尚未挂载（已经滚过很远，项目在 topSpacer 中）。先跳到估算位置触发挂载；
+          // 项目出现后 correction effect 会再次按元素锚定。这个估算基于
+          // DEFAULT_ESTIMATE，因此通常会稍微偏短。
           scrollRef.current?.scrollTo(capturedEstimate);
           pending.current = {
             idx: capturedIdx,
@@ -1051,16 +1040,16 @@ function StickyTracker({
         }
       }
     });
-    // No deps — must run every render. Suppression state lives in a ref
-    // (not idx/estimate), so a deps-gated effect would never see it tick.
-    // Body's own guards short-circuit when nothing changed.
+    // 不加依赖，必须每次渲染都运行。Suppression 状态存放在 ref 中
+    // （不是 idx/estimate），如果加依赖门控，effect 永远看不到它的变化。
+    // 具体逻辑体自身会在无变化时短路返回。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   });
 
-  // Correction: for click-jumps to unmounted items. Click handler scrolled
-  // to the estimate; this re-anchors by element once the item appears.
-  // scrollToElement defers the Yoga read to paint time — deterministic.
-  // SECOND so it clears pending AFTER the onChange gate above has seen it.
+  // 校正逻辑：处理点击跳转到未挂载项目的情况。点击处理器先滚到估算位置；
+  // 项目出现后，这里会按元素重新锚定。scrollToElement 会把 Yoga 读取延后到绘制时，
+  // 因此结果是确定性的。它必须排在第二个 effect，
+  // 这样只有在上面的 onChange gate 看到 pending 之后，才会把它清掉。
   useEffect(() => {
     if (pending.current.idx < 0) return;
     const el = getItemElement(pending.current.idx);

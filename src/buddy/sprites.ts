@@ -20,9 +20,9 @@ import {
   turtle,
 } from './types.js'
 
-// Each sprite is 5 lines tall, 12 wide (after {E}→1char substitution).
-// Multiple frames per species for idle fidget animation.
-// Line 0 is the hat slot — must be blank in frames 0-1; frame 2 may use it.
+// 每个 sprite 高 5 行、宽 12 列（{E} 替换为 1 个字符后）。
+// 每个 species 有多帧，用于待机小动作动画。
+// 第 0 行是帽子槽位——在 frame 0-1 中必须为空；frame 2 可以使用它。
 const BODIES: Record<Species, string[][]> = {
   [duck]: [
     [
@@ -457,13 +457,13 @@ export function renderSprite(bones: CompanionBones, frame = 0): string[] {
     line.replaceAll('{E}', bones.eye),
   )
   const lines = [...body]
-  // Only replace with hat if line 0 is empty (some fidget frames use it for smoke etc)
+  // 仅在第 0 行为空时才替换成帽子（某些小动作帧会用它来画烟雾等效果）
   if (bones.hat !== 'none' && !lines[0]!.trim()) {
     lines[0] = HAT_LINES[bones.hat]
   }
-  // Drop blank hat slot — wastes a row in the Card and ambient sprite when
-  // there's no hat and the frame isn't using it for smoke/antenna/etc.
-  // Only safe when ALL frames have blank line 0; otherwise heights oscillate.
+  // 移除空白帽子槽位——当没有帽子，且该帧也没拿它来画烟雾/天线等内容时，
+  // 这一行只会在 Card 和环境 sprite 里浪费高度。
+  // 只有当所有帧的第 0 行都为空时才安全；否则高度会来回跳动。
   if (!lines[0]!.trim() && frames.every(f => !f[0]!.trim())) lines.shift()
   return lines
 }

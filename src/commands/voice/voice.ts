@@ -14,10 +14,10 @@ import { isVoiceModeEnabled } from '../../voice/voiceModeEnabled.js'
 const LANG_HINT_MAX_SHOWS = 2
 
 export const call: LocalCommandCall = async () => {
-  // Check auth and kill-switch before allowing voice mode
+  // 在允许 voice mode 前先检查 auth 和 kill-switch
   if (!isVoiceModeEnabled()) {
-    // Differentiate: OAuth-less users get an auth hint, everyone else
-    // gets nothing (command shouldn't be reachable when the kill-switch is on).
+    // 区分处理：无 OAuth 的用户给出 auth 提示，其他人
+    // 不返回任何内容（kill-switch 打开时本就不该能访问该命令）。
     if (!isAnthropicAuthEnabled()) {
       return {
         type: 'text' as const,
@@ -34,7 +34,7 @@ export const call: LocalCommandCall = async () => {
   const currentSettings = getInitialSettings()
   const isCurrentlyEnabled = currentSettings.voiceEnabled === true
 
-  // Toggle OFF — no checks needed
+  // 切换为 OFF，无需检查
   if (isCurrentlyEnabled) {
     const result = updateSettingsForSource('userSettings', {
       voiceEnabled: false,
@@ -54,13 +54,13 @@ export const call: LocalCommandCall = async () => {
     }
   }
 
-  // Toggle ON — run pre-flight checks first
+  // 切换为 ON，先运行预检
   const { isVoiceStreamAvailable } = await import(
     '../../services/voiceStreamSTT.js'
   )
   const { checkRecordingAvailability } = await import('../../services/voice.js')
 
-  // Check recording availability (microphone access)
+  // 检查录音可用性（麦克风访问）
   const recording = await checkRecordingAvailability()
   if (!recording.available) {
     return {
@@ -70,7 +70,7 @@ export const call: LocalCommandCall = async () => {
     }
   }
 
-  // Check for API key
+  // 检查 API key
   if (!isVoiceStreamAvailable()) {
     return {
       type: 'text' as const,
@@ -79,7 +79,7 @@ export const call: LocalCommandCall = async () => {
     }
   }
 
-  // Check for recording tools
+  // 检查录音工具
   const { checkVoiceDependencies, requestMicrophonePermission } = await import(
     '../../services/voice.js'
   )
@@ -94,8 +94,8 @@ export const call: LocalCommandCall = async () => {
     }
   }
 
-  // Probe mic access so the OS permission dialog fires now rather than
-  // on the user's first hold-to-talk activation.
+  // 先探测 mic 访问权限，让 OS 权限对话框现在就弹出，
+  // 而不是等到用户第一次按住说话时再弹出。
   if (!(await requestMicrophonePermission())) {
     let guidance: string
     if (process.platform === 'win32') {
@@ -111,7 +111,7 @@ export const call: LocalCommandCall = async () => {
     }
   }
 
-  // All checks passed — enable voice
+  // 所有检查通过，启用 voice
   const result = updateSettingsForSource('userSettings', { voiceEnabled: true })
   if (result.error) {
     return {
@@ -125,8 +125,8 @@ export const call: LocalCommandCall = async () => {
   const key = getShortcutDisplay('voice:pushToTalk', 'Chat', 'Space')
   const stt = normalizeLanguageForSTT(currentSettings.language)
   const cfg = getGlobalConfig()
-  // Reset the hint counter whenever the resolved STT language changes
-  // (including first-ever enable, where lastLanguage is undefined).
+  // 每当解析后的 STT 语言变化时重置提示计数器
+  // （包括首次启用，此时 lastLanguage 为 undefined）。
   const langChanged = cfg.voiceLangHintLastLanguage !== stt.code
   const priorCount = langChanged ? 0 : (cfg.voiceLangHintShownCount ?? 0)
   const showHint = !stt.fellBackFrom && priorCount < LANG_HINT_MAX_SHOWS

@@ -67,7 +67,7 @@ export async function setup(
 ): Promise<void> {
   logForDiagnosticsNoPII('info', 'setup_started')
 
-  // Check for Node.js version < 18
+  // 检查 Node.js 版本是否低于 18
   const nodeVersion = process.version.match(/^v(\d+)\./)?.[1]
   if (!nodeVersion || parseInt(nodeVersion) < 18) {
     // biome-ignore lint/suspicious/noConsole:: intentional console output
@@ -79,20 +79,20 @@ export async function setup(
     process.exit(1)
   }
 
-  // Set custom session ID if provided
+  // 如果提供了自定义 session ID，则设置它
   if (customSessionId) {
     switchSession(asSessionId(customSessionId))
   }
 
-  // --bare / SIMPLE: skip UDS messaging server and teammate snapshot.
-  // Scripted calls don't receive injected messages and don't use swarm teammates.
-  // Explicit --messaging-socket-path is the escape hatch (per #23222 gate pattern).
+  // --bare / SIMPLE：跳过 UDS 消息服务器和 teammate 快照。
+  // 脚本化调用不会接收注入消息，也不会使用 swarm teammates。
+  // 显式的 --messaging-socket-path 是逃生口（沿用 #23222 的 gate 模式）。
   if (!isBareMode() || messagingSocketPath !== undefined) {
-    // Start UDS messaging server (Mac/Linux only).
-    // Enabled by default for ants — creates a socket in tmpdir if no
-    // --messaging-socket-path is passed. Awaited so the server is bound
-    // and $CLAUDE_CODE_MESSAGING_SOCKET is exported before any hook
-    // (SessionStart in particular) can spawn and snapshot process.env.
+    // 启动 UDS 消息服务器（仅 Mac/Linux）。
+    // 默认对 ants 启用——如果未传 --messaging-socket-path，
+    // 则会在 tmpdir 中创建 socket。这里要 await，确保服务器已绑定，
+    // 且 $CLAUDE_CODE_MESSAGING_SOCKET 已在任何 hook
+    //（尤其是 SessionStart）可能拉起并快照 process.env 之前导出。
     if (feature('UDS_INBOX')) {
       const m = await import('./utils/udsMessaging.js')
       await m.startUdsMessaging(
@@ -102,7 +102,7 @@ export async function setup(
     }
   }
 
-  // Teammate snapshot — SIMPLE-only gate (no escape hatch, swarm not used in bare)
+  // Teammate 快照——仅受 SIMPLE 门控（无逃生口，bare 下不会使用 swarm）
   if (!isBareMode() && isAgentSwarmsEnabled()) {
     const { captureTeammateModeSnapshot } = await import(
       './utils/swarm/backends/teammateModeSnapshot.js'
@@ -110,11 +110,10 @@ export async function setup(
     captureTeammateModeSnapshot()
   }
 
-  // Terminal backup restoration — interactive only. Print mode doesn't
-  // interact with terminal settings; the next interactive session will
-  // detect and restore any interrupted setup.
+  // 终端备份恢复——仅交互模式。Print 模式不会与终端设置交互；
+  // 下一次交互式会话会检测并恢复任何被中断的 setup。
   if (!getIsNonInteractiveSession()) {
-    // iTerm2 backup check only when swarms enabled
+    // 仅在启用 swarms 时检查 iTerm2 备份
     if (isAgentSwarmsEnabled()) {
       const restoredIterm2Backup = await checkAndRestoreITerm2Backup()
       if (restoredIterm2Backup.status === 'restored') {
@@ -134,7 +133,7 @@ export async function setup(
       }
     }
 
-    // Check and restore Terminal.app backup if setup was interrupted
+    // 如果 setup 被中断，则检查并恢复 Terminal.app 备份
     try {
       const restoredTerminalBackup = await checkAndRestoreTerminalBackup()
       if (restoredTerminalBackup.status === 'restored') {
@@ -153,40 +152,40 @@ export async function setup(
         )
       }
     } catch (error) {
-      // Log but don't crash if Terminal.app backup restoration fails
+      // 记录日志，但不要因为 Terminal.app 备份恢复失败而崩溃
       logError(error)
     }
   }
 
-  // IMPORTANT: setCwd() must be called before any other code that depends on the cwd
+  // 重要：setCwd() 必须在任何依赖 cwd 的代码之前调用
   setCwd(cwd)
   setOriginalCwd(cwd)
   setProjectRoot(cwd)
 
-  // Local recovery mode: when CLAUDE_CODE_LOCAL_RECOVERY=1 is explicitly set,
-  // trim startup to minimum. Otherwise run full setup for the Ink TUI.
+  // 本地恢复模式：当显式设置 CLAUDE_CODE_LOCAL_RECOVERY=1 时，
+  // 将启动流程裁剪到最小。否则为 Ink TUI 执行完整 setup。
   if (process.env.CLAUDE_CODE_LOCAL_RECOVERY === '1') {
     process.stderr.write('[local-recovery] setup early return\n')
     profileCheckpoint('setup_local_recovery_early_return')
     return
   }
 
-  // Capture hooks configuration snapshot to avoid hidden hook modifications.
-  // IMPORTANT: Must be called AFTER setCwd() so hooks are loaded from the correct directory
+  // 捕获 hooks 配置快照，避免隐藏的 hook 修改。
+  // 重要：必须在 setCwd() 之后调用，这样 hooks 才会从正确目录加载
   const hooksStart = Date.now()
   captureHooksConfigSnapshot()
   logForDiagnosticsNoPII('info', 'setup_hooks_captured', {
     duration_ms: Date.now() - hooksStart,
   })
 
-  // Initialize FileChanged hook watcher — sync, reads hook config snapshot
+  // 初始化 FileChanged hook watcher——同步执行，会读取 hook 配置快照
   initializeFileChangedWatcher(cwd)
 
-  // Handle worktree creation if requested
-  // IMPORTANT: this must be called befiore getCommands(), otherwise /eject won't be available.
+  // 如有请求则处理 worktree 创建
+  // 重要：这必须在 getCommands() 之前调用，否则 /eject 将不可用。
   if (worktreeEnabled) {
-    // Mirrors bridgeMain.ts: hook-configured sessions can proceed without git
-    // so createWorktreeForSession() can delegate to the hook (non-git VCS).
+    // 与 bridgeMain.ts 保持一致：配置了 hook 的会话可以在没有 git 的情况下继续，
+    // 因此 createWorktreeForSession() 可以委托给 hook（非 git VCS）。
     const hasHook = hasWorktreeCreateHook()
     const inGit = await getIsGit()
     if (!hasHook && !inGit) {
@@ -203,14 +202,14 @@ export async function setup(
       ? `pr-${worktreePRNumber}`
       : (worktreeName ?? getPlanSlug())
 
-    // Git preamble runs whenever we're in a git repo — even if a hook is
-    // configured — so --tmux keeps working for git users who also have a
-    // WorktreeCreate hook. Only hook-only (non-git) mode skips it.
+    // 只要位于 git 仓库中，就会执行 git 预处理——即便已配置 hook 也是如此——
+    // 这样同时拥有 WorktreeCreate hook 的 git 用户仍可继续使用 --tmux。
+    // 只有纯 hook（非 git）模式会跳过这一步。
     let tmuxSessionName: string | undefined
     if (inGit) {
-      // Resolve to main repo root (handles being invoked from within a worktree).
-      // findCanonicalGitRoot is sync/filesystem-only/memoized; the underlying
-      // findGitRoot cache was already warmed by getIsGit() above, so this is ~free.
+      // 解析到主仓库根目录（处理从 worktree 内部调用的情况）。
+      // findCanonicalGitRoot 是同步/仅文件系统/带 memoization 的；底层的
+      // findGitRoot 缓存在上面的 getIsGit() 中已被预热，因此这里几乎零成本。
       const mainRepoRoot = findCanonicalGitRoot(getCwd())
       if (!mainRepoRoot) {
         process.stderr.write(
@@ -221,7 +220,7 @@ export async function setup(
         process.exit(1)
       }
 
-      // If we're inside a worktree, switch to the main repo for worktree creation
+      // 如果当前位于 worktree 内部，则切换到主仓库来创建 worktree
       if (mainRepoRoot !== (findGitRoot(getCwd()) ?? getCwd())) {
         logForDiagnosticsNoPII('info', 'worktree_resolved_to_main_repo')
         process.chdir(mainRepoRoot)
@@ -232,8 +231,8 @@ export async function setup(
         ? generateTmuxSessionName(mainRepoRoot, worktreeBranchName(slug))
         : undefined
     } else {
-      // Non-git hook mode: no canonical root to resolve, so name the tmux
-      // session from cwd — generateTmuxSessionName only basenames the path.
+      // 非 git 的 hook 模式：没有可解析的 canonical root，因此从 cwd
+      // 派生 tmux session 名称——generateTmuxSessionName 只会取路径 basename。
       tmuxSessionName = tmuxEnabled
         ? generateTmuxSessionName(getCwd(), worktreeBranchName(slug))
         : undefined
@@ -261,7 +260,7 @@ export async function setup(
 
     logEvent('tengu_worktree_created', { tmux_enabled: tmuxEnabled })
 
-    // Create tmux session for the worktree if enabled
+    // 如果启用，则为 worktree 创建 tmux session
     if (tmuxEnabled && tmuxSessionName) {
       const tmuxResult = await createTmuxSessionForWorktree(
         tmuxSessionName,
@@ -287,27 +286,27 @@ export async function setup(
     process.chdir(worktreeSession.worktreePath)
     setCwd(worktreeSession.worktreePath)
     setOriginalCwd(getCwd())
-    // --worktree means the worktree IS the session's project, so skills/hooks/
-    // cron/etc. should resolve here. (EnterWorktreeTool mid-session does NOT
-    // touch projectRoot — that's a throwaway worktree, project stays stable.)
+    // --worktree 表示该 worktree 就是本次会话的项目，因此 skills/hooks/
+    // cron 等都应解析到这里。（会话中途的 EnterWorktreeTool 不会触碰
+    // projectRoot——那是一次性 worktree，项目本体应保持稳定。）
     setProjectRoot(getCwd())
     saveWorktreeState(worktreeSession)
-    // Clear memory files cache since originalCwd has changed
+    // 由于 originalCwd 已改变，清理 memory files 缓存
     clearMemoryFileCaches()
-    // Settings cache was populated in init() (via applySafeConfigEnvironmentVariables)
-    // and again at captureHooksConfigSnapshot() above, both from the original dir's
-    // .claude/settings.json. Re-read from the worktree and re-capture hooks.
+    // Settings 缓存在 init() 中（通过 applySafeConfigEnvironmentVariables）
+    // 以及上方 captureHooksConfigSnapshot() 中都已填充，二者都来自原目录的
+    // .claude/settings.json。这里要从 worktree 重新读取，并重新捕获 hooks。
     updateHooksConfigSnapshot()
   }
 
-  // Background jobs - only critical registrations that must happen before first query
+  // 后台任务：只做那些必须在第一次 query 前完成的关键注册
   logForDiagnosticsNoPII('info', 'setup_background_jobs_starting')
-  // Bundled skills/plugins are registered in main.tsx before the parallel
-  // getCommands() kick — see comment there. Moved out of setup() because
-  // the await points above (startUdsMessaging, ~20ms) meant getCommands()
-  // raced ahead and memoized an empty bundledSkills list.
+  // 打包内置的 skills/plugins 会在 main.tsx 中、并行触发 getCommands()
+  // 之前完成注册——见那里的注释。之所以从 setup() 挪出，是因为上面的
+  // await 点（startUdsMessaging，约 20ms）会让 getCommands() 先跑，
+  // 从而把空的 bundledSkills 列表错误地 memoize 住。
   if (!isBareMode()) {
-    initSessionMemory() // Synchronous - registers hook, gate check happens lazily
+    initSessionMemory() // 同步执行：注册 hook，gate 检查会延后惰性发生
     if (feature('CONTEXT_COLLAPSE')) {
       /* eslint-disable @typescript-eslint/no-require-imports */
       ;(
@@ -316,44 +315,44 @@ export async function setup(
       /* eslint-enable @typescript-eslint/no-require-imports */
     }
   }
-  void lockCurrentVersion() // Lock current version to prevent deletion by other processes
+  void lockCurrentVersion() // 锁定当前版本，防止被其他进程删除
   logForDiagnosticsNoPII('info', 'setup_background_jobs_launched')
 
   profileCheckpoint('setup_before_prefetch')
-  // Pre-fetch promises - only items needed before render
+  // 预取 promise：仅包含 render 前需要的项
   logForDiagnosticsNoPII('info', 'setup_prefetch_starting')
-  // When CLAUDE_CODE_SYNC_PLUGIN_INSTALL is set, skip all plugin prefetch.
-  // The sync install path in print.ts calls refreshPluginState() after
-  // installing, which reloads commands, hooks, and agents. Prefetching here
-  // races with the install (concurrent copyPluginToVersionedCache / cachePlugin
-  // on the same directories), and the hot-reload handler fires clearPluginCache()
-  // mid-install when policySettings arrives.
+  // 当设置了 CLAUDE_CODE_SYNC_PLUGIN_INSTALL 时，跳过全部 plugin 预取。
+  // print.ts 中的同步安装路径会在安装后调用 refreshPluginState()，
+  // 重新加载 commands、hooks 和 agents。这里做预取会与安装流程竞争
+  //（在同一目录上并发执行 copyPluginToVersionedCache / cachePlugin），
+  // 而且当 policySettings 到达时，热重载处理器还会在安装过程中触发
+  // clearPluginCache()。
   const skipPluginPrefetch =
     (getIsNonInteractiveSession() &&
       isEnvTruthy(process.env.CLAUDE_CODE_SYNC_PLUGIN_INSTALL)) ||
-    // --bare: loadPluginHooks → loadAllPlugins is filesystem work that's
-    // wasted when executeHooks early-returns under --bare anyway.
+    // --bare：loadPluginHooks -> loadAllPlugins 属于文件系统工作，
+    // 而在 --bare 下 executeHooks 本就会提前返回，这些开销都属于浪费。
     isBareMode()
   if (!skipPluginPrefetch) {
     void getCommands(getProjectRoot())
   }
   void import('./utils/plugins/loadPluginHooks.js').then(m => {
     if (!skipPluginPrefetch) {
-      void m.loadPluginHooks() // Pre-load plugin hooks (consumed by processSessionStartHooks before render)
-      m.setupPluginHookHotReload() // Set up hot reload for plugin hooks when settings change
+      void m.loadPluginHooks() // 预加载 plugin hooks（render 前会被 processSessionStartHooks 使用）
+      m.setupPluginHookHotReload() // 在 settings 变化时为 plugin hooks 配置热重载
     }
   })
-  // --bare: skip attribution hook install + repo classification +
-  // session-file-access analytics + team memory watcher. These are background
-  // bookkeeping for commit attribution + usage metrics — scripted calls don't
-  // commit code, and the 49ms attribution hook stat check (measured) is pure
-  // overhead. NOT an early-return: the --dangerously-skip-permissions safety
-  // gate, tengu_started beacon, and apiKeyHelper prefetch below must still run.
+  // --bare：跳过 attribution hook 安装、repo 分类、
+  // session-file-access analytics 以及 team memory watcher。这些都是用于
+  // commit attribution 和使用指标的后台记账逻辑——脚本化调用不会提交代码，
+  // 而且 49ms 的 attribution hook stat 检查（已实测）纯属额外开销。
+  // 这里不是提前 return：下方的 --dangerously-skip-permissions 安全门、
+  // tengu_started 信标以及 apiKeyHelper 预取仍然必须执行。
   if (!isBareMode()) {
     if (process.env.USER_TYPE === 'ant') {
-      // Prime repo classification cache for auto-undercover mode. Default is
-      // undercover ON until proven internal; if this resolves to internal, clear
-      // the prompt cache so the next turn picks up the OFF state.
+      // 为 auto-undercover 模式预热 repo 分类缓存。默认是在证明为内部仓库前
+      // 将 undercover 视为开启；如果这里解析出是内部仓库，就清掉 prompt 缓存，
+      // 让下一轮能拿到关闭后的状态。
       void import('./utils/commitAttribution.js').then(async m => {
         if (await m.isInternalModelRepo()) {
           const { clearSystemPromptSections } = await import(
@@ -364,41 +363,41 @@ export async function setup(
       })
     }
     if (feature('COMMIT_ATTRIBUTION')) {
-      // Dynamic import to enable dead code elimination (module contains excluded strings).
-      // Defer to next tick so the git subprocess spawn runs after first render
-      // rather than during the setup() microtask window.
+      // 用动态导入来启用 dead code elimination（模块内含被排除的字符串）。
+      // 延后到下一 tick，让 git 子进程在首次 render 之后启动，
+      // 而不是挤在 setup() 的微任务窗口里。
       setImmediate(() => {
         void import('./utils/attributionHooks.js').then(
           ({ registerAttributionHooks }) => {
-            registerAttributionHooks() // Register attribution tracking hooks (ant-only feature)
+            registerAttributionHooks() // 注册 attribution tracking hooks（仅 ant 功能）
           },
         )
       })
     }
     void import('./utils/sessionFileAccessHooks.js').then(m =>
       m.registerSessionFileAccessHooks(),
-    ) // Register session file access analytics hooks
+    ) // 注册 session file access analytics hooks
     if (feature('TEAMMEM')) {
       void import('./services/teamMemorySync/watcher.js').then(m =>
         m.startTeamMemoryWatcher(),
-      ) // Start team memory sync watcher
+      ) // 启动 team memory sync watcher
     }
   }
-  initSinks() // Attach error log + analytics sinks and drain queued events
+  initSinks() // 挂接错误日志与 analytics sinks，并冲刷排队事件
 
-  // Session-success-rate denominator. Emit immediately after the analytics
-  // sink is attached — before any parsing, fetching, or I/O that could throw.
-  // inc-3694 (P0 CHANGELOG crash) threw at checkForReleaseNotes below; every
-  // event after this point was dead. This beacon is the earliest reliable
-  // "process started" signal for release health monitoring.
+  // session-success-rate 的分母事件。要在 analytics sink 挂好后立刻发出——
+  // 早于任何可能抛错的解析、抓取或 I/O。
+  // inc-3694（P0 CHANGELOG 崩溃）就死在下面的 checkForReleaseNotes；
+  // 从那之后的所有事件都发不出来。这个 beacon 是发布健康监控里
+  // 最早且可靠的“process started”信号。
   logEvent('tengu_started', {})
 
-  void prefetchApiKeyFromApiKeyHelperIfSafe(getIsNonInteractiveSession()) // Prefetch safely - only executes if trust already confirmed
+  void prefetchApiKeyFromApiKeyHelperIfSafe(getIsNonInteractiveSession()) // 安全预取：仅在 trust 已确认时执行
   profileCheckpoint('setup_after_prefetch')
 
-  // Pre-fetch data for Logo v2 - await to ensure it's ready before logo renders.
-  // --bare / SIMPLE: skip — release notes are interactive-UI display data,
-  // and getRecentActivity() reads up to 10 session JSONL files.
+  // 为 Logo v2 预取数据——这里要 await，确保 logo 渲染前已准备就绪。
+  // --bare / SIMPLE：跳过——release notes 属于交互式 UI 展示数据，
+  // 而 getRecentActivity() 最多会读取 10 个 session JSONL 文件。
   if (!isBareMode()) {
     const { hasReleaseNotes } = await checkForReleaseNotes(
       getGlobalConfig().lastReleaseNotesSeen,
@@ -408,13 +407,13 @@ export async function setup(
     }
   }
 
-  // If permission mode is set to bypass, verify we're in a safe environment
+  // 如果 permission mode 被设为 bypass，确认当前环境是安全的
   if (
     permissionMode === 'bypassPermissions' ||
     allowDangerouslySkipPermissions
   ) {
-    // Check if running as root/sudo on Unix-like systems
-    // Allow root if in a sandbox (e.g., TPU devspaces that require root)
+    // 检查是否在类 Unix 系统中以 root/sudo 身份运行
+    // 如果处于 sandbox 中，则允许 root（例如要求 root 的 TPU devspaces）
     if (
       process.platform !== 'win32' &&
       typeof process.getuid === 'function' &&
@@ -431,15 +430,15 @@ export async function setup(
 
     if (
       process.env.USER_TYPE === 'ant' &&
-      // Skip for Desktop's local agent mode — same trust model as CCR/BYOC
-      // (trusted Anthropic-managed launcher intentionally pre-approving everything).
-      // Precedent: permissionSetup.ts:861, applySettingsChange.ts:55 (PR #19116)
+      // Desktop 的 local agent 模式跳过此检查——其 trust 模型与 CCR/BYOC 相同
+      //（受信任的 Anthropic 托管 launcher 会有意预批准所有内容）。
+      // 先例：permissionSetup.ts:861, applySettingsChange.ts:55 (PR #19116)
       process.env.CLAUDE_CODE_ENTRYPOINT !== 'local-agent' &&
-      // Same for CCD (Claude Code in Desktop) — apps#29127 passes the flag
-      // unconditionally to unlock mid-session bypass switching
+      // CCD（Claude Code in Desktop）同样如此——apps#29127 无条件传递该标志，
+      // 以便解锁会话中途切换 bypass
       process.env.CLAUDE_CODE_ENTRYPOINT !== 'claude-desktop'
     ) {
-      // Only await if permission mode is set to bypass
+      // 仅当 permission mode 为 bypass 时才等待这些检查
       const [isDocker, hasInternet] = await Promise.all([
         envDynamic.getIsDocker(),
         env.hasInternetAccess(),
@@ -461,7 +460,7 @@ export async function setup(
     return
   }
 
-  // Log tengu_exit event from the last session?
+  // 记录上一会话的 tengu_exit 事件？
   const projectConfig = getCurrentProjectConfig()
   if (
     projectConfig.lastCost !== undefined &&
@@ -486,8 +485,8 @@ export async function setup(
         projectConfig.lastSessionId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       ...projectConfig.lastSessionMetrics,
     })
-    // Note: We intentionally don't clear these values after logging.
-    // They're needed for cost restoration when resuming sessions.
-    // The values will be overwritten when the next session exits.
+    // 注意：我们有意在记录后不清除这些值。
+    // 恢复会话时仍需要它们来恢复成本状态。
+    // 下一次会话退出时，这些值会被覆盖。
   }
 }

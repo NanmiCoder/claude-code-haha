@@ -66,7 +66,7 @@ export async function call(onDone: LocalJSXCommandOnDone, context: LocalJSXComma
   const directoryPath = (args ?? '').trim();
   const appState = context.getAppState();
 
-  // Helper to handle adding a directory (shared by both with-path and no-path cases)
+  // 处理添加目录的辅助函数（有路径和无路径两种情况共用）
   const handleAddDirectory = async (path: string, remember = false) => {
     const destination: PermissionUpdateDestination = remember ? 'localSettings' : 'session';
     const permissionUpdate = {
@@ -75,7 +75,7 @@ export async function call(onDone: LocalJSXCommandOnDone, context: LocalJSXComma
       destination
     };
 
-    // Apply to session context
+    // 应用到会话上下文
     const latestAppState = context.getAppState();
     const updatedContext = applyPermissionUpdate(latestAppState.toolPermissionContext, permissionUpdate);
     context.setAppState(prev => ({
@@ -83,10 +83,10 @@ export async function call(onDone: LocalJSXCommandOnDone, context: LocalJSXComma
       toolPermissionContext: updatedContext
     }));
 
-    // Update sandbox config so Bash commands can access the new directory.
-    // Bootstrap state is the source of truth for session-only dirs; persisted
-    // dirs are picked up via the settings subscription, but we refresh
-    // eagerly here to avoid a race when the user acts immediately.
+    // 更新 sandbox 配置，让 Bash 命令可以访问新目录。
+    // Bootstrap state 是仅会话目录的真实来源；持久化的
+    // 目录会通过 settings 订阅被拾取到，但这里仍主动刷新
+    // 以避免用户立即操作时出现竞争。
     const currentDirs = getAdditionalDirectoriesForClaudeMd();
     if (!currentDirs.includes(path)) {
       setAdditionalDirectoriesForClaudeMd([...currentDirs, path]);
@@ -107,8 +107,8 @@ export async function call(onDone: LocalJSXCommandOnDone, context: LocalJSXComma
     onDone(messageWithHint);
   };
 
-  // When no path is provided, show AddWorkspaceDirectory input form directly
-  // and return to REPL after confirmation
+  // 未提供路径时，直接显示 AddWorkspaceDirectory 输入表单
+  // 确认后返回 REPL
   if (!directoryPath) {
     return <AddWorkspaceDirectory permissionContext={appState.toolPermissionContext} onAddDirectory={handleAddDirectory} onCancel={() => {
       onDone('Did not add a working directory.');

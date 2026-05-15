@@ -26,28 +26,28 @@ type TrackedTool = {
   isConcurrencySafe: boolean
   promise?: Promise<void>
   results?: Message[]
-  // Progress messages are stored separately and yielded immediately
+  // 进度消息单独存储并立即产出
   pendingProgress: Message[]
   contextModifiers?: Array<(context: ToolUseContext) => ToolUseContext>
 }
 
 /**
- * Executes tools as they stream in with concurrency control.
- * - Concurrent-safe tools can execute in parallel with other concurrent-safe tools
- * - Non-concurrent tools must execute alone (exclusive access)
- * - Results are buffered and emitted in the order tools were received
+ * 在工具流式到达时按并发控制执行工具。
+ * - 并发安全工具可以与其他并发安全工具并行执行
+ * - 非并发工具必须独占执行
+ * - 结果会按工具接收顺序缓冲并输出
  */
 export class StreamingToolExecutor {
   private tools: TrackedTool[] = []
   private toolUseContext: ToolUseContext
   private hasErrored = false
   private erroredToolDescription = ''
-  // Child of toolUseContext.abortController. Fires when a Bash tool errors
-  // so sibling subprocesses die immediately instead of running to completion.
-  // Aborting this does NOT abort the parent — query.ts won't end the turn.
+  // toolUseContext.abortController 的子控制器。当 Bash 工具报错时触发，
+  // 让同级子进程立即终止，而不是继续运行到结束。
+  // 中止它不会中止父控制器——query.ts 不会结束当前轮次。
   private siblingAbortController: AbortController
   private discarded = false
-  // Signal to wake up getRemainingResults when progress is available
+  // 有进度可用时，用来唤醒 getRemainingResults 的信号
   private progressAvailableResolve?: () => void
 
   constructor(
@@ -62,16 +62,16 @@ export class StreamingToolExecutor {
   }
 
   /**
-   * Discards all pending and in-progress tools. Called when streaming fallback
-   * occurs and results from the failed attempt should be abandoned.
-   * Queued tools won't start, and in-progress tools will receive synthetic errors.
+   * 丢弃所有待执行和执行中的工具。在发生 streaming fallback 且需要
+   * 放弃失败尝试的结果时调用。
+   * 排队中的工具不会启动，执行中的工具会收到合成错误。
    */
   discard(): void {
     this.discarded = true
   }
 
   /**
-   * Add a tool to the execution queue. Will start executing immediately if conditions allow.
+   * 将工具加入执行队列。如果条件允许，会立即开始执行。
    */
   addTool(block: ToolUseBlock, assistantMessage: AssistantMessage): void {
     const toolDefinition = findToolByName(this.toolDefinitions, block.name)
@@ -124,7 +124,7 @@ export class StreamingToolExecutor {
   }
 
   /**
-   * Check if a tool can execute based on current concurrency state
+    * 根据当前并发状态检查工具是否可以执行
    */
   private canExecuteTool(isConcurrencySafe: boolean): boolean {
     const executingTools = this.tools.filter(t => t.status === 'executing')
@@ -135,7 +135,7 @@ export class StreamingToolExecutor {
   }
 
   /**
-   * Process the queue, starting tools when concurrency conditions allow
+    * 处理队列，在并发条件允许时启动工具
    */
   private async processQueue(): Promise<void> {
     for (const tool of this.tools) {
@@ -144,7 +144,7 @@ export class StreamingToolExecutor {
       if (this.canExecuteTool(tool.isConcurrencySafe)) {
         await this.executeTool(tool)
       } else {
-        // Can't execute this tool yet, and since we need to maintain order for non-concurrent tools, stop here
+        // 这个工具暂时无法执行，并且为了维持非并发工具的顺序，需要在这里停止
         if (!tool.isConcurrencySafe) break
       }
     }
@@ -155,8 +155,8 @@ export class StreamingToolExecutor {
     reason: 'sibling_error' | 'user_interrupted' | 'streaming_fallback',
     assistantMessage: AssistantMessage,
   ): Message {
-    // For user interruptions (ESC to reject), use REJECT_MESSAGE so the UI shows
-    // "User rejected edit" instead of "Error editing file"
+    // 对于用户中断（按 ESC 拒绝），使用 REJECT_MESSAGE，
+    // 这样 UI 会显示 "User rejected edit"，而不是 "Error editing file"
     if (reason === 'user_interrupted') {
       return createUserMessage({
         content: [
@@ -205,7 +205,7 @@ export class StreamingToolExecutor {
   }
 
   /**
-   * Determine why a tool should be cancelled.
+    * 确定工具应被取消的原因。
    */
   private getAbortReason(
     tool: TrackedTool,
@@ -217,9 +217,9 @@ export class StreamingToolExecutor {
       return 'sibling_error'
     }
     if (this.toolUseContext.abortController.signal.aborted) {
-      // 'interrupt' means the user typed a new message while tools were
-      // running. Only cancel tools whose interruptBehavior is 'cancel';
-      // 'block' tools shouldn't reach here (abort isn't fired).
+      // `interrupt` 表示用户在工具运行时输入了新消息。
+      // 只有 interruptBehavior 为 `cancel` 的工具才会被取消；
+      // `block` 工具不应走到这里（不会触发 abort）。
       if (this.toolUseContext.abortController.signal.reason === 'interrupt') {
         return this.getToolInterruptBehavior(tool) === 'cancel'
           ? 'user_interrupted'
@@ -260,7 +260,7 @@ export class StreamingToolExecutor {
   }
 
   /**
-   * Execute a tool and collect its results
+    * 执行一个工具并收集其结果
    */
   private async executeTool(tool: TrackedTool): Promise<void> {
     tool.status = 'executing'
@@ -274,7 +274,7 @@ export class StreamingToolExecutor {
       []
 
     const collectResults = async () => {
-      // If already aborted (by error or user), generate synthetic error block instead of running the tool
+      // 如果已经中止（由于错误或用户操作），则生成合成错误块，而不是运行工具
       const initialAbortReason = this.getAbortReason(tool)
       if (initialAbortReason) {
         messages.push(
@@ -291,13 +291,14 @@ export class StreamingToolExecutor {
         return
       }
 
-      // Per-tool child controller. Lets siblingAbortController kill running
-      // subprocesses (Bash spawns listen to this signal) when a Bash error
-      // cascades. Permission-dialog rejection also aborts this controller
-      // (PermissionContext.ts cancelAndAbort) — that abort must bubble up to
-      // the query controller so the query loop's post-tool abort check ends
-      // the turn. Without bubble-up, ExitPlanMode "clear context + auto"
-      // sends REJECT_MESSAGE to the model instead of aborting (#21056 regression).
+      // 每个工具各自的子控制器。当 Bash 错误级联时，它让
+      // siblingAbortController 能杀掉仍在运行的子进程
+      // （Bash spawn 会监听该信号）。权限对话框被拒绝时也会中止
+      // 这个控制器（PermissionContext.ts cancelAndAbort）——该中止
+      // 必须继续冒泡到 query controller，这样 query 循环里的
+      // post-tool abort 检查才能结束当前轮次。否则，ExitPlanMode 的
+      // "clear context + auto" 会把 REJECT_MESSAGE 发给模型，而不是中止
+      // （#21056 回归）。
       const toolAbortController = createChildAbortController(
         this.siblingAbortController,
       )
@@ -324,14 +325,14 @@ export class StreamingToolExecutor {
         { ...this.toolUseContext, abortController: toolAbortController },
       )
 
-      // Track if this specific tool has produced an error result.
-      // This prevents the tool from receiving a duplicate "sibling error"
-      // message when it is the one that caused the error.
+      // 跟踪这个特定工具是否已经产出错误结果。
+      // 这样可避免在它本身就是出错源时，再收到一条重复的
+      // "sibling error" 消息。
       let thisToolErrored = false
 
       for await (const update of generator) {
-        // Check if we were aborted by a sibling tool error or user interruption.
-        // Only add the synthetic error if THIS tool didn't produce the error.
+        // 检查我们是否因同级工具报错或用户中断而被中止。
+        // 只有在当前工具本身没有产出该错误时，才添加合成错误。
         const abortReason = this.getAbortReason(tool)
         if (abortReason && !thisToolErrored) {
           messages.push(
@@ -353,9 +354,9 @@ export class StreamingToolExecutor {
 
         if (isErrorResult) {
           thisToolErrored = true
-          // Only Bash errors cancel siblings. Bash commands often have implicit
-          // dependency chains (e.g. mkdir fails → subsequent commands pointless).
-          // Read/WebFetch/etc are independent — one failure shouldn't nuke the rest.
+          // 只有 Bash 错误才会取消同级工具。Bash 命令往往存在隐式
+          // 依赖链（例如 mkdir 失败后，后续命令就没意义了）。
+          // Read/WebFetch 等彼此独立，一个失败不应把其余都干掉。
           if (tool.block.name === BASH_TOOL_NAME) {
             this.hasErrored = true
             this.erroredToolDescription = this.getToolDescription(tool)
@@ -364,10 +365,10 @@ export class StreamingToolExecutor {
         }
 
         if (update.message) {
-          // Progress messages go to pendingProgress for immediate yielding
+          // 进度消息放入 pendingProgress，便于立即产出
           if (update.message.type === 'progress') {
             tool.pendingProgress.push(update.message)
-            // Signal that progress is available
+            // 通知已有进度可用
             if (this.progressAvailableResolve) {
               this.progressAvailableResolve()
               this.progressAvailableResolve = undefined
@@ -385,9 +386,9 @@ export class StreamingToolExecutor {
       tool.status = 'completed'
       this.updateInterruptibleState()
 
-      // NOTE: we currently don't support context modifiers for concurrent
-      //       tools. None are actively being used, but if we want to use
-      //       them in concurrent tools, we need to support that here.
+      // 注意：当前我们还不支持并发工具的 context modifier。
+      // 目前没有实际在用，但如果以后要在并发工具里使用，
+      // 需要在这里补齐支持。
       if (!tool.isConcurrencySafe && contextModifiers.length > 0) {
         for (const modifier of contextModifiers) {
           this.toolUseContext = modifier(this.toolUseContext)
@@ -398,16 +399,16 @@ export class StreamingToolExecutor {
     const promise = collectResults()
     tool.promise = promise
 
-    // Process more queue when done
+    // 完成后继续处理队列
     void promise.finally(() => {
       void this.processQueue()
     })
   }
 
   /**
-   * Get any completed results that haven't been yielded yet (non-blocking)
-   * Maintains order where necessary
-   * Also yields any pending progress messages immediately
+   * 获取尚未产出的已完成结果（非阻塞）。
+   * 在必要时保持顺序。
+   * 也会立即产出所有待处理的进度消息。
    */
   *getCompletedResults(): Generator<MessageUpdate, void> {
     if (this.discarded) {
@@ -415,7 +416,7 @@ export class StreamingToolExecutor {
     }
 
     for (const tool of this.tools) {
-      // Always yield pending progress messages immediately, regardless of tool status
+      // 无论工具处于什么状态，都立即产出待处理的进度消息
       while (tool.pendingProgress.length > 0) {
         const progressMessage = tool.pendingProgress.shift()!
         yield { message: progressMessage, newContext: this.toolUseContext }
@@ -440,15 +441,15 @@ export class StreamingToolExecutor {
   }
 
   /**
-   * Check if any tool has pending progress messages
+    * 检查是否有工具存在待处理的进度消息
    */
   private hasPendingProgress(): boolean {
     return this.tools.some(t => t.pendingProgress.length > 0)
   }
 
   /**
-   * Wait for remaining tools and yield their results as they complete
-   * Also yields progress messages as they become available
+    * 等待剩余工具完成，并在它们完成时产出结果。
+    * 也会在进度消息可用时立即产出。
    */
   async *getRemainingResults(): AsyncGenerator<MessageUpdate, void> {
     if (this.discarded) {
@@ -462,8 +463,8 @@ export class StreamingToolExecutor {
         yield result
       }
 
-      // If we still have executing tools but nothing completed, wait for any to complete
-      // OR for progress to become available
+      // 如果仍有执行中的工具但还没有任何完成结果，则等待任一工具完成
+      // 或等待有进度可用
       if (
         this.hasExecutingTools() &&
         !this.hasCompletedResults() &&
@@ -473,7 +474,7 @@ export class StreamingToolExecutor {
           .filter(t => t.status === 'executing' && t.promise)
           .map(t => t.promise!)
 
-        // Also wait for progress to become available
+        // 同时等待进度变为可用
         const progressPromise = new Promise<void>(resolve => {
           this.progressAvailableResolve = resolve
         })
@@ -490,28 +491,28 @@ export class StreamingToolExecutor {
   }
 
   /**
-   * Check if there are any completed results ready to yield
+    * 检查是否有已完成且可产出的结果
    */
   private hasCompletedResults(): boolean {
     return this.tools.some(t => t.status === 'completed')
   }
 
   /**
-   * Check if there are any tools still executing
+    * 检查是否仍有工具在执行中
    */
   private hasExecutingTools(): boolean {
     return this.tools.some(t => t.status === 'executing')
   }
 
   /**
-   * Check if there are any unfinished tools
+    * 检查是否仍有未完成的工具
    */
   private hasUnfinishedTools(): boolean {
     return this.tools.some(t => t.status !== 'yielded')
   }
 
   /**
-   * Get the current tool use context (may have been modified by context modifiers)
+   * 获取当前的 tool use context（可能已经被 context modifier 修改）
    */
   getUpdatedContext(): ToolUseContext {
     return this.toolUseContext

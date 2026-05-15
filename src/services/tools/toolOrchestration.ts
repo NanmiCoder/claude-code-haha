@@ -32,7 +32,7 @@ export async function* runTools(
         string,
         ((context: ToolUseContext) => ToolUseContext)[]
       > = {}
-      // Run read-only batch concurrently
+      // 并发运行只读批次
       for await (const update of runToolsConcurrently(
         blocks,
         assistantMessages,
@@ -62,7 +62,7 @@ export async function* runTools(
       }
       yield { newContext: currentContext }
     } else {
-      // Run non-read-only batch serially
+      // 串行运行非只读批次
       for await (const update of runToolsSerially(
         blocks,
         assistantMessages,
@@ -84,9 +84,9 @@ export async function* runTools(
 type Batch = { isConcurrencySafe: boolean; blocks: ToolUseBlock[] }
 
 /**
- * Partition tool calls into batches where each batch is either:
- * 1. A single non-read-only tool, or
- * 2. Multiple consecutive read-only tools
+ * 将 tool call 划分为批次，每个批次要么是：
+ * 1. 单个非只读工具，或
+ * 2. 多个连续的只读工具
  */
 function partitionToolCalls(
   toolUseMessages: ToolUseBlock[],
@@ -100,8 +100,8 @@ function partitionToolCalls(
           try {
             return Boolean(tool?.isConcurrencySafe(parsedInput.data))
           } catch {
-            // If isConcurrencySafe throws (e.g., due to shell-quote parse failure),
-            // treat as not concurrency-safe to be conservative
+            // 如果 isConcurrencySafe 抛错（例如 shell-quote 解析失败），
+            // 为了保守起见，将其视为非并发安全
             return false
           }
         })()

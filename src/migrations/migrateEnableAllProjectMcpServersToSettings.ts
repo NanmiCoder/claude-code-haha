@@ -10,14 +10,14 @@ import {
 } from '../utils/settings/settings.js'
 
 /**
- * Migration: Move MCP server approval fields from project config to local settings
- * This migrates both enableAllProjectMcpServers and enabledMcpjsonServers to the
- * settings system for better management and consistency.
+ * 迁移：将 MCP server 的批准字段从 project config 移动到 local settings。
+ * 这里会把 enableAllProjectMcpServers 和 enabledMcpjsonServers 一并迁移到
+ * settings 系统，以获得更好的管理方式和一致性。
  */
 export function migrateEnableAllProjectMcpServersToSettings(): void {
   const projectConfig = getCurrentProjectConfig()
 
-  // Check if any field exists in project config
+  // 检查 project config 中是否存在任一相关字段
   const hasEnableAll = projectConfig.enableAllProjectMcpServers !== undefined
   const hasEnabledServers =
     projectConfig.enabledMcpjsonServers &&
@@ -43,7 +43,7 @@ export function migrateEnableAllProjectMcpServersToSettings(): void {
       | 'disabledMcpjsonServers'
     > = []
 
-    // Migrate enableAllProjectMcpServers if it exists and hasn't been migrated
+    // 如果 enableAllProjectMcpServers 存在且尚未迁移，则迁移它
     if (
       hasEnableAll &&
       existingSettings.enableAllProjectMcpServers === undefined
@@ -52,15 +52,15 @@ export function migrateEnableAllProjectMcpServersToSettings(): void {
         projectConfig.enableAllProjectMcpServers
       fieldsToRemove.push('enableAllProjectMcpServers')
     } else if (hasEnableAll) {
-      // Already migrated, just mark for removal
+      // 已迁移过，只标记为待移除
       fieldsToRemove.push('enableAllProjectMcpServers')
     }
 
-    // Migrate enabledMcpjsonServers if it exists
+    // 如果 enabledMcpjsonServers 存在，则迁移它
     if (hasEnabledServers && projectConfig.enabledMcpjsonServers) {
       const existingEnabledServers =
         existingSettings.enabledMcpjsonServers || []
-      // Merge the servers (avoiding duplicates)
+      // 合并 server 列表（避免重复）
       updates.enabledMcpjsonServers = [
         ...new Set([
           ...existingEnabledServers,
@@ -70,11 +70,11 @@ export function migrateEnableAllProjectMcpServersToSettings(): void {
       fieldsToRemove.push('enabledMcpjsonServers')
     }
 
-    // Migrate disabledMcpjsonServers if it exists
+    // 如果 disabledMcpjsonServers 存在，则迁移它
     if (hasDisabledServers && projectConfig.disabledMcpjsonServers) {
       const existingDisabledServers =
         existingSettings.disabledMcpjsonServers || []
-      // Merge the servers (avoiding duplicates)
+      // 合并 server 列表（避免重复）
       updates.disabledMcpjsonServers = [
         ...new Set([
           ...existingDisabledServers,
@@ -84,12 +84,12 @@ export function migrateEnableAllProjectMcpServersToSettings(): void {
       fieldsToRemove.push('disabledMcpjsonServers')
     }
 
-    // Update settings if there are any updates
+    // 如果确实有更新，则写回 settings
     if (Object.keys(updates).length > 0) {
       updateSettingsForSource('localSettings', updates)
     }
 
-    // Remove migrated fields from project config
+    // 从 project config 中移除已迁移的字段
     if (
       fieldsToRemove.includes('enableAllProjectMcpServers') ||
       fieldsToRemove.includes('enabledMcpjsonServers') ||
@@ -106,12 +106,12 @@ export function migrateEnableAllProjectMcpServersToSettings(): void {
       })
     }
 
-    // Log the migration event
+    // 记录迁移事件
     logEvent('tengu_migrate_mcp_approval_fields_success', {
       migratedCount: fieldsToRemove.length,
     })
   } catch (e: unknown) {
-    // Log migration failure but don't throw to avoid breaking startup
+    // 记录迁移失败，但不要抛出，以免打断启动流程
     logError(e)
     logEvent('tengu_migrate_mcp_approval_fields_error', {})
   }

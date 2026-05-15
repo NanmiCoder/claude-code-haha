@@ -101,14 +101,14 @@ export const SandboxSettingsSchema = lazySchema(() =>
             'When false (default), a warning is shown and commands run unsandboxed. ' +
             'Intended for managed-settings deployments that require sandboxing as a hard gate.',
         ),
-      // Note: enabledPlatforms is an undocumented setting read via .passthrough()
-      // It restricts sandboxing to specific platforms (e.g., ["macos"]).
+      // 注意：enabledPlatforms 是通过 .passthrough() 读取的未公开设置。
+      // 它会将 sandboxing 限制在特定平台（例如 ["macos"]）。
       //
-      // Added to unblock NVIDIA enterprise rollout: they want to enable
-      // autoAllowBashIfSandboxed but only on macOS initially, since Linux/WSL
-      // sandbox support is newer and less battle-tested. This allows them to
-      // set enabledPlatforms: ["macos"] to disable sandbox (and auto-allow)
-      // on other platforms until they're ready to expand.
+      // 为解除 NVIDIA 企业 rollout 的阻塞而添加：他们想启用
+      // autoAllowBashIfSandboxed，但初期只在 macOS 上启用，因为 Linux/WSL
+      // 的 sandbox 支持更晚推出、经过实战验证也更少。这允许他们
+      // 通过设置 enabledPlatforms: ["macos"] 在其他平台上禁用 sandbox（以及 auto-allow），
+      // 直到准备好再扩大范围。
       autoAllowBashIfSandboxed: z.boolean().optional(),
       allowUnsandboxedCommands: z
         .boolean()
@@ -143,7 +143,7 @@ export const SandboxSettingsSchema = lazySchema(() =>
     .passthrough(),
 )
 
-// Inferred types from schemas
+// 从 schemas 推导的 types
 export type SandboxSettings = z.infer<ReturnType<typeof SandboxSettingsSchema>>
 export type SandboxNetworkConfig = NonNullable<
   z.infer<ReturnType<typeof SandboxNetworkConfigSchema>>

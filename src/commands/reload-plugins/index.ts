@@ -8,9 +8,9 @@ const reloadPlugins = {
   type: 'local',
   name: 'reload-plugins',
   description: 'Activate pending plugin changes in the current session',
-  // SDK callers use query.reloadPlugins() (control request) instead of
-  // sending this as a text prompt — that returns structured data
-  // (commands, agents, plugins, mcpServers) for UI updates.
+  // SDK 调用方通过 query.reloadPlugins()（control request）而不是
+  // 把它当作文本 prompt 发送，这样会返回结构化数据
+  // （commands、agents、plugins、mcpServers）用于 UI 更新。
   supportsNonInteractive: false,
   load: () => import('./reload-plugins.js'),
 } satisfies Command

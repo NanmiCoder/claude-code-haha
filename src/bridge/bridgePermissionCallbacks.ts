@@ -18,17 +18,17 @@ type BridgePermissionCallbacks = {
     blockedPath?: string,
   ): void
   sendResponse(requestId: string, response: BridgePermissionResponse): void
-  /** Cancel a pending control_request so the web app can dismiss its prompt. */
+  /** 取消待处理的 control_request，以便 Web 应用关闭其提示。 */
   cancelRequest(requestId: string): void
   onResponse(
     requestId: string,
     handler: (response: BridgePermissionResponse) => void,
-  ): () => void // returns unsubscribe
+  ): () => void // 返回取消订阅函数
 }
 
-/** Type predicate for validating a parsed control_response payload
- *  as a BridgePermissionResponse. Checks the required `behavior`
- *  discriminant rather than using an unsafe `as` cast. */
+/** 用于校验已解析 control_response 负载是否为 BridgePermissionResponse 的
+ *  类型谓词。检查必需的 `behavior` 区分字段，而不是使用不安全的 `as`
+ *  断言。 */
 function isBridgePermissionResponse(
   value: unknown,
 ): value is BridgePermissionResponse {

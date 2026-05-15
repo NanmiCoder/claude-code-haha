@@ -24,17 +24,17 @@ Return a list of filenames for the memories that will clearly be useful to Claud
 `
 
 /**
- * Find memory files relevant to a query by scanning memory file headers
- * and asking Sonnet to select the most relevant ones.
+ * 通过扫描 memory file headers 并让 Sonnet 选择最相关项，
+ * 找出与查询相关的 memory 文件。
  *
- * Returns absolute file paths + mtime of the most relevant memories
- * (up to 5). Excludes MEMORY.md (already loaded in system prompt).
- * mtime is threaded through so callers can surface freshness to the
- * main model without a second stat.
+ * 返回最相关 memories 的绝对路径 + mtime
+ *（最多 5 个）。排除 MEMORY.md（它已经在 system prompt 中加载）。
+ * mtime 会一路透传，这样调用方无需再做一次 stat，就能把新鲜度暴露给
+ * 主模型。
  *
- * `alreadySurfaced` filters paths shown in prior turns before the
- * Sonnet call, so the selector spends its 5-slot budget on fresh
- * candidates instead of re-picking files the caller will discard.
+ * `alreadySurfaced` 会在调用 Sonnet 之前先过滤掉前几轮已经展示过的路径，
+ * 这样 selector 的 5 个名额会优先花在新候选项上，而不是重复挑出
+ * 调用方最终又会丢弃的文件。
  */
 export async function findRelevantMemories(
   query: string,
@@ -61,8 +61,8 @@ export async function findRelevantMemories(
     .map(filename => byFilename.get(filename))
     .filter((m): m is MemoryHeader => m !== undefined)
 
-  // Fires even on empty selection: selection-rate needs the denominator,
-  // and -1 ages distinguish "ran, picked nothing" from "never ran".
+  // 即使选择结果为空也要触发：selection-rate 需要分母，
+  // 而 -1 age 可以区分“跑过但什么都没选”和“从未跑过”。
   if (feature('MEMORY_SHAPE_TELEMETRY')) {
     /* eslint-disable @typescript-eslint/no-require-imports */
     const { logMemoryRecallShape } =
@@ -84,11 +84,11 @@ async function selectRelevantMemories(
 
   const manifest = formatMemoryManifest(memories)
 
-  // When Claude Code is actively using a tool (e.g. mcp__X__spawn),
-  // surfacing that tool's reference docs is noise — the conversation
-  // already contains working usage.  The selector otherwise matches
-  // on keyword overlap ("spawn" in query + "spawn" in a memory
-  // description → false positive).
+  // 当 Claude Code 正在主动使用某个工具（例如 mcp__X__spawn）时，
+  // 再把该工具的参考文档拿出来只会形成噪音——对话里已经包含可工作的用法。
+  // 否则 selector 很容易只凭关键词重叠命中
+  //（query 里有 “spawn”，memory 描述里也有 “spawn”
+  // → 误报）。
   const toolsSection =
     recentTools.length > 0
       ? `\n\nRecently used tools: ${recentTools.join(', ')}`

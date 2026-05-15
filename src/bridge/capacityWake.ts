@@ -1,26 +1,26 @@
 /**
- * Shared capacity-wake primitive for bridge poll loops.
+ * 为 bridge 轮询循环共享的 capacity-wake 原语。
  *
- * Both replBridge.ts and bridgeMain.ts need to sleep while "at capacity"
- * but wake early when either (a) the outer loop signal aborts (shutdown),
- * or (b) capacity frees up (session done / transport lost). This module
- * encapsulates the mutable wake-controller + two-signal merger that both
- * poll loops previously duplicated byte-for-byte.
+ * replBridge.ts 和 bridgeMain.ts 都需要在 "at capacity" 时休眠，
+ * 但当以下任一情况发生时要提前唤醒：(a) 外层循环 signal 中止（shutdown），
+ * 或 (b) 容量释放（session 完成 / transport 丢失）。该模块封装了
+ * 可变 wake-controller 与双 signal 合并逻辑，这部分代码此前在两个
+ * 轮询循环里都是逐字重复的。
  */
 
 export type CapacitySignal = { signal: AbortSignal; cleanup: () => void }
 
 export type CapacityWake = {
   /**
-   * Create a signal that aborts when either the outer loop signal or the
-   * capacity-wake controller fires. Returns the merged signal and a cleanup
-   * function that removes listeners when the sleep resolves normally
-   * (without abort).
+   * 创建一个 signal：当外层循环 signal 或 capacity-wake controller
+   * 任一触发时就中止。返回合并后的 signal，以及一个 cleanup
+   * 函数，用于在这次休眠正常结束时移除监听器
+   * （即不是因 abort 结束）。
    */
   signal(): CapacitySignal
   /**
-   * Abort the current at-capacity sleep and arm a fresh controller so the
-   * poll loop immediately re-checks for new work.
+   * 中止当前的 at-capacity 休眠，并重新装配一个新的 controller，
+   * 让轮询循环立刻重新检查是否有新 work。
    */
   wake(): void
 }

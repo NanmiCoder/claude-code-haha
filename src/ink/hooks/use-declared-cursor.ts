@@ -3,24 +3,22 @@ import CursorDeclarationContext from '../components/CursorDeclarationContext.js'
 import type { DOMElement } from '../dom.js'
 
 /**
- * Declares where the terminal cursor should be parked after each frame.
+ * 声明每一帧结束后终端光标应停放的位置。
  *
- * Terminal emulators render IME preedit text at the physical cursor
- * position, and screen readers / screen magnifiers track the native
- * cursor — so parking it at the text input's caret makes CJK input
- * appear inline and lets accessibility tools follow the input.
+ * 终端模拟器会在物理光标位置渲染 IME 预编辑文本，屏幕阅读器 / 放大镜也会
+ * 跟踪原生光标，因此把光标停在文本输入框的插入点上，既能让 CJK 输入以内联
+ * 方式显示，也能让无障碍工具跟随输入位置。
  *
- * Returns a ref callback to attach to the Box that contains the input.
- * The declared (line, column) is interpreted relative to that Box's
- * nodeCache rect (populated by renderNodeToOutput).
+ * 返回一个 ref callback，用于挂到包含输入框的 Box 上。
+ * 声明的 (line, column) 是相对于该 Box 的 nodeCache rect 解释的
+ * （由 renderNodeToOutput 填充）。
  *
- * Timing: Both ref attach and useLayoutEffect fire in React's layout
- * phase — after resetAfterCommit calls scheduleRender. scheduleRender
- * defers onRender via queueMicrotask, so onRender runs AFTER layout
- * effects commit and reads the fresh declaration on the first frame
- * (no one-keystroke lag). Test env uses onImmediateRender (synchronous,
- * no microtask), so tests compensate by calling ink.onRender()
- * explicitly after render.
+ * 时序：ref 挂载和 useLayoutEffect 都发生在 React 的 layout phase，
+ * 且位于 resetAfterCommit 调用 scheduleRender 之后。scheduleRender
+ * 会通过 queueMicrotask 延后 onRender，因此 onRender 会在 layout
+ * effects 提交之后才执行，并在首帧读取到最新声明（不会出现按下一次键才跟上
+ * 的延迟）。测试环境使用的是 onImmediateRender（同步、无 microtask），
+ * 因此测试会在 render 后显式调用 ink.onRender() 进行补偿。
  */
 export function useDeclaredCursor({
   line,
@@ -38,19 +36,16 @@ export function useDeclaredCursor({
     nodeRef.current = node
   }, [])
 
-  // When active, set unconditionally. When inactive, clear conditionally
-  // (only if the currently-declared node is ours). The node-identity check
-  // handles two hazards:
-  //   1. A memo()ized active instance elsewhere (e.g. the search input in
-  //      a memo'd Footer) doesn't re-render this commit — an inactive
-  //      instance re-rendering here must not clobber it.
-  //   2. Sibling handoff (menu focus moving between list items) — when
-  //      focus moves opposite to sibling order, the newly-inactive item's
-  //      effect runs AFTER the newly-active item's set. Without the node
-  //      check it would clobber.
-  // No dep array: must re-declare every commit so the active instance
-  // re-claims the declaration after another instance's unmount-cleanup or
-  // sibling handoff nulls it.
+  // active 时无条件设置；inactive 时按条件清除（仅当当前声明的节点就是自己）。
+  // 节点身份检查用于处理两个风险：
+  //   1. 其他地方被 memo() 包裹的 active 实例（例如 memo 化 Footer 中的
+  //      搜索输入框）在本次 commit 中没有重新渲染，这里重新渲染的 inactive
+  //      实例不能把它的声明覆盖掉。
+  //   2. 兄弟节点交接（例如菜单焦点在列表项之间移动）时，如果焦点移动方向与
+  //      兄弟顺序相反，新变为 inactive 的项其 effect 会在新 active 项的 set
+  //      之后运行；没有节点检查就会发生覆盖。
+  // 不传 dep 数组：必须在每次 commit 时重新声明，这样当别的实例在 unmount
+  // 清理或兄弟交接时把值置空后，当前 active 实例才能重新夺回声明。
   useLayoutEffect(() => {
     const node = nodeRef.current
     if (active && node) {
@@ -60,9 +55,9 @@ export function useDeclaredCursor({
     }
   })
 
-  // Clear on unmount (conditionally — another instance may own by then).
-  // Separate effect with empty deps so cleanup only fires once — not on
-  // every line/column change, which would transiently null between commits.
+  // 在 unmount 时清除（按条件执行，因为届时可能已归其他实例所有）。
+  // 单独拆一个空依赖 effect，这样 cleanup 只会触发一次，而不会在每次
+  // line/column 变化时触发，避免在两个 commit 之间短暂变成 null。
   useLayoutEffect(() => {
     return () => {
       setCursorDeclaration(null, nodeRef.current)

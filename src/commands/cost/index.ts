@@ -1,6 +1,6 @@
 /**
- * Cost command - minimal metadata only.
- * Implementation is lazy-loaded from cost.ts to reduce startup time.
+ * Cost 命令，仅保留最小元数据。
+ * 实现从 cost.ts 懒加载，以减少启动时间。
  */
 import type { Command } from '../../commands.js'
 import { isClaudeAISubscriber } from '../../utils/auth.js'
@@ -10,7 +10,7 @@ const cost = {
   name: 'cost',
   description: 'Show the total cost and duration of the current session',
   get isHidden() {
-    // Keep visible for Ants even if they're subscribers (they see cost breakdowns)
+    // 即使是订阅用户，也对 Ants 保持可见（他们会看到 cost 明细）
     if (process.env.USER_TYPE === 'ant') {
       return false
     }

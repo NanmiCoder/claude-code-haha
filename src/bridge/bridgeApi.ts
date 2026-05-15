@@ -15,35 +15,34 @@ type BridgeApiDeps = {
   runnerVersion: string
   onDebug?: (msg: string) => void
   /**
-   * Called on 401 to attempt OAuth token refresh. Returns true if refreshed,
-   * in which case the request is retried once. Injected because
-   * handleOAuth401Error from utils/auth.ts transitively pulls in config.ts →
-   * file.ts → permissions/filesystem.ts → sessionStorage.ts → commands.ts
-   * (~1300 modules). Daemon callers using env-var tokens omit this — their
-   * tokens don't refresh, so 401 goes straight to BridgeFatalError.
+   * 在 401 时调用，用于尝试刷新 OAuth token。若刷新成功则返回 true，
+   * 此时请求会重试一次。之所以通过注入提供，是因为 utils/auth.ts 中的
+   * handleOAuth401Error 会传递引入 config.ts → file.ts → permissions/filesystem.ts →
+   * sessionStorage.ts → commands.ts（约 1300 个模块）。
+   * 使用环境变量 token 的 daemon 调用方会省略它，因为那类 token 不支持刷新，
+   * 所以 401 会直接变成 BridgeFatalError。
    */
   onAuth401?: (staleAccessToken: string) => Promise<boolean>
   /**
-   * Returns the trusted device token to send as X-Trusted-Device-Token on
-   * bridge API calls. Bridge sessions have SecurityTier=ELEVATED on the
-   * server (CCR v2); when the server's enforcement flag is on,
-   * ConnectBridgeWorker requires a trusted device at JWT-issuance.
-   * Optional — when absent or returning undefined, the header is omitted
-   * and the server falls through to its flag-off/no-op path. The CLI-side
-   * gate is tengu_sessions_elevated_auth_enforcement (see trustedDevice.ts).
+   * 返回要在 bridge API 调用中作为 X-Trusted-Device-Token 发送的 trusted device token。
+   * bridge session 在服务端（CCR v2）具有 SecurityTier=ELEVATED；当服务端的
+   * enforcement flag 打开时，ConnectBridgeWorker 会在签发 JWT 时要求 trusted device。
+   * 该项是可选的。如果缺失或返回 undefined，就不会带这个 header，服务端会回落到
+   * flag 关闭/no-op 路径。CLI 侧 gate 为 tengu_sessions_elevated_auth_enforcement
+   * （见 trustedDevice.ts）。
    */
   getTrustedDeviceToken?: () => string | undefined
 }
 
 const BETA_HEADER = 'environments-2025-11-01'
 
-/** Allowlist pattern for server-provided IDs used in URL path segments. */
+/** 用于 URL 路径片段中服务端提供 ID 的 allowlist 模式。 */
 const SAFE_ID_PATTERN = /^[a-zA-Z0-9_-]+$/
 
 /**
- * Validate that a server-provided ID is safe to interpolate into a URL path.
- * Prevents path traversal (e.g. `../../admin`) and injection via IDs that
- * contain slashes, dots, or other special characters.
+ * 校验服务端提供的 ID 是否可以安全插入到 URL 路径中。
+ * 这能防止路径穿越（例如 `../../admin`）以及通过包含斜杠、点号或其他特殊字符的
+ * ID 进行注入。
  */
 export function validateBridgeId(id: string, label: string): string {
   if (!id || !SAFE_ID_PATTERN.test(id)) {
@@ -52,10 +51,10 @@ export function validateBridgeId(id: string, label: string): string {
   return id
 }
 
-/** Fatal bridge errors that should not be retried (e.g. auth failures). */
+/** 不应重试的致命 bridge 错误（例如鉴权失败）。 */
 export class BridgeFatalError extends Error {
   readonly status: number
-  /** Server-provided error type, e.g. "environment_expired". */
+  /** 服务端提供的错误类型，例如 "environment_expired"。 */
   readonly errorType: string | undefined
   constructor(message: string, status: number, errorType?: string) {
     super(message)
@@ -97,11 +96,11 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
   }
 
   /**
-   * Execute an OAuth-authenticated request with a single retry on 401.
-   * On 401, attempts token refresh via handleOAuth401Error (same pattern as
-   * withRetry.ts for v1/messages). If refresh succeeds, retries the request
-   * once with the new token. If refresh fails or the retry also returns 401,
-   * the 401 response is returned for handleErrorStatus to throw BridgeFatalError.
+    * 执行一次带 OAuth 鉴权的请求，并在 401 时重试一次。
+    * 遇到 401 时，会通过 handleOAuth401Error 尝试刷新 token
+    * （模式与 v1/messages 的 withRetry.ts 相同）。如果刷新成功，就用新 token
+    * 重试一次请求。如果刷新失败或重试后仍返回 401，就把该 401 响应原样交给
+    * handleErrorStatus 抛出 BridgeFatalError。
    */
   async function withOAuthRetry<T>(
     fn: (accessToken: string) => Promise<{ status: number; data: T }>,
@@ -119,7 +118,7 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
       return response
     }
 
-    // Attempt token refresh — matches the pattern in withRetry.ts
+    // 尝试刷新 token，与 withRetry.ts 中的模式保持一致
     debug(`[bridge:api] ${context}: 401 received, attempting token refresh`)
     const refreshed = await deps.onAuth401(accessToken)
     if (refreshed) {
@@ -134,7 +133,7 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
       debug(`[bridge:api] ${context}: Token refresh failed`)
     }
 
-    // Refresh failed — return 401 for handleErrorStatus to throw
+    // 刷新失败，返回 401 让 handleErrorStatus 抛错
     return response
   }
 
@@ -158,20 +157,17 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
               directory: config.dir,
               branch: config.branch,
               git_repo_url: config.gitRepoUrl,
-              // Advertise session capacity so claude.ai/code can show
-              // "2/4 sessions" badges and only block the picker when
-              // actually at capacity. Backends that don't yet accept
-              // this field will silently ignore it.
+              // 对外宣告 session 容量，这样 claude.ai/code 就能显示
+              // "2/4 sessions" 徽标，并且只在真正满容量时阻止选择器。
+              // 还未接受该字段的后端会静默忽略它。
               max_sessions: config.maxSessions,
-              // worker_type lets claude.ai filter environments by origin
-              // (e.g. assistant picker only shows assistant-mode workers).
-              // Desktop cowork app sends "cowork"; we send a distinct value.
+              // worker_type 让 claude.ai 可以按来源过滤 environment
+              // （例如 assistant picker 只显示 assistant 模式的 worker）。
+              // Desktop cowork app 发送的是 "cowork"；我们这里发送不同的值。
               metadata: { worker_type: config.workerType },
-              // Idempotent re-registration: if we have a backend-issued
-              // environment_id from a prior session (--session-id resume),
-              // send it back so the backend reattaches instead of creating
-              // a new env. The backend may still hand back a fresh ID if
-              // the old one expired — callers must compare the response.
+              // 幂等重注册：如果我们持有先前 session（--session-id resume）中由后端
+              // 签发的 environment_id，就把它发回去，让后端重新附着而不是新建 env。
+              // 如果旧 ID 已过期，后端仍可能返回一个新的 ID，调用方必须比较响应。
               ...(config.reuseEnvironmentId && {
                 environment_id: config.reuseEnvironmentId,
               }),
@@ -204,8 +200,8 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
     ): Promise<WorkResponse | null> {
       validateBridgeId(environmentId, 'environmentId')
 
-      // Save and reset so errors break the "consecutive empty" streak.
-      // Restored below when the response is truly empty.
+      // 先保存并重置计数，这样错误就会打断“连续空轮询”序列。
+      // 如果响应确实为空，会在下面恢复。
       const prevEmptyPolls = consecutiveEmptyPolls
       consecutiveEmptyPolls = 0
 
@@ -225,7 +221,7 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
 
       handleErrorStatus(response.status, response.data, 'Poll')
 
-      // Empty body or null = no work available
+      // 空响应体或 null 表示当前没有可用 work
       if (!response.data) {
         consecutiveEmptyPolls = prevEmptyPolls + 1
         if (
@@ -341,7 +337,7 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
         'ArchiveSession',
       )
 
-      // 409 = already archived (idempotent, not an error)
+      // 409 = 已归档（幂等，不视为错误）
       if (response.status === 409) {
         debug(
           `[bridge:api] POST /v1/sessions/${sessionId}/archive -> 409 (already archived)`,
@@ -499,7 +495,7 @@ function handleErrorStatus(
   }
 }
 
-/** Check whether an error type string indicates a session/environment expiry. */
+/** 检查错误类型字符串是否表示 session/environment 已过期。 */
 export function isExpiredErrorType(errorType: string | undefined): boolean {
   if (!errorType) {
     return false
@@ -508,10 +504,10 @@ export function isExpiredErrorType(errorType: string | undefined): boolean {
 }
 
 /**
- * Check whether a BridgeFatalError is a suppressible 403 permission error.
- * These are 403 errors for scopes like 'external_poll_sessions' or operations
- * like StopWork that fail because the user's role lacks 'environments:manage'.
- * They don't affect core functionality and shouldn't be shown to users.
+ * 检查 BridgeFatalError 是否属于可抑制的 403 权限错误。
+ * 这类 403 来自诸如 'external_poll_sessions' 这样的 scope，或是像 StopWork
+ * 这样因用户角色缺少 'environments:manage' 而失败的操作。
+ * 它们不影响核心功能，因此不应展示给用户。
  */
 export function isSuppressible403(err: BridgeFatalError): boolean {
   if (err.status !== 403) {

@@ -6,7 +6,7 @@ import type { Color } from './styles.js';
 import { type NamedColor, Parser, type Color as TermioColor, type TextStyle } from './termio.js';
 type Props = {
   children: string;
-  /** When true, force all text to be rendered with dim styling */
+  /** 为 true 时，强制所有文本都以 dim 样式渲染 */
   dimColor?: boolean;
 };
 type SpanProps = {
@@ -22,12 +22,12 @@ type SpanProps = {
 };
 
 /**
- * Component that parses ANSI escape codes and renders them using Text components.
+ * 负责解析 ANSI 转义码，并用 Text 组件将其渲染出来的组件。
  *
- * Use this as an escape hatch when you have pre-formatted ANSI strings from
- * external tools (like cli-highlight) that need to be rendered in Ink.
+ * 当你需要在 Ink 中渲染来自外部工具（例如 cli-highlight）的预格式化 ANSI 字符串时，
+ * 可以把它当作一个 escape hatch 来使用。
  *
- * Memoized to prevent re-renders when parent changes but children string is the same.
+ * 已做 memoize，避免在父组件变化但 children 字符串不变时发生重渲染。
  */
 export const Ansi = React.memo(function Ansi(t0) {
   const $ = _c(12);

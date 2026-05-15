@@ -1,5 +1,5 @@
-// Tab expansion, inspired by Ghostty's Tabstops.zig
-// Uses 8-column intervals (POSIX default, hardcoded in terminals like Ghostty)
+// Tab 展开逻辑，灵感来自 Ghostty 的 Tabstops.zig
+// 使用 8 列间隔（POSIX 默认值，在 Ghostty 等终端中也是硬编码的）
 
 import { stringWidth } from './stringWidth.js'
 import { createTokenizer } from './termio/tokenize.js'

@@ -27,7 +27,7 @@ import { logForDiagnosticsNoPII } from '../utils/diagLogs.js'
 import { initJetBrainsDetection } from '../utils/envDynamic.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
 import { ConfigParseError, errorMessage } from '../utils/errors.js'
-// showInvalidConfigDialog is dynamically imported in the error path to avoid loading React at init
+// showInvalidConfigDialog 在错误路径中通过动态导入加载，以避免在 init 时加载 React。
 import {
   gracefulShutdownSync,
   setupGracefulShutdown,
@@ -41,17 +41,17 @@ import {
   ensureScratchpadDir,
   isScratchpadEnabled,
 } from '../utils/permissions/filesystem.js'
-// initializeTelemetry is loaded lazily via import() in setMeterState() to defer
-// ~400KB of OpenTelemetry + protobuf modules until telemetry is actually initialized.
-// gRPC exporters (~700KB via @grpc/grpc-js) are further lazy-loaded within instrumentation.ts.
+// initializeTelemetry 会在 setMeterState() 中通过 import() 懒加载，
+// 从而将约 400KB 的 OpenTelemetry + protobuf 模块延后到 telemetry 真正初始化时再加载。
+// gRPC exporters（约 700KB，来自 @grpc/grpc-js）也会在 instrumentation.ts 中进一步懒加载。
 import { configureGlobalAgents } from '../utils/proxy.js'
 import { isBetaTracingEnabled } from '../utils/telemetry/betaSessionTracing.js'
 import { getTelemetryAttributes } from '../utils/telemetryAttributes.js'
 import { setShellIfWindows } from '../utils/windowsPaths.js'
 
-// initialize1PEventLogging is dynamically imported to defer OpenTelemetry sdk-logs/resources
+// initialize1PEventLogging 通过动态导入延后加载 OpenTelemetry sdk-logs/resources。
 
-// Track if telemetry has been initialized to prevent double initialization
+// 跟踪 telemetry 是否已经初始化，防止重复初始化。
 let telemetryInitialized = false
 
 export const init = memoize(async (): Promise<void> => {
@@ -59,7 +59,7 @@ export const init = memoize(async (): Promise<void> => {
   logForDiagnosticsNoPII('info', 'init_started')
   profileCheckpoint('init_function_start')
 
-  // Validate configs are valid and enable configuration system
+  // 校验 configs 有效，并启用配置系统。
   try {
     const configsStart = Date.now()
     enableConfigs()
@@ -68,14 +68,14 @@ export const init = memoize(async (): Promise<void> => {
     })
     profileCheckpoint('init_configs_enabled')
 
-    // Apply only safe environment variables before trust dialog
-    // Full environment variables are applied after trust is established
+    // 在 trust dialog 之前只应用安全的环境变量。
+    // 完整环境变量会在 trust 建立之后再应用。
     const envVarsStart = Date.now()
     applySafeConfigEnvironmentVariables()
 
-    // Apply NODE_EXTRA_CA_CERTS from settings.json to process.env early,
-    // before any TLS connections. Bun caches the TLS cert store at boot
-    // via BoringSSL, so this must happen before the first TLS handshake.
+    // 提前把 settings.json 中的 NODE_EXTRA_CA_CERTS 应用到 process.env，
+    // 必须发生在任何 TLS 连接之前。Bun 会在启动时通过 BoringSSL 缓存 TLS 证书存储，
+    // 因此这一步必须先于第一次 TLS 握手。
     applyExtraCACertsFromConfig()
 
     logForDiagnosticsNoPII('info', 'init_safe_env_vars_applied', {
@@ -83,43 +83,42 @@ export const init = memoize(async (): Promise<void> => {
     })
     profileCheckpoint('init_safe_env_vars_applied')
 
-    // Make sure things get flushed on exit
+    // 确保退出时能把内容正确 flush。
     setupGracefulShutdown()
     profileCheckpoint('init_after_graceful_shutdown')
 
-    // Initialize 1P event logging (no security concerns, but deferred to avoid
-    // loading OpenTelemetry sdk-logs at startup). growthbook.js is already in
-    // the module cache by this point (firstPartyEventLogger imports it), so the
-    // second dynamic import adds no load cost.
+    // 初始化 1P event logging（没有安全顾虑，但为了避免在启动时加载
+    // OpenTelemetry sdk-logs 而延后执行）。此时 growthbook.js 已经在
+    // module cache 中（firstPartyEventLogger 会导入它），因此第二次动态导入
+    // 不会带来额外加载成本。
     void Promise.all([
       import('../services/analytics/firstPartyEventLogger.js'),
       import('../services/analytics/growthbook.js'),
     ]).then(([fp, gb]) => {
       fp.initialize1PEventLogging()
-      // Rebuild the logger provider if tengu_1p_event_batch_config changes
-      // mid-session. Change detection (isEqual) is inside the handler so
-      // unchanged refreshes are no-ops.
+      // 如果 tengu_1p_event_batch_config 在会话中途变化，就重建 logger provider。
+      // 变化检测（isEqual）在 handler 内部完成，因此未变化的 refresh 会是 no-op。
       gb.onGrowthBookRefresh(() => {
         void fp.reinitialize1PEventLoggingIfConfigChanged()
       })
     })
     profileCheckpoint('init_after_1p_event_logging')
 
-    // Populate OAuth account info if it is not already cached in config. This is needed since the
-    // OAuth account info may not be populated when logging in through the VSCode extension.
+    // 如果 config 中还没有缓存 OAuth account info，就补充写入。
+    // 这是必需的，因为通过 VSCode extension 登录时，OAuth account info 可能尚未被填充。
     void populateOAuthAccountInfoIfNeeded()
     profileCheckpoint('init_after_oauth_populate')
 
-    // Initialize JetBrains IDE detection asynchronously (populates cache for later sync access)
+    // 异步初始化 JetBrains IDE 检测（为后续同步访问填充缓存）。
     void initJetBrainsDetection()
     profileCheckpoint('init_after_jetbrains_detection')
 
-    // Detect GitHub repository asynchronously (populates cache for gitDiff PR linking)
+    // 异步检测 GitHub 仓库（为 gitDiff PR 关联填充缓存）。
     void detectCurrentRepository()
 
-    // Initialize the loading promise early so that other systems (like plugin hooks)
-    // can await remote settings loading. The promise includes a timeout to prevent
-    // deadlocks if loadRemoteManagedSettings() is never called (e.g., Agent SDK tests).
+    // 提前初始化 loading promise，这样其他系统（例如 plugin hooks）
+    // 就可以等待 remote settings 加载。该 promise 自带超时，避免
+    // loadRemoteManagedSettings() 从未被调用时出现死锁（例如 Agent SDK tests）。
     if (isEligibleForRemoteManagedSettings()) {
       initializeRemoteManagedSettingsLoadingPromise()
     }
@@ -128,10 +127,10 @@ export const init = memoize(async (): Promise<void> => {
     }
     profileCheckpoint('init_after_remote_settings_check')
 
-    // Record the first start time
+    // 记录首次启动时间。
     recordFirstStartTime()
 
-    // Configure global mTLS settings
+    // 配置全局 mTLS 设置。
     const mtlsStart = Date.now()
     logForDebugging('[init] configureGlobalMTLS starting')
     configureGlobalMTLS()
@@ -140,7 +139,7 @@ export const init = memoize(async (): Promise<void> => {
     })
     logForDebugging('[init] configureGlobalMTLS complete')
 
-    // Configure global HTTP agents (proxy and/or mTLS)
+    // 配置全局 HTTP agents（proxy 和/或 mTLS）。
     const proxyStart = Date.now()
     logForDebugging('[init] configureGlobalAgents starting')
     configureGlobalAgents()
@@ -150,20 +149,19 @@ export const init = memoize(async (): Promise<void> => {
     logForDebugging('[init] configureGlobalAgents complete')
     profileCheckpoint('init_network_configured')
 
-    // Preconnect to the Anthropic API — overlap TCP+TLS handshake
-    // (~100-200ms) with the ~100ms of action-handler work before the API
-    // request. After CA certs + proxy agents are configured so the warmed
-    // connection uses the right transport. Fire-and-forget; skipped for
-    // proxy/mTLS/unix/cloud-provider where the SDK's dispatcher wouldn't
-    // reuse the global pool.
+    // 预连接到 Anthropic API，让 TCP+TLS 握手
+    // （约 100-200ms）与 API 请求前约 100ms 的 action-handler 工作重叠。
+    // 这一步放在 CA certs + proxy agents 配置完成之后，确保预热连接
+    // 使用的是正确 transport。采用 fire-and-forget；对于
+    // proxy/mTLS/unix/cloud-provider 这类 SDK dispatcher 不会复用全局连接池的场景则跳过。
     preconnectAnthropicApi()
 
-    // CCR upstreamproxy: start the local CONNECT relay so agent subprocesses
-    // can reach org-configured upstreams with credential injection. Gated on
-    // CLAUDE_CODE_REMOTE + GrowthBook; fail-open on any error. Lazy import so
-    // non-CCR startups don't pay the module load. The getUpstreamProxyEnv
-    // function is registered with subprocessEnv.ts so subprocess spawning can
-    // inject proxy vars without a static import of the upstreamproxy module.
+    // CCR upstreamproxy：启动本地 CONNECT relay，让 agent subprocesses
+    // 能通过注入凭据访问组织配置的 upstreams。受
+    // CLAUDE_CODE_REMOTE + GrowthBook 控制；任何错误都采用 fail-open。使用懒加载，
+    // 避免非 CCR 启动承担模块加载成本。getUpstreamProxyEnv
+    // 会注册到 subprocessEnv.ts 中，使 subprocess 创建时能够
+    // 在不静态导入 upstreamproxy 模块的情况下注入 proxy vars。
     if (isEnvTruthy(process.env.CLAUDE_CODE_REMOTE)) {
       try {
         const { initUpstreamProxy, getUpstreamProxyEnv } = await import(
@@ -182,16 +180,15 @@ export const init = memoize(async (): Promise<void> => {
       }
     }
 
-    // Set up git-bash if relevant
+    // 如有需要，配置 git-bash。
     setShellIfWindows()
 
-    // Register LSP manager cleanup (initialization happens in main.tsx after --plugin-dir is processed)
+    // 注册 LSP manager 的清理逻辑（初始化发生在 main.tsx 中、且在处理完 --plugin-dir 之后）。
     registerCleanup(shutdownLspServerManager)
 
-    // gh-32730: teams created by subagents (or main agent without
-    // explicit TeamDelete) were left on disk forever. Register cleanup
-    // for all teams created this session. Lazy import: swarm code is
-    // behind feature gate and most sessions never create teams.
+    // gh-32730：由 subagents 创建的 teams（或主 agent 在未显式 TeamDelete 时创建的 teams）
+    // 以前会永久留在磁盘上。这里为本 session 创建的所有 teams 注册清理逻辑。
+    // 使用懒加载：swarm 代码受 feature gate 控制，而且大多数 session 都不会创建 teams。
     registerCleanup(async () => {
       const { cleanupSessionTeams } = await import(
         '../utils/swarm/teamHelpers.js'
@@ -199,7 +196,7 @@ export const init = memoize(async (): Promise<void> => {
       await cleanupSessionTeams()
     })
 
-    // Initialize scratchpad directory if enabled
+    // 如果启用，则初始化 scratchpad 目录。
     if (isScratchpadEnabled()) {
       const scratchpadStart = Date.now()
       await ensureScratchpadDir()
@@ -214,9 +211,9 @@ export const init = memoize(async (): Promise<void> => {
     profileCheckpoint('init_function_end')
   } catch (error) {
     if (error instanceof ConfigParseError) {
-      // Skip the interactive Ink dialog when we can't safely render it.
-      // The dialog breaks JSON consumers (e.g. desktop marketplace plugin
-      // manager running `plugin marketplace list --json` in a VM sandbox).
+      // 在无法安全渲染时，跳过交互式 Ink dialog。
+      // 该 dialog 会破坏 JSON 消费方（例如在 VM sandbox 中运行 `plugin marketplace list --json` 的
+      // desktop marketplace plugin manager）。
       if (getIsNonInteractiveSession()) {
         process.stderr.write(
           `Configuration error in ${error.filePath}: ${error.message}\n`,
@@ -225,13 +222,13 @@ export const init = memoize(async (): Promise<void> => {
         return
       }
 
-      // Show the invalid config dialog with the error object and wait for it to complete
+      // 用 error 对象展示 invalid config dialog，并等待其完成。
       return import('../components/InvalidConfigDialog.js').then(m =>
         m.showInvalidConfigDialog({ error }),
       )
-      // Dialog itself handles process.exit, so we don't need additional cleanup here
+      // dialog 自己会处理 process.exit，因此这里不需要额外清理。
     } else {
-      // For non-config errors, rethrow them
+      // 非 config 错误则继续向上抛出。
       throw error
     }
   }
@@ -246,9 +243,9 @@ export const init = memoize(async (): Promise<void> => {
  */
 export function initializeTelemetryAfterTrust(): void {
   if (isEligibleForRemoteManagedSettings()) {
-    // For SDK/headless mode with beta tracing, initialize eagerly first
-    // to ensure the tracer is ready before the first query runs.
-    // The async path below will still run but doInitializeTelemetry() guards against double init.
+    // 对启用了 beta tracing 的 SDK/headless 模式，先执行 eager 初始化，
+    // 以确保 tracer 在第一次 query 运行前就已就绪。
+    // 下方的异步路径仍会运行，但 doInitializeTelemetry() 会防止重复初始化。
     if (getIsNonInteractiveSession() && isBetaTracingEnabled()) {
       void doInitializeTelemetry().catch(error => {
         logForDebugging(
@@ -265,7 +262,7 @@ export function initializeTelemetryAfterTrust(): void {
         logForDebugging(
           '[3P telemetry] Remote managed settings loaded, initializing telemetry',
         )
-        // Re-apply env vars to pick up remote settings before initializing telemetry.
+        // 在初始化 telemetry 前重新应用 env vars，以吸收 remote settings 的变化。
         applyConfigEnvironmentVariables()
         await doInitializeTelemetry()
       })
@@ -287,30 +284,30 @@ export function initializeTelemetryAfterTrust(): void {
 
 async function doInitializeTelemetry(): Promise<void> {
   if (telemetryInitialized) {
-    // Already initialized, nothing to do
+    // 已经初始化过，无需再做任何事。
     return
   }
 
-  // Set flag before init to prevent double initialization
+  // 在初始化前先设置标记，防止重复初始化。
   telemetryInitialized = true
   try {
     await setMeterState()
   } catch (error) {
-    // Reset flag on failure so subsequent calls can retry
+    // 失败时重置标记，以便后续调用能够重试。
     telemetryInitialized = false
     throw error
   }
 }
 
 async function setMeterState(): Promise<void> {
-  // Lazy-load instrumentation to defer ~400KB of OpenTelemetry + protobuf
+  // 懒加载 instrumentation，将约 400KB 的 OpenTelemetry + protobuf 延后加载。
   const { initializeTelemetry } = await import(
     '../utils/telemetry/instrumentation.js'
   )
-  // Initialize customer OTLP telemetry (metrics, logs, traces)
+  // 初始化客户侧 OTLP telemetry（metrics、logs、traces）。
   const meter = await initializeTelemetry()
   if (meter) {
-    // Create factory function for attributed counters
+    // 为 attributed counters 创建工厂函数。
     const createAttributedCounter = (
       name: string,
       options: MetricOptions,
@@ -319,7 +316,7 @@ async function setMeterState(): Promise<void> {
 
       return {
         add(value: number, additionalAttributes: Attributes = {}) {
-          // Always fetch fresh telemetry attributes to ensure they're up to date
+          // 始终获取最新的 telemetry attributes，确保它们保持最新。
           const currentAttributes = getTelemetryAttributes()
           const mergedAttributes = {
             ...currentAttributes,
@@ -332,9 +329,9 @@ async function setMeterState(): Promise<void> {
 
     setMeter(meter, createAttributedCounter)
 
-    // Increment session counter here because the startup telemetry path
-    // runs before this async initialization completes, so the counter
-    // would be null there.
+    // 在这里递增 session counter，因为启动期的 telemetry 路径
+    // 会早于这个异步初始化完成而运行，否则那里的 counter
+    // 会是 null。
     getSessionCounter()?.add(1)
   }
 }

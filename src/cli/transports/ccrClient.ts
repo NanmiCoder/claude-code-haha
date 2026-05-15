@@ -29,19 +29,18 @@ import {
 import type { SSETransport, StreamClientEvent } from './SSETransport.js'
 import { WorkerStateUploader } from './WorkerStateUploader.js'
 
-/** Default interval between heartbeat events (20s; server TTL is 60s). */
+/** heartbeat 事件的默认间隔（20 秒；服务端 TTL 为 60 秒）。 */
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 20_000
 
 /**
- * stream_event messages accumulate in a delay buffer for up to this many ms
- * before enqueue. Mirrors HybridTransport's batching window. text_delta
- * events for the same content block accumulate into a single full-so-far
- * snapshot per flush — each emitted event is self-contained so a client
- * connecting mid-stream sees complete text, not a fragment.
+ * stream_event 消息会先在延迟缓冲区中累积最多这么多毫秒，再统一 enqueue。
+ * 这与 HybridTransport 的 batching 窗口保持一致。
+ * 同一内容块上的 text_delta 会在每次 flush 时合并成一个“截至当前的完整快照”，
+ * 从而保证每个发出的事件都是自包含的，哪怕客户端在中途接入，也能看到完整文本而非碎片。
  */
 const STREAM_EVENT_FLUSH_INTERVAL_MS = 100
 
-/** Hoisted axios validateStatus callback to avoid per-request closure allocation. */
+/** 提升到模块级的 axios validateStatus 回调，避免每次请求都新建闭包。 */
 function alwaysValidStatus(): boolean {
   return true
 }
@@ -51,7 +50,7 @@ export type CCRInitFailReason =
   | 'missing_epoch'
   | 'worker_register_failed'
 
-/** Thrown by initialize(); carries a typed reason for the diag classifier. */
+/** 由 initialize() 抛出；携带类型化失败原因，供诊断分类器使用。 */
 export class CCRInitError extends Error {
   constructor(readonly reason: CCRInitFailReason) {
     super(`CCRClient init failed: ${reason}`)
@@ -59,11 +58,11 @@ export class CCRInitError extends Error {
 }
 
 /**
- * Consecutive 401/403 with a VALID-LOOKING token before giving up. An
- * expired JWT short-circuits this (exits immediately — deterministic,
- * retry is futile). This threshold is for the uncertain case: token's
- * exp is in the future but server says 401 (userauth down, KMS hiccup,
- * clock skew). 10 × 20s heartbeat ≈ 200s to ride it out.
+ * 当 token 看起来仍然有效时，连续收到多少次 401/403 才放弃。
+ * 若 JWT 已过期，会直接短路退出，因为这是确定性失败，重试没有意义。
+ * 这个阈值只用于不确定场景：token 的 exp 仍在未来，但服务端仍返回 401，
+ * 例如 userauth 故障、KMS 抖动、时钟偏移等。
+ * 10 次 × 20 秒 heartbeat，大约给系统 200 秒自愈时间。
  */
 const MAX_CONSECUTIVE_AUTH_FAILURES = 10
 
@@ -79,9 +78,9 @@ type ClientEvent = {
 }
 
 /**
- * Structural subset of a stream_event carrying a text_delta. Not a narrowing
- * of SDKPartialAssistantMessage — RawMessageStreamEvent's delta is a union and
- * narrowing through two levels defeats the discriminant.
+ * 携带 text_delta 的 stream_event 的结构子集。
+ * 这不是对 SDKPartialAssistantMessage 的窄化，
+ * 因为 RawMessageStreamEvent 的 delta 本身是联合类型，跨两层去做窄化会破坏判别式。
  */
 type CoalescedStreamEvent = {
   type: 'stream_event'
@@ -96,19 +95,19 @@ type CoalescedStreamEvent = {
 }
 
 /**
- * Accumulator state for text_delta coalescing. Keyed by API message ID so
- * lifetime is tied to the assistant message — cleared when the complete
- * SDKAssistantMessage arrives (writeEvent), which is reliable even when
- * abort/error paths skip content_block_stop/message_stop delivery.
+ * 用于 text_delta 合并的累加器状态。
+ * 以 API message ID 为键，因此其生命周期与 assistant message 绑定；
+ * 当完整的 SDKAssistantMessage 到达时会被清理（发生在 writeEvent 中），
+ * 这个信号即便在 abort/error 路径跳过 content_block_stop/message_stop 时依然可靠。
  */
 export type StreamAccumulatorState = {
-  /** API message ID (msg_...) → blocks[blockIndex] → chunk array. */
+  /** API message ID（msg_...）→ blocks[blockIndex] → chunk 数组。 */
   byMessage: Map<string, string[][]>
   /**
-   * {session_id}:{parent_tool_use_id} → active message ID.
-   * content_block_delta events don't carry the message ID (only
-   * message_start does), so we track which message is currently streaming
-   * for each scope. At most one message streams per scope at a time.
+   * {session_id}:{parent_tool_use_id} → 当前活跃的 message ID。
+   * content_block_delta 事件本身不携带 message ID，只有 message_start 才有，
+   * 所以这里按 scope 追踪当前正在流式输出的是哪条消息。
+   * 任意时刻每个 scope 最多只有一条消息在流式输出。
    */
   scopeToMessage: Map<string, string>
 }
@@ -125,27 +124,27 @@ function scopeKey(m: {
 }
 
 /**
- * Accumulate text_delta stream_events into full-so-far snapshots per content
- * block. Each flush emits ONE event per touched block containing the FULL
- * accumulated text from the start of the block — a client connecting
- * mid-stream receives a self-contained snapshot, not a fragment.
+ * 把 text_delta 类型的 stream_event 按 content block 累积成“截至当前的完整快照”。
+ * 每次 flush 时，每个被触达的 block 只会发出一个事件，
+ * 且其中包含从该 block 起点到当前为止的全部文本。
+ * 这样客户端即便在流式过程中才接入，也能拿到自包含快照，而不是一段碎片。
  *
- * Non-text-delta events pass through unchanged. message_start records the
- * active message ID for the scope; content_block_delta appends chunks;
- * the snapshot event reuses the first text_delta UUID seen for that block in
- * this flush so server-side idempotency remains stable across retries.
+ * 非 text_delta 事件会原样透传。message_start 用于记录某个 scope 当前活跃的 message ID；
+ * content_block_delta 则向 chunks 追加内容；
+ * 生成的 snapshot 会复用本次 flush 中该 block 第一个 text_delta 的 UUID，
+ * 从而让服务端幂等性在重试场景下保持稳定。
  *
- * Cleanup happens in writeEvent when the complete assistant message arrives
- * (reliable), not here on stop events (abort/error paths skip those).
+ * 清理逻辑不放在这里，而是在完整 assistant message 到达时由 writeEvent 触发，
+ * 因为那个信号更可靠；stop 类事件在 abort/error 路径下可能根本不会送达。
  */
 export function accumulateStreamEvents(
   buffer: SDKPartialAssistantMessage[],
   state: StreamAccumulatorState,
 ): EventPayload[] {
   const out: EventPayload[] = []
-  // chunks[] → snapshot already in `out` this flush. Keyed by the chunks
-  // array reference (stable per {messageId, index}) so subsequent deltas
-  // rewrite the same entry instead of emitting one event per delta.
+  // chunks[] -> 本次 flush 中已经写进 `out` 的 snapshot。
+  // 这里用 chunks 数组引用作为 key（对每个 {messageId, index} 都是稳定的），
+  // 这样后续 delta 只会重写同一个条目，而不是每个 delta 都额外发一个事件。
   const touched = new Map<string[], CoalescedStreamEvent>()
   for (const msg of buffer) {
     switch (msg.event.type) {
@@ -166,10 +165,9 @@ export function accumulateStreamEvents(
         const messageId = state.scopeToMessage.get(scopeKey(msg))
         const blocks = messageId ? state.byMessage.get(messageId) : undefined
         if (!blocks) {
-          // Delta without a preceding message_start (reconnect mid-stream,
-          // or message_start was in a prior buffer that got dropped). Pass
-          // through raw — can't produce a full-so-far snapshot without the
-          // prior chunks anyway.
+          // 当前 delta 前面没有对应的 message_start，
+          // 可能是中途重连，也可能是先前缓冲区里的 message_start 已被丢弃。
+          // 这种情况下只能原样透传，因为缺少前序 chunks，无法构造完整快照。
           out.push(msg)
           break
         }
@@ -203,9 +201,9 @@ export function accumulateStreamEvents(
 }
 
 /**
- * Clear accumulator entries for a completed assistant message. Called from
- * writeEvent when the SDKAssistantMessage arrives — the reliable end-of-stream
- * signal that fires even when abort/interrupt/error skip SSE stop events.
+ * 清理已经完成的 assistant message 对应的累加器条目。
+ * 当 SDKAssistantMessage 到达时由 writeEvent 调用；
+ * 这是一个可靠的流结束信号，即便 abort/interrupt/error 路径跳过 SSE stop 事件也会触发。
  */
 export function clearStreamAccumulatorForMessage(
   state: StreamAccumulatorState,
@@ -252,12 +250,12 @@ type WorkerStateResponse = {
 }
 
 /**
- * Manages the worker lifecycle protocol with CCR v2:
- * - Epoch management: reads worker_epoch from CLAUDE_CODE_WORKER_EPOCH env var
- * - Runtime state reporting: PUT /sessions/{id}/worker
- * - Heartbeat: POST /sessions/{id}/worker/heartbeat for liveness detection
+ * 管理 CCR v2 下的 worker 生命周期协议：
+ * - epoch 管理：从 CLAUDE_CODE_WORKER_EPOCH 环境变量读取 worker_epoch
+ * - 运行时状态上报：PUT /sessions/{id}/worker
+ * - heartbeat：通过 POST /sessions/{id}/worker/heartbeat 做存活探测
  *
- * All writes go through this.request().
+ * 所有写操作最终都会经过 this.request()。
  */
 export class CCRClient {
   private workerEpoch = 0
@@ -272,15 +270,15 @@ export class CCRClient {
   private readonly sessionId: string
   private readonly http = createAxiosInstance({ keepAlive: true })
 
-  // stream_event delay buffer — accumulates content deltas for up to
-  // STREAM_EVENT_FLUSH_INTERVAL_MS before enqueueing (reduces POST count
-  // and enables text_delta coalescing). Mirrors HybridTransport's pattern.
+  // stream_event 的延迟缓冲区。
+  // 最多累积 STREAM_EVENT_FLUSH_INTERVAL_MS 后再统一 enqueue，
+  // 既能减少 POST 次数，也能启用 text_delta 合并；整体模式与 HybridTransport 一致。
   private streamEventBuffer: SDKPartialAssistantMessage[] = []
   private streamEventTimer: ReturnType<typeof setTimeout> | null = null
-  // Full-so-far text accumulator. Persists across flushes so each emitted
-  // text_delta event carries the complete text from the start of the block —
-  // mid-stream reconnects see a self-contained snapshot. Keyed by API message
-  // ID; cleared in writeEvent when the complete assistant message arrives.
+  // “截至当前的完整文本”累加器。
+  // 它会跨 flush 持续保留，使得每个发出的 text_delta 都带上从 block 起点到当前的完整文本，
+  // 从而让中途重连也能拿到自包含快照。以 API message ID 为键，
+  // 并在完整 assistant message 到达时由 writeEvent 清理。
   private streamTextAccumulator = createStreamAccumulator()
 
   private readonly workerState: WorkerStateUploader
@@ -292,18 +290,17 @@ export class CCRClient {
   }>
 
   /**
-   * Called when the server returns 409 (a newer worker epoch superseded ours).
-   * Default: process.exit(1) — correct for spawn-mode children where the
-   * parent bridge re-spawns. In-process callers (replBridge) MUST override
-   * this to close gracefully instead; exit would kill the user's REPL.
+   * 当服务端返回 409 时调用，表示有更新的 worker epoch 已经取代当前实例。
+   * 默认行为是 process.exit(1)，这对 spawn-mode 子进程是正确的，因为父 bridge 会重新拉起它。
+   * 但 in-process 调用方（如 replBridge）必须覆写为优雅关闭，否则会直接把用户的 REPL 一起杀掉。
    */
   private readonly onEpochMismatch: () => never
 
   /**
-   * Auth header source. Defaults to the process-wide session-ingress token
-   * (CLAUDE_CODE_SESSION_ACCESS_TOKEN env var). Callers managing multiple
-   * concurrent sessions with distinct JWTs MUST inject this — the env-var
-   * path is a process global and would stomp across sessions.
+   * auth header 的来源。
+   * 默认使用进程级的 session-ingress token，也就是 CLAUDE_CODE_SESSION_ACCESS_TOKEN 环境变量。
+   * 如果调用方需要同时管理多个带不同 JWT 的并发 session，就必须显式注入这一来源，
+   * 因为环境变量路径是进程级全局状态，会在多个 session 之间互相覆盖。
    */
   private readonly getAuthHeaders: () => Record<string, string>
 
@@ -315,9 +312,10 @@ export class CCRClient {
       heartbeatIntervalMs?: number
       heartbeatJitterFraction?: number
       /**
-       * Per-instance auth header source. Omit to read the process-wide
-       * CLAUDE_CODE_SESSION_ACCESS_TOKEN (single-session callers — REPL,
-       * daemon). Required for concurrent multi-session callers.
+       * 实例级的 auth header 来源。
+       * 若省略，则读取进程级的 CLAUDE_CODE_SESSION_ACCESS_TOKEN，
+       * 适用于单 session 调用方，如 REPL 或 daemon。
+       * 并发多 session 调用方则必须提供。
        */
       getAuthHeaders?: () => Record<string, string>
     },
@@ -332,7 +330,7 @@ export class CCRClient {
       opts?.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS
     this.heartbeatJitterFraction = opts?.heartbeatJitterFraction ?? 0
     this.getAuthHeaders = opts?.getAuthHeaders ?? getSessionIngressAuthHeaders
-    // Session URL: https://host/v1/code/sessions/{id}
+    // session URL 形如：https://host/v1/code/sessions/{id}
     if (sessionUrl.protocol !== 'http:' && sessionUrl.protocol !== 'https:') {
       throw new Error(
         `CCRClient: Expected http(s) URL, got ${sessionUrl.protocol}`,
@@ -340,7 +338,7 @@ export class CCRClient {
     }
     const pathname = sessionUrl.pathname.replace(/\/$/, '')
     this.sessionBaseUrl = `${sessionUrl.protocol}//${sessionUrl.host}${pathname}`
-    // Extract session ID from the URL path (last segment)
+    // 从 URL path 的最后一段提取 session ID。
     this.sessionId = pathname.split('/').pop() || ''
 
     this.workerState = new WorkerStateUploader({
@@ -359,11 +357,10 @@ export class CCRClient {
     this.eventUploader = new SerialBatchEventUploader<ClientEvent>({
       maxBatchSize: 100,
       maxBatchBytes: 10 * 1024 * 1024,
-      // flushStreamEventBuffer() enqueues a full 100ms window of accumulated
-      // stream_events in one call. A burst of mixed delta types that don't
-      // fold into a single snapshot could exceed the old cap (50) and deadlock
-      // on the SerialBatchEventUploader backpressure check. Match
-      // HybridTransport's bound — high enough to be memory-only.
+      // flushStreamEventBuffer() 会一次性把 100ms 窗口内累积的 stream_events 全部 enqueue。
+      // 如果是一波无法折叠为单个 snapshot 的混合 delta，数量可能超过旧上限 50，
+      // 并在 SerialBatchEventUploader 的 backpressure 检查上直接死锁。
+      // 这里与 HybridTransport 保持一致，设成只作为内存上界使用的高值。
       maxQueueSize: 100_000,
       send: async batch => {
         const result = await this.request(
@@ -435,26 +432,24 @@ export class CCRClient {
       jitterMs: 500,
     })
 
-    // Ack each received client_event so CCR can track delivery status.
-    // Wired here (not in initialize()) so the callback is registered the
-    // moment new CCRClient() returns — remoteIO must be free to call
-    // transport.connect() immediately after without racing the first
-    // SSE catch-up frame against an unwired onEventCallback.
+    // 对每个收到的 client_event 立即回 ack，这样 CCR 才能追踪投递状态。
+    // 之所以在这里而不是 initialize() 中挂接，是为了保证 new CCRClient() 一返回回调就已经生效，
+    // 使 remoteIO 可以立刻调用 transport.connect()，避免首个 SSE catch-up frame
+    // 抢在 onEventCallback 接好之前到来。
     transport.setOnEvent((event: StreamClientEvent) => {
       this.reportDelivery(event.event_id, 'received')
     })
   }
 
   /**
-   * Initialize the session worker:
-   * 1. Take worker_epoch from the argument, or fall back to
-   *    CLAUDE_CODE_WORKER_EPOCH (set by env-manager / bridge spawner)
-   * 2. Report state as 'idle'
-   * 3. Start heartbeat timer
+   * 初始化 session worker：
+   * 1. 优先使用传入的 worker_epoch，否则回退到 CLAUDE_CODE_WORKER_EPOCH
+   *    （由 env-manager / bridge spawner 设置）
+   * 2. 上报状态为 'idle'
+   * 3. 启动 heartbeat 定时器
    *
-   * In-process callers (replBridge) pass the epoch directly — they
-   * registered the worker themselves and there is no parent process
-   * setting env vars.
+   * in-process 调用方（如 replBridge）会直接传入 epoch，
+   * 因为 worker 是它们自己注册的，并不存在父进程替它们设置环境变量。
    */
   async initialize(epoch?: number): Promise<Record<string, unknown> | null> {
     const startMs = Date.now()
@@ -470,7 +465,7 @@ export class CCRClient {
     }
     this.workerEpoch = epoch
 
-    // Concurrent with the init PUT — neither depends on the other.
+    // 这一步与 init PUT 并发执行，双方互不依赖。
     const restoredPromise = this.getWorkerState()
 
     const result = await this.request(
@@ -479,8 +474,8 @@ export class CCRClient {
       {
         worker_status: 'idle',
         worker_epoch: this.workerEpoch,
-        // Clear stale pending_action/task_summary left by a prior
-        // worker crash — the in-session clears don't survive process restart.
+        // 清掉先前 worker 崩溃遗留的 pending_action/task_summary。
+        // 仅在 session 内做的清理不会跨进程重启保留下来。
         external_metadata: {
           pending_action: null,
           task_summary: null,
@@ -489,18 +484,18 @@ export class CCRClient {
       'PUT worker (init)',
     )
     if (!result.ok) {
-      // 409 → onEpochMismatch may throw, but request() catches it and returns
-      // false. Without this check we'd continue to startHeartbeat(), leaking a
-      // 20s timer against a dead epoch. Throw so connect()'s rejection handler
-      // fires instead of the success path.
+      // 409 时 onEpochMismatch 可能抛错，但 request() 会吞掉并返回 false。
+      // 如果这里不再额外检查，就会继续 startHeartbeat()，
+      // 从而在一个已经失效的 epoch 上泄露出 20 秒定时器。
+      // 因此必须显式抛错，让 connect() 走 rejection 分支而不是误入成功路径。
       throw new CCRInitError('worker_register_failed')
     }
     this.currentState = 'idle'
     this.startHeartbeat()
 
-    // sessionActivity's refcount-gated timer fires while an API call or tool
-    // is in-flight; without a write the container lease can expire mid-wait.
-    // v1 wires this in WebSocketTransport per-connection.
+    // sessionActivity 的引用计数计时器会在 API 调用或工具执行期间触发；
+    // 如果这段时间没有任何写入，容器租约可能在等待中途过期。
+    // v1 是在 WebSocketTransport 的每个连接上单独接这条线。
     registerSessionActivityCallback(() => {
       void this.writeEvent({ type: 'keep_alive' })
     })
@@ -511,10 +506,9 @@ export class CCRClient {
       duration_ms: Date.now() - startMs,
     })
 
-    // Await the concurrent GET and log state_restored here, after the PUT
-    // has succeeded — logging inside getWorkerState() raced: if the GET
-    // resolved before the PUT failed, diagnostics showed both init_failed
-    // and state_restored for the same session.
+    // 等并发 GET 完成后，在这里记录 state_restored，而且必须放在 PUT 成功之后。
+    // 之前把日志打在 getWorkerState() 里会产生竞态：
+    // 如果 GET 先成功而 PUT 后失败，同一个 session 会同时出现 init_failed 与 state_restored。
     const { metadata, durationMs } = await restoredPromise
     if (!this.closed) {
       logForDiagnosticsNoPII('info', 'cli_worker_state_restored', {
@@ -525,8 +519,8 @@ export class CCRClient {
     return metadata
   }
 
-  // Control_requests are marked processed and not re-delivered on
-  // restart, so read back what the prior worker wrote.
+  // control_requests 一旦被标记为 processed，重启后就不会再投递，
+  // 所以这里需要回读上一任 worker 已经写下的内容。
   private async getWorkerState(): Promise<{
     metadata: Record<string, unknown> | null
     durationMs: number
@@ -548,10 +542,11 @@ export class CCRClient {
   }
 
   /**
-   * Send an authenticated HTTP request to CCR. Handles auth headers,
-   * 409 epoch mismatch, and error logging. Returns { ok: true } on 2xx.
-   * On 429, reads Retry-After (integer seconds) so the uploader can honor
-   * the server's backoff hint instead of blindly exponentiating.
+   * 向 CCR 发送带鉴权的 HTTP 请求。
+   * 负责处理 auth headers、409 epoch mismatch 以及错误日志。
+   * 2xx 时返回 { ok: true }。
+   * 若收到 429，还会读取 Retry-After（整数秒），
+   * 以便 uploader 采用服务端建议的退避时长，而不是盲目走指数退避。
    */
   private async request(
     method: 'post' | 'put',
@@ -587,9 +582,8 @@ export class CCRClient {
         this.handleEpochMismatch()
       }
       if (response.status === 401 || response.status === 403) {
-        // A 401 with an expired JWT is deterministic — no retry will
-        // ever succeed. Check the token's own exp before burning
-        // wall-clock on the threshold loop.
+        // 已过期 JWT 导致的 401 是确定性失败，任何重试都不会成功。
+        // 因此先检查 token 自身的 exp，避免在阈值循环里白白消耗真实时间。
         const tok = getSessionIngressAuthToken()
         const exp = tok ? decodeJwtExpiry(tok) : null
         if (exp !== null && exp * 1000 < Date.now()) {
@@ -600,8 +594,8 @@ export class CCRClient {
           logForDiagnosticsNoPII('error', 'cli_worker_token_expired_no_refresh')
           this.onEpochMismatch()
         }
-        // Token looks valid but server says 401 — possible server-side
-        // blip (userauth down, KMS hiccup). Count toward threshold.
+        // token 看起来仍然有效，但服务端返回 401，
+        // 可能是 userauth 故障、KMS 抖动等服务端瞬时问题；这里把它计入阈值。
         this.consecutiveAuthFailures++
         if (this.consecutiveAuthFailures >= MAX_CONSECUTIVE_AUTH_FAILURES) {
           logForDebugging(
@@ -641,7 +635,7 @@ export class CCRClient {
     }
   }
 
-  /** Report worker state to CCR via PUT /sessions/{id}/worker. */
+  /** 通过 PUT /sessions/{id}/worker 向 CCR 上报 worker state。 */
   reportState(state: SessionState, details?: RequiresActionDetails): void {
     if (state === this.currentState && !details) return
     this.currentState = state
@@ -657,14 +651,14 @@ export class CCRClient {
     })
   }
 
-  /** Report external metadata to CCR via PUT /worker. */
+  /** 通过 PUT /worker 向 CCR 上报 external metadata。 */
   reportMetadata(metadata: Record<string, unknown>): void {
     this.workerState.enqueue({ external_metadata: metadata })
   }
 
   /**
-   * Handle epoch mismatch (409 Conflict). A newer CC instance has replaced
-   * this one — exit immediately.
+   * 处理 epoch mismatch（409 Conflict）。
+   * 说明有更新的 CC 实例已经替换掉当前实例，此时应立即退出。
    */
   private handleEpochMismatch(): never {
     logForDebugging('CCRClient: Epoch mismatch (409), shutting down', {
@@ -674,7 +668,7 @@ export class CCRClient {
     this.onEpochMismatch()
   }
 
-  /** Start periodic heartbeat. */
+  /** 启动周期性 heartbeat。 */
   private startHeartbeat(): void {
     this.stopHeartbeat()
     const schedule = (): void => {
@@ -686,15 +680,16 @@ export class CCRClient {
     }
     const tick = (): void => {
       void this.sendHeartbeat()
-      // stopHeartbeat nulls the timer; check after the fire-and-forget send
-      // but before rescheduling so close() during sendHeartbeat is honored.
+      // stopHeartbeat 会把 timer 置空；
+      // 因此要在 fire-and-forget 发送之后、重新调度之前检查一次，
+      // 以确保 sendHeartbeat 期间发生的 close() 能被正确尊重。
       if (this.heartbeatTimer === null) return
       schedule()
     }
     schedule()
   }
 
-  /** Stop heartbeat timer. */
+  /** 停止 heartbeat 定时器。 */
   private stopHeartbeat(): void {
     if (this.heartbeatTimer) {
       clearTimeout(this.heartbeatTimer)
@@ -702,7 +697,7 @@ export class CCRClient {
     }
   }
 
-  /** Send a heartbeat via POST /sessions/{id}/worker/heartbeat. */
+  /** 通过 POST /sessions/{id}/worker/heartbeat 发送 heartbeat。 */
   private async sendHeartbeat(): Promise<void> {
     if (this.heartbeatInFlight) return
     this.heartbeatInFlight = true
@@ -723,14 +718,13 @@ export class CCRClient {
   }
 
   /**
-   * Write a StdoutMessage as a client event via POST /sessions/{id}/worker/events.
-   * These events are visible to frontend clients via the SSE stream.
-   * Injects a UUID if missing to ensure server-side idempotency on retry.
+   * 通过 POST /sessions/{id}/worker/events 把 StdoutMessage 写成 client event。
+   * 这些事件会通过 SSE stream 对前端客户端可见。
+   * 若消息缺少 UUID，这里会自动注入，以确保重试时服务端幂等。
    *
-   * stream_event messages are held in a 100ms delay buffer and accumulated
-   * (text_deltas for the same content block emit a full-so-far snapshot per
-   * flush). A non-stream_event write flushes the buffer first so downstream
-   * ordering is preserved.
+   * stream_event 会先进入 100ms 延迟缓冲并做累积，
+   * 同一个 content block 的 text_delta 会在每次 flush 时产出“截至当前的完整快照”。
+   * 如果写入的是非 stream_event，则会先 flush 缓冲区，以保持下游顺序。
    */
   async writeEvent(message: StdoutMessage): Promise<void> {
     if (message.type === 'stream_event') {
@@ -750,7 +744,7 @@ export class CCRClient {
     await this.eventUploader.enqueue(this.toClientEvent(message))
   }
 
-  /** Wrap a StdoutMessage as a ClientEvent, injecting a UUID if missing. */
+  /** 把 StdoutMessage 包装成 ClientEvent；若缺 UUID，则在这里补上。 */
   private toClientEvent(message: StdoutMessage): ClientEvent {
     const msg = message as unknown as Record<string, unknown>
     return {
@@ -762,11 +756,10 @@ export class CCRClient {
   }
 
   /**
-   * Drain the stream_event delay buffer: accumulate text_deltas into
-   * full-so-far snapshots, clear the timer, enqueue the resulting events.
-   * Called from the timer, from writeEvent on a non-stream message, and from
-   * flush(). close() drops the buffer — call flush() first if you need
-   * delivery.
+   * 清空 stream_event 延迟缓冲区：
+   * 把 text_delta 累积成“截至当前的完整快照”，清掉定时器，再把结果事件入队。
+   * 它会从定时器回调、writeEvent 的非 stream 分支以及 flush() 中被调用。
+   * close() 会直接丢弃该缓冲区，因此如果需要投递保证，应先调用 flush()。
    */
   private async flushStreamEventBuffer(): Promise<void> {
     if (this.streamEventTimer) {
@@ -786,9 +779,9 @@ export class CCRClient {
   }
 
   /**
-   * Write an internal worker event via POST /sessions/{id}/worker/internal-events.
-   * These events are NOT visible to frontend clients — they store worker-internal
-   * state (transcript messages, compaction markers) needed for session resume.
+   * 通过 POST /sessions/{id}/worker/internal-events 写入内部 worker 事件。
+   * 这些事件不会暴露给前端客户端；它们承载 session 恢复所需的 worker 内部状态，
+   * 例如 transcript 消息和 compaction 标记。
    */
   async writeInternalEvent(
     eventType: string,
@@ -814,19 +807,18 @@ export class CCRClient {
   }
 
   /**
-   * Flush pending internal events. Call between turns and on shutdown
-   * to ensure transcript entries are persisted.
+   * flush 尚未发送的 internal events。
+   * 应在 turn 间隙和 shutdown 时调用，以确保 transcript 条目已经持久化。
    */
   flushInternalEvents(): Promise<void> {
     return this.internalEventUploader.flush()
   }
 
   /**
-   * Flush pending client events (writeEvent queue). Call before close()
-   * when the caller needs delivery confirmation — close() abandons the
-   * queue. Resolves once the uploader drains or rejects; returns
-   * regardless of whether individual POSTs succeeded (check server state
-   * separately if that matters).
+   * flush 尚未发送的 client events（即 writeEvent 队列）。
+   * 当调用方需要投递确认时，应在 close() 前显式调用，因为 close() 会放弃该队列。
+   * 一旦 uploader drain 完成或 reject 就会 resolve；
+   * 至于单个 POST 是否实际成功，需要另外查询服务端状态。
    */
   async flush(): Promise<void> {
     await this.flushStreamEventBuffer()
@@ -834,20 +826,19 @@ export class CCRClient {
   }
 
   /**
-   * Read foreground agent internal events from
-   * GET /sessions/{id}/worker/internal-events.
-   * Returns transcript entries from the last compaction boundary, or null on failure.
-   * Used for session resume.
+   * 从 GET /sessions/{id}/worker/internal-events 读取前台 agent 的内部事件。
+   * 成功时返回从最近 compaction 边界开始的 transcript 条目；失败时返回 null。
+   * 用于 session 恢复。
    */
   async readInternalEvents(): Promise<InternalEvent[] | null> {
     return this.paginatedGet('/worker/internal-events', {}, 'internal_events')
   }
 
   /**
-   * Read all subagent internal events from
-   * GET /sessions/{id}/worker/internal-events?subagents=true.
-   * Returns a merged stream across all non-foreground agents, each from its
-   * compaction point. Used for session resume.
+   * 从 GET /sessions/{id}/worker/internal-events?subagents=true
+   * 读取所有 subagent 的内部事件。
+   * 返回的是所有非前台 agent 的合并流，每个 agent 都从自己的 compaction 点开始。
+   * 用于 session 恢复。
    */
   async readSubagentInternalEvents(): Promise<InternalEvent[] | null> {
     return this.paginatedGet(
@@ -858,8 +849,8 @@ export class CCRClient {
   }
 
   /**
-   * Paginated GET with retry. Fetches all pages from a list endpoint,
-   * retrying each page on failure with exponential backoff + jitter.
+   * 带重试的分页 GET。
+   * 会从列表端点拉取全部分页，并在单页失败时按指数退避 + jitter 进行重试。
    */
   private async paginatedGet(
     path: string,
@@ -899,8 +890,8 @@ export class CCRClient {
   }
 
   /**
-   * Single GET request with retry. Returns the parsed response body
-   * on success, null if all retries are exhausted.
+   * 单次 GET 请求的重试封装。
+   * 成功时返回解析后的响应体；如果所有重试都耗尽，则返回 null。
    */
   private async getWithRetry<T>(
     url: string,
@@ -958,8 +949,8 @@ export class CCRClient {
   }
 
   /**
-   * Report delivery status for a client-to-worker event.
-   * POST /v1/code/sessions/{id}/worker/events/delivery (batch endpoint)
+   * 上报 client-to-worker 事件的投递状态。
+   * 通过 POST /v1/code/sessions/{id}/worker/events/delivery 这个 batch endpoint 完成。
    */
   reportDelivery(
     eventId: string,
@@ -968,17 +959,17 @@ export class CCRClient {
     void this.deliveryUploader.enqueue({ eventId, status })
   }
 
-  /** Get the current epoch (for external use). */
+  /** 获取当前 epoch，供外部使用。 */
   getWorkerEpoch(): number {
     return this.workerEpoch
   }
 
-  /** Internal-event queue depth — shutdown-snapshot backpressure signal. */
+  /** internal-event 队列深度，可作为 shutdown snapshot 的 backpressure 信号。 */
   get internalEventsPending(): number {
     return this.internalEventUploader.pendingCount
   }
 
-  /** Clean up uploaders and timers. */
+  /** 清理所有 uploader 与定时器。 */
   close(): void {
     this.closed = true
     this.stopHeartbeat()

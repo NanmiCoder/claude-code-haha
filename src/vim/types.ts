@@ -1,33 +1,13 @@
 /**
- * Vim Mode State Machine Types
+ * Vim 模式状态机的类型定义。
  *
- * This file defines the complete state machine for vim input handling.
- * The types ARE the documentation - reading them tells you how the system works.
- *
- * State Diagram:
- * ```
- *                              VimState
- *   ┌──────────────────────────────┬──────────────────────────────────────┐
- *   │  INSERT                      │  NORMAL                              │
- *   │  (tracks insertedText)       │  (CommandState machine)              │
- *   │                              │                                      │
- *   │                              │  idle ──┬─[d/c/y]──► operator        │
- *   │                              │         ├─[1-9]────► count           │
- *   │                              │         ├─[fFtT]───► find            │
- *   │                              │         ├─[g]──────► g               │
- *   │                              │         ├─[r]──────► replace         │
- *   │                              │         └─[><]─────► indent          │
- *   │                              │                                      │
- *   │                              │  operator ─┬─[motion]──► execute     │
- *   │                              │            ├─[0-9]────► operatorCount│
- *   │                              │            ├─[ia]─────► operatorTextObj
- *   │                              │            └─[fFtT]───► operatorFind │
- *   └──────────────────────────────┴──────────────────────────────────────┘
- * ```
+ * 这个文件描述了 vim 输入处理的完整状态机；这些类型本身就是文档，
+ * 读懂它们就能理解系统如何在 INSERT/NORMAL 模式之间切换，
+ * 以及命令解析过程中会进入哪些中间状态。
  */
 
 // ============================================================================
-// Core Types
+// 核心类型
 // ============================================================================
 
 export type Operator = 'delete' | 'change' | 'yank'
@@ -37,24 +17,24 @@ export type FindType = 'f' | 'F' | 't' | 'T'
 export type TextObjScope = 'inner' | 'around'
 
 // ============================================================================
-// State Machine Types
+// 状态机类型
 // ============================================================================
 
 /**
- * Complete vim state. Mode determines what data is tracked.
+ * 完整的 vim 状态。mode 决定当前要跟踪哪些数据。
  *
- * INSERT mode: Track text being typed (for dot-repeat)
- * NORMAL mode: Track command being parsed (state machine)
+ * INSERT 模式：跟踪正在输入的文本（供 dot-repeat 使用）
+ * NORMAL 模式：跟踪当前正在解析的命令（状态机）
  */
 export type VimState =
   | { mode: 'INSERT'; insertedText: string }
   | { mode: 'NORMAL'; command: CommandState }
 
 /**
- * Command state machine for NORMAL mode.
+ * NORMAL 模式下的命令状态机。
  *
- * Each state knows exactly what input it's waiting for.
- * TypeScript ensures exhaustive handling in switches.
+ * 每个状态都精确描述自己当前在等待什么输入。
+ * TypeScript 会保证 switch 分支处理是穷尽的。
  */
 export type CommandState =
   | { type: 'idle' }
@@ -75,8 +55,8 @@ export type CommandState =
   | { type: 'indent'; dir: '>' | '<'; count: number }
 
 /**
- * Persistent state that survives across commands.
- * This is the "memory" of vim - what gets recalled for repeats and pastes.
+ * 可跨命令保留的持久状态。
+ * 这就是 vim 的“记忆”，用于重复命令和粘贴等行为。
  */
 export type PersistentState = {
   lastChange: RecordedChange | null
@@ -86,8 +66,8 @@ export type PersistentState = {
 }
 
 /**
- * Recorded change for dot-repeat.
- * Captures everything needed to replay a command.
+ * 为 dot-repeat 记录的变更。
+ * 它保存了重放某条命令所需的全部信息。
  */
 export type RecordedChange =
   | { type: 'insert'; text: string }
@@ -119,7 +99,7 @@ export type RecordedChange =
   | { type: 'join'; count: number }
 
 // ============================================================================
-// Key Groups - Named constants, no magic strings
+// 按键分组：使用具名常量，避免魔法字符串
 // ============================================================================
 
 export const OPERATORS = {
@@ -182,7 +162,7 @@ export const TEXT_OBJ_TYPES = new Set([
 export const MAX_VIM_COUNT = 10000
 
 // ============================================================================
-// State Factories
+// 状态工厂函数
 // ============================================================================
 
 export function createInitialVimState(): VimState {

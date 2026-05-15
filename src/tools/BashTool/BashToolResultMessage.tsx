@@ -13,13 +13,13 @@ type Props = {
   timeoutMs?: number;
 };
 
-// Pattern to match "Shell cwd was reset to <path>" message
-// Use (?:^|\n) to match either start of string or after a newline
+// 用于匹配 “Shell cwd was reset to <path>” 消息的模式。
+// 使用 (?:^|\n) 同时匹配字符串开头和换行之后的位置。
 const SHELL_CWD_RESET_PATTERN = /(?:^|\n)(Shell cwd was reset to .+)$/;
 
 /**
- * Extracts sandbox violations from stderr if present
- * Returns both the cleaned stderr and the violations content
+ * 如果 stderr 中包含 sandbox violation，就把它提取出来。
+ * 返回值会同时包含清理后的 stderr 与对应的违规内容。
  */
 function extractSandboxViolations(stderr: string): {
   cleanedStderr: string;
@@ -31,7 +31,7 @@ function extractSandboxViolations(stderr: string): {
     };
   }
 
-  // Remove the sandbox violations section from stderr
+  // 从 stderr 中移除 sandbox violations 片段。
   const cleanedStderr = removeSandboxViolationTags(stderr).trim();
   return {
     cleanedStderr
@@ -39,8 +39,8 @@ function extractSandboxViolations(stderr: string): {
 }
 
 /**
- * Extracts the "Shell cwd was reset" warning message from stderr
- * Returns the cleaned stderr and the warning message separately
+ * 从 stderr 中提取 “Shell cwd was reset” 警告消息。
+ * 返回值会把清理后的 stderr 与警告消息拆开返回。
  */
 function extractCwdResetWarning(stderr: string): {
   cleanedStderr: string;
@@ -54,9 +54,9 @@ function extractCwdResetWarning(stderr: string): {
     };
   }
 
-  // Extract the warning message from capture group 1
+  // 从第 1 个捕获组里取出警告消息。
   const cwdResetWarning = match[1] ?? null;
-  // Remove the warning from stderr (replace the full match)
+  // 从 stderr 中移除这条警告（替换整个匹配片段）。
   const cleanedStderr = stderr.replace(SHELL_CWD_RESET_PATTERN, '').trim();
   return {
     cleanedStderr,

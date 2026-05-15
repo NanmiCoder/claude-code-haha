@@ -1,0 +1,2774 @@
+[
+  {
+    "file": "src/utils\\bash\\ast.ts",
+    "count": 734
+  },
+  {
+    "file": "src/utils\\sessionStorage.ts",
+    "count": 638
+  },
+  {
+    "file": "src/utils\\shell\\readOnlyCommandValidation.ts",
+    "count": 625
+  },
+  {
+    "file": "src/utils\\messages.ts",
+    "count": 478
+  },
+  {
+    "file": "src/services\\api\\claude.ts",
+    "count": 416
+  },
+  {
+    "file": "src/utils\\hooks.ts",
+    "count": 412
+  },
+  {
+    "file": "src/utils\\attachments.ts",
+    "count": 406
+  },
+  {
+    "file": "src/utils\\bash\\bashParser.ts",
+    "count": 389
+  },
+  {
+    "file": "src/utils\\config.ts",
+    "count": 363
+  },
+  {
+    "file": "src/utils\\bash\\commands.ts",
+    "count": 349
+  },
+  {
+    "file": "src/utils\\powershell\\parser.ts",
+    "count": 343
+  },
+  {
+    "file": "src/utils\\plugins\\pluginLoader.ts",
+    "count": 329
+  },
+  {
+    "file": "src/services\\mcp\\client.ts",
+    "count": 328
+  },
+  {
+    "file": "src/utils\\plugins\\marketplaceManager.ts",
+    "count": 302
+  },
+  {
+    "file": "src/utils\\permissions\\filesystem.ts",
+    "count": 288
+  },
+  {
+    "file": "src/utils\\bash\\heredoc.ts",
+    "count": 261
+  },
+  {
+    "file": "src/utils\\theme.ts",
+    "count": 258
+  },
+  {
+    "file": "src/services\\mcp\\auth.ts",
+    "count": 245
+  },
+  {
+    "file": "src/utils\\auth.ts",
+    "count": 233
+  },
+  {
+    "file": "src/utils\\nativeInstaller\\installer.ts",
+    "count": 196
+  },
+  {
+    "file": "src/utils\\permissions\\permissionSetup.ts",
+    "count": 191
+  },
+  {
+    "file": "src/utils\\worktree.ts",
+    "count": 188
+  },
+  {
+    "file": "src/utils\\claudemd.ts",
+    "count": 182
+  },
+  {
+    "file": "src/services\\analytics\\growthbook.ts",
+    "count": 180
+  },
+  {
+    "file": "src/utils\\swarm\\inProcessRunner.ts",
+    "count": 177
+  },
+  {
+    "file": "src/utils\\permissions\\permissions.ts",
+    "count": 164
+  },
+  {
+    "file": "src/services\\compact\\compact.ts",
+    "count": 159
+  },
+  {
+    "file": "src/services\\mcp\\useManageMCPConnections.ts",
+    "count": 154
+  },
+  {
+    "file": "src/utils\\ide.ts",
+    "count": 145
+  },
+  {
+    "file": "src/utils\\processUserInput\\processSlashCommand.tsx",
+    "count": 145
+  },
+  {
+    "file": "src/utils\\gracefulShutdown.ts",
+    "count": 144
+  },
+  {
+    "file": "src/services\\teamMemorySync\\index.ts",
+    "count": 137
+  },
+  {
+    "file": "src/utils\\Cursor.ts",
+    "count": 136
+  },
+  {
+    "file": "src/utils\\teleport.tsx",
+    "count": 135
+  },
+  {
+    "file": "src/services\\voiceStreamSTT.ts",
+    "count": 133
+  },
+  {
+    "file": "src/utils\\collapseReadSearch.ts",
+    "count": 129
+  },
+  {
+    "file": "src/utils\\sandbox\\sandbox-adapter.ts",
+    "count": 126
+  },
+  {
+    "file": "src/utils\\git.ts",
+    "count": 125
+  },
+  {
+    "file": "src/services\\mcp\\config.ts",
+    "count": 124
+  },
+  {
+    "file": "src/services\\tools\\toolExecution.ts",
+    "count": 124
+  },
+  {
+    "file": "src/utils\\analyzeContext.ts",
+    "count": 123
+  },
+  {
+    "file": "src/services\\plugins\\pluginOperations.ts",
+    "count": 122
+  },
+  {
+    "file": "src/utils\\toolResultStorage.ts",
+    "count": 121
+  },
+  {
+    "file": "src/utils\\plugins\\mcpbHandler.ts",
+    "count": 118
+  },
+  {
+    "file": "src/utils\\plugins\\installedPluginsManager.ts",
+    "count": 117
+  },
+  {
+    "file": "src/utils\\telemetry\\perfettoTracing.ts",
+    "count": 114
+  },
+  {
+    "file": "src/services\\api\\withRetry.ts",
+    "count": 113
+  },
+  {
+    "file": "src/services\\api\\errors.ts",
+    "count": 111
+  },
+  {
+    "file": "src/utils\\fsOperations.ts",
+    "count": 111
+  },
+  {
+    "file": "src/utils\\cronScheduler.ts",
+    "count": 108
+  },
+  {
+    "file": "src/utils\\fileHistory.ts",
+    "count": 108
+  },
+  {
+    "file": "src/utils\\commitAttribution.ts",
+    "count": 103
+  },
+  {
+    "file": "src/utils\\forkedAgent.ts",
+    "count": 102
+  },
+  {
+    "file": "src/services\\voice.ts",
+    "count": 101
+  },
+  {
+    "file": "src/utils\\suggestions\\commandSuggestions.ts",
+    "count": 99
+  },
+  {
+    "file": "src/utils\\plugins\\validatePlugin.ts",
+    "count": 95
+  },
+  {
+    "file": "src/utils\\stats.ts",
+    "count": 95
+  },
+  {
+    "file": "src/utils\\teammateMailbox.ts",
+    "count": 95
+  },
+  {
+    "file": "src/services\\remoteManagedSettings\\index.ts",
+    "count": 94
+  },
+  {
+    "file": "src/utils\\imageResizer.ts",
+    "count": 94
+  },
+  {
+    "file": "src/utils\\tasks.ts",
+    "count": 93
+  },
+  {
+    "file": "src/utils\\permissions\\yoloClassifier.ts",
+    "count": 92
+  },
+  {
+    "file": "src/utils\\plugins\\schemas.ts",
+    "count": 92
+  },
+  {
+    "file": "src/services\\analytics\\metadata.ts",
+    "count": 89
+  },
+  {
+    "file": "src/services\\mockRateLimits.ts",
+    "count": 89
+  },
+  {
+    "file": "src/utils\\Shell.ts",
+    "count": 89
+  },
+  {
+    "file": "src/utils\\api.ts",
+    "count": 88
+  },
+  {
+    "file": "src/utils\\handlePromptSubmit.ts",
+    "count": 87
+  },
+  {
+    "file": "src/utils\\toolSearch.ts",
+    "count": 85
+  },
+  {
+    "file": "src/services\\compact\\microCompact.ts",
+    "count": 83
+  },
+  {
+    "file": "src/utils\\bash\\treeSitterAnalysis.ts",
+    "count": 83
+  },
+  {
+    "file": "src/utils\\settings\\settings.ts",
+    "count": 83
+  },
+  {
+    "file": "src/utils\\conversationRecovery.ts",
+    "count": 82
+  },
+  {
+    "file": "src/utils\\ripgrep.ts",
+    "count": 81
+  },
+  {
+    "file": "src/utils\\git\\gitFilesystem.ts",
+    "count": 80
+  },
+  {
+    "file": "src/utils\\sessionRestore.ts",
+    "count": 80
+  },
+  {
+    "file": "src/utils\\settings\\types.ts",
+    "count": 80
+  },
+  {
+    "file": "src/services\\compact\\sessionMemoryCompact.ts",
+    "count": 79
+  },
+  {
+    "file": "src/utils\\markdownConfigLoader.ts",
+    "count": 78
+  },
+  {
+    "file": "src/utils\\swarm\\permissionSync.ts",
+    "count": 78
+  },
+  {
+    "file": "src/utils\\plugins\\mcpPluginIntegration.ts",
+    "count": 77
+  },
+  {
+    "file": "src/utils\\powershell\\staticPrefix.ts",
+    "count": 77
+  },
+  {
+    "file": "src/utils\\plugins\\loadPluginCommands.ts",
+    "count": 76
+  },
+  {
+    "file": "src/utils\\permissions\\pathValidation.ts",
+    "count": 75
+  },
+  {
+    "file": "src/utils\\telemetry\\instrumentation.ts",
+    "count": 74
+  },
+  {
+    "file": "src/utils\\doctorDiagnostic.ts",
+    "count": 73
+  },
+  {
+    "file": "src/utils\\frontmatterParser.ts",
+    "count": 71
+  },
+  {
+    "file": "src/utils\\processUserInput\\processUserInput.ts",
+    "count": 71
+  },
+  {
+    "file": "src/utils\\queryHelpers.ts",
+    "count": 70
+  },
+  {
+    "file": "src/constants\\prompts.ts",
+    "count": 68
+  },
+  {
+    "file": "src/services\\extractMemories\\extractMemories.ts",
+    "count": 67
+  },
+  {
+    "file": "src/utils\\file.ts",
+    "count": 66
+  },
+  {
+    "file": "src/types\\textInputTypes.ts",
+    "count": 64
+  },
+  {
+    "file": "src/utils\\deepLink\\terminalLauncher.ts",
+    "count": 64
+  },
+  {
+    "file": "src/utils\\plugins\\pluginInstallationHelpers.ts",
+    "count": 64
+  },
+  {
+    "file": "src/utils\\swarm\\backends\\types.ts",
+    "count": 64
+  },
+  {
+    "file": "src/utils\\tmuxSocket.ts",
+    "count": 64
+  },
+  {
+    "file": "src/services\\SessionMemory\\sessionMemory.ts",
+    "count": 63
+  },
+  {
+    "file": "src/utils\\bash\\bashPipeCommand.ts",
+    "count": 63
+  },
+  {
+    "file": "src/services\\compact\\autoCompact.ts",
+    "count": 62
+  },
+  {
+    "file": "src/services\\lsp\\LSPServerInstance.ts",
+    "count": 62
+  },
+  {
+    "file": "src/types\\logs.ts",
+    "count": 62
+  },
+  {
+    "file": "src/utils\\betas.ts",
+    "count": 62
+  },
+  {
+    "file": "src/utils\\settings\\changeDetector.ts",
+    "count": 62
+  },
+  {
+    "file": "src/utils\\swarm\\backends\\ITermBackend.ts",
+    "count": 62
+  },
+  {
+    "file": "src/utils\\swarm\\teamHelpers.ts",
+    "count": 62
+  },
+  {
+    "file": "src/services\\analytics\\firstPartyEventLoggingExporter.ts",
+    "count": 61
+  },
+  {
+    "file": "src/services\\api\\promptCacheBreakDetection.ts",
+    "count": 61
+  },
+  {
+    "file": "src/services\\claudeAiLimits.ts",
+    "count": 61
+  },
+  {
+    "file": "src/utils\\computerUse\\executor.ts",
+    "count": 61
+  },
+  {
+    "file": "src/utils\\model\\model.ts",
+    "count": 61
+  },
+  {
+    "file": "src/utils\\ansiToSvg.ts",
+    "count": 58
+  },
+  {
+    "file": "src/utils\\cronTasks.ts",
+    "count": 58
+  },
+  {
+    "file": "src/utils\\shell\\bashProvider.ts",
+    "count": 58
+  },
+  {
+    "file": "src/utils\\telemetry\\sessionTracing.ts",
+    "count": 58
+  },
+  {
+    "file": "src/services\\api\\client.ts",
+    "count": 57
+  },
+  {
+    "file": "src/utils\\imagePaste.ts",
+    "count": 57
+  },
+  {
+    "file": "src/utils\\proxy.ts",
+    "count": 57
+  },
+  {
+    "file": "src/utils\\plugins\\marketplaceHelpers.ts",
+    "count": 56
+  },
+  {
+    "file": "src/types\\permissions.ts",
+    "count": 55
+  },
+  {
+    "file": "src/utils\\messageQueueManager.ts",
+    "count": 55
+  },
+  {
+    "file": "src/services\\api\\sessionIngress.ts",
+    "count": 54
+  },
+  {
+    "file": "src/services\\policyLimits\\index.ts",
+    "count": 54
+  },
+  {
+    "file": "src/utils\\listSessionsImpl.ts",
+    "count": 54
+  },
+  {
+    "file": "src/utils\\nativeInstaller\\pidLock.ts",
+    "count": 54
+  },
+  {
+    "file": "src/utils\\plugins\\pluginOptionsStorage.ts",
+    "count": 54
+  },
+  {
+    "file": "src/services\\analytics\\firstPartyEventLogger.ts",
+    "count": 53
+  },
+  {
+    "file": "src/utils\\swarm\\backends\\TmuxBackend.ts",
+    "count": 53
+  },
+  {
+    "file": "src/utils\\ultraplan\\ccrSession.ts",
+    "count": 52
+  },
+  {
+    "file": "src/services\\tokenEstimation.ts",
+    "count": 51
+  },
+  {
+    "file": "src/services\\tools\\StreamingToolExecutor.ts",
+    "count": 51
+  },
+  {
+    "file": "src/utils\\bash\\shellQuote.ts",
+    "count": 51
+  },
+  {
+    "file": "src/utils\\gitDiff.ts",
+    "count": 51
+  },
+  {
+    "file": "src/utils\\plugins\\officialMarketplaceGcs.ts",
+    "count": 51
+  },
+  {
+    "file": "src/utils\\plugins\\officialMarketplaceStartupCheck.ts",
+    "count": 51
+  },
+  {
+    "file": "src/services\\api\\filesApi.ts",
+    "count": 50
+  },
+  {
+    "file": "src/services\\mcp\\utils.ts",
+    "count": 50
+  },
+  {
+    "file": "src/utils\\sessionStoragePortable.ts",
+    "count": 50
+  },
+  {
+    "file": "src/services\\lsp\\LSPClient.ts",
+    "count": 48
+  },
+  {
+    "file": "src/utils\\memoryFileDetection.ts",
+    "count": 48
+  },
+  {
+    "file": "src/utils\\plugins\\zipCache.ts",
+    "count": 48
+  },
+  {
+    "file": "src/utils\\autoUpdater.ts",
+    "count": 47
+  },
+  {
+    "file": "src/utils\\log.ts",
+    "count": 47
+  },
+  {
+    "file": "src/utils\\readFileInRange.ts",
+    "count": 47
+  },
+  {
+    "file": "src/utils\\task\\TaskOutput.ts",
+    "count": 47
+  },
+  {
+    "file": "src/utils\\telemetry\\betaSessionTracing.ts",
+    "count": 47
+  },
+  {
+    "file": "src/utils\\statsCache.ts",
+    "count": 46
+  },
+  {
+    "file": "src/utils\\swarm\\backends\\registry.ts",
+    "count": 46
+  },
+  {
+    "file": "src/utils\\computerUse\\wrapper.tsx",
+    "count": 45
+  },
+  {
+    "file": "src/utils\\cron.ts",
+    "count": 45
+  },
+  {
+    "file": "src/utils\\transcriptSearch.ts",
+    "count": 45
+  },
+  {
+    "file": "src/services\\mcp\\channelNotification.ts",
+    "count": 44
+  },
+  {
+    "file": "src/utils\\bash\\ShellSnapshot.ts",
+    "count": 44
+  },
+  {
+    "file": "src/utils\\nativeInstaller\\download.ts",
+    "count": 44
+  },
+  {
+    "file": "src/utils\\swarm\\spawnInProcess.ts",
+    "count": 44
+  },
+  {
+    "file": "src/utils\\task\\diskOutput.ts",
+    "count": 44
+  },
+  {
+    "file": "src/services\\lsp\\LSPServerManager.ts",
+    "count": 43
+  },
+  {
+    "file": "src/services\\mcp\\xaa.ts",
+    "count": 43
+  },
+  {
+    "file": "src/utils\\plugins\\loadPluginHooks.ts",
+    "count": 43
+  },
+  {
+    "file": "src/utils\\settings\\permissionValidation.ts",
+    "count": 43
+  },
+  {
+    "file": "src/services\\lsp\\LSPDiagnosticRegistry.ts",
+    "count": 42
+  },
+  {
+    "file": "src/utils\\claudeInChrome\\chromeNativeHost.ts",
+    "count": 42
+  },
+  {
+    "file": "src/utils\\fastMode.ts",
+    "count": 42
+  },
+  {
+    "file": "src/utils\\memoize.ts",
+    "count": 42
+  },
+  {
+    "file": "src/utils\\releaseNotes.ts",
+    "count": 42
+  },
+  {
+    "file": "src/utils\\markdown.ts",
+    "count": 41
+  },
+  {
+    "file": "src/utils\\plugins\\lspRecommendation.ts",
+    "count": 41
+  },
+  {
+    "file": "src/utils\\shell\\powershellProvider.ts",
+    "count": 41
+  },
+  {
+    "file": "src/utils\\skills\\skillChangeDetector.ts",
+    "count": 41
+  },
+  {
+    "file": "src/utils\\task\\framework.ts",
+    "count": 41
+  },
+  {
+    "file": "src/utils\\env.ts",
+    "count": 40
+  },
+  {
+    "file": "src/utils\\hooks\\execAgentHook.ts",
+    "count": 40
+  },
+  {
+    "file": "src/utils\\json.ts",
+    "count": 40
+  },
+  {
+    "file": "src/utils\\ShellCommand.ts",
+    "count": 40
+  },
+  {
+    "file": "src/services\\lsp\\manager.ts",
+    "count": 39
+  },
+  {
+    "file": "src/services\\oauth\\client.ts",
+    "count": 39
+  },
+  {
+    "file": "src/services\\rateLimitMessages.ts",
+    "count": 38
+  },
+  {
+    "file": "src/services\\teamMemorySync\\watcher.ts",
+    "count": 38
+  },
+  {
+    "file": "src/services\\PromptSuggestion\\speculation.ts",
+    "count": 37
+  },
+  {
+    "file": "src/services\\api\\logging.ts",
+    "count": 36
+  },
+  {
+    "file": "src/utils\\agenticSessionSearch.ts",
+    "count": 36
+  },
+  {
+    "file": "src/utils\\attribution.ts",
+    "count": 36
+  },
+  {
+    "file": "src/utils\\model\\modelOptions.ts",
+    "count": 36
+  },
+  {
+    "file": "src/utils\\permissions\\shellRuleMatching.ts",
+    "count": 36
+  },
+  {
+    "file": "src/utils\\plugins\\lspPluginIntegration.ts",
+    "count": 36
+  },
+  {
+    "file": "src/services\\autoDream\\autoDream.ts",
+    "count": 35
+  },
+  {
+    "file": "src/services\\diagnosticTracking.ts",
+    "count": 35
+  },
+  {
+    "file": "src/utils\\editor.ts",
+    "count": 35
+  },
+  {
+    "file": "src/utils\\git\\gitConfigParser.ts",
+    "count": 35
+  },
+  {
+    "file": "src/utils\\secureStorage\\macOsKeychainStorage.ts",
+    "count": 35
+  },
+  {
+    "file": "src/services\\api\\grove.ts",
+    "count": 34
+  },
+  {
+    "file": "src/types\\command.ts",
+    "count": 34
+  },
+  {
+    "file": "src/utils\\ansiToPng.ts",
+    "count": 34
+  },
+  {
+    "file": "src/utils\\bash\\shellCompletion.ts",
+    "count": 34
+  },
+  {
+    "file": "src/utils\\earlyInput.ts",
+    "count": 34
+  },
+  {
+    "file": "src/utils\\effort.ts",
+    "count": 34
+  },
+  {
+    "file": "src/services\\teamMemorySync\\secretScanner.ts",
+    "count": 33
+  },
+  {
+    "file": "src/utils\\claudeInChrome\\setup.ts",
+    "count": 33
+  },
+  {
+    "file": "src/utils\\dxt\\zip.ts",
+    "count": 33
+  },
+  {
+    "file": "src/utils\\fullscreen.ts",
+    "count": 33
+  },
+  {
+    "file": "src/utils\\heapDumpService.ts",
+    "count": 33
+  },
+  {
+    "file": "src/utils\\logoV2Utils.ts",
+    "count": 33
+  },
+  {
+    "file": "src/utils\\plugins\\pluginStartupCheck.ts",
+    "count": 33
+  },
+  {
+    "file": "src/utils\\promptShellExecution.ts",
+    "count": 33
+  },
+  {
+    "file": "src/services\\lsp\\passiveFeedback.ts",
+    "count": 32
+  },
+  {
+    "file": "src/utils\\claudeInChrome\\mcpServer.ts",
+    "count": 32
+  },
+  {
+    "file": "src/utils\\plugins\\parseMarketplaceInput.ts",
+    "count": 32
+  },
+  {
+    "file": "src/services\\mcp\\xaaIdpLogin.ts",
+    "count": 31
+  },
+  {
+    "file": "src/services\\PromptSuggestion\\promptSuggestion.ts",
+    "count": 31
+  },
+  {
+    "file": "src/services\\tools\\toolHooks.ts",
+    "count": 31
+  },
+  {
+    "file": "src/utils\\hooks\\execHttpHook.ts",
+    "count": 31
+  },
+  {
+    "file": "src/utils\\managedEnv.ts",
+    "count": 31
+  },
+  {
+    "file": "src/utils\\permissions\\permissionRuleParser.ts",
+    "count": 31
+  },
+  {
+    "file": "src/utils\\plans.ts",
+    "count": 31
+  },
+  {
+    "file": "src/utils\\plugins\\headlessPluginInstall.ts",
+    "count": 31
+  },
+  {
+    "file": "src/utils\\plugins\\refresh.ts",
+    "count": 31
+  },
+  {
+    "file": "src/services\\api\\errorUtils.ts",
+    "count": 30
+  },
+  {
+    "file": "src/utils\\plugins\\installCounts.ts",
+    "count": 30
+  },
+  {
+    "file": "src/utils\\powershell\\dangerousCmdlets.ts",
+    "count": 30
+  },
+  {
+    "file": "src/utils\\secureStorage\\macOsKeychainHelpers.ts",
+    "count": 30
+  },
+  {
+    "file": "src/utils\\shell\\prefix.ts",
+    "count": 30
+  },
+  {
+    "file": "src/utils\\swarm\\backends\\InProcessBackend.ts",
+    "count": 30
+  },
+  {
+    "file": "src/utils\\swarm\\backends\\PaneBackendExecutor.ts",
+    "count": 30
+  },
+  {
+    "file": "src/utils\\teleport\\api.ts",
+    "count": 30
+  },
+  {
+    "file": "src/services\\MagicDocs\\magicDocs.ts",
+    "count": 29
+  },
+  {
+    "file": "src/services\\SessionMemory\\sessionMemoryUtils.ts",
+    "count": 29
+  },
+  {
+    "file": "src/services\\vcr.ts",
+    "count": 29
+  },
+  {
+    "file": "src/utils\\agentContext.ts",
+    "count": 29
+  },
+  {
+    "file": "src/utils\\cleanup.ts",
+    "count": 29
+  },
+  {
+    "file": "src/utils\\debugFilter.ts",
+    "count": 29
+  },
+  {
+    "file": "src/utils\\deepLink\\registerProtocol.ts",
+    "count": 29
+  },
+  {
+    "file": "src/utils\\headlessProfiler.ts",
+    "count": 29
+  },
+  {
+    "file": "src/utils\\permissions\\permissionsLoader.ts",
+    "count": 29
+  },
+  {
+    "file": "src/utils\\settings\\mdm\\settings.ts",
+    "count": 29
+  },
+  {
+    "file": "src/utils\\teammate.ts",
+    "count": 29
+  },
+  {
+    "file": "src/utils\\teleport\\gitBundle.ts",
+    "count": 29
+  },
+  {
+    "file": "src/services\\mcp\\channelPermissions.ts",
+    "count": 28
+  },
+  {
+    "file": "src/services\\settingsSync\\index.ts",
+    "count": 28
+  },
+  {
+    "file": "src/utils\\bash\\shellQuoting.ts",
+    "count": 28
+  },
+  {
+    "file": "src/utils\\claudeInChrome\\common.ts",
+    "count": 28
+  },
+  {
+    "file": "src/utils\\envDynamic.ts",
+    "count": 28
+  },
+  {
+    "file": "src/utils\\generatedFiles.ts",
+    "count": 28
+  },
+  {
+    "file": "src/utils\\hooks\\hooksConfigSnapshot.ts",
+    "count": 28
+  },
+  {
+    "file": "src/utils\\hooks\\ssrfGuard.ts",
+    "count": 28
+  },
+  {
+    "file": "src/utils\\plugins\\loadPluginAgents.ts",
+    "count": 28
+  },
+  {
+    "file": "src/utils\\suggestions\\directoryCompletion.ts",
+    "count": 28
+  },
+  {
+    "file": "src/utils\\thinking.ts",
+    "count": 28
+  },
+  {
+    "file": "src/utils\\format.ts",
+    "count": 27
+  },
+  {
+    "file": "src/utils\\model\\modelAllowlist.ts",
+    "count": 27
+  },
+  {
+    "file": "src/utils\\plugins\\dependencyResolver.ts",
+    "count": 27
+  },
+  {
+    "file": "src/utils\\stringUtils.ts",
+    "count": 27
+  },
+  {
+    "file": "src/utils\\swarm\\spawnUtils.ts",
+    "count": 27
+  },
+  {
+    "file": "src/utils\\claudeCodeHints.ts",
+    "count": 26
+  },
+  {
+    "file": "src/utils\\permissions\\shadowedRuleDetection.ts",
+    "count": 26
+  },
+  {
+    "file": "src/utils\\promptEditor.ts",
+    "count": 26
+  },
+  {
+    "file": "src/utils\\sessionState.ts",
+    "count": 26
+  },
+  {
+    "file": "src/utils\\shell\\specPrefix.ts",
+    "count": 26
+  },
+  {
+    "file": "src/utils\\startupProfiler.ts",
+    "count": 26
+  },
+  {
+    "file": "src/utils\\swarm\\backends\\it2Setup.ts",
+    "count": 26
+  },
+  {
+    "file": "src/constants\\oauth.ts",
+    "count": 25
+  },
+  {
+    "file": "src/services\\oauth\\index.ts",
+    "count": 25
+  },
+  {
+    "file": "src/services\\teamMemorySync\\types.ts",
+    "count": 25
+  },
+  {
+    "file": "src/utils\\bash\\ParsedCommand.ts",
+    "count": 25
+  },
+  {
+    "file": "src/utils\\cronTasksLock.ts",
+    "count": 25
+  },
+  {
+    "file": "src/utils\\hooks\\hooksSettings.ts",
+    "count": 25
+  },
+  {
+    "file": "src/utils\\sessionStart.ts",
+    "count": 25
+  },
+  {
+    "file": "src/utils\\sliceAnsi.ts",
+    "count": 25
+  },
+  {
+    "file": "src/utils\\slowOperations.ts",
+    "count": 25
+  },
+  {
+    "file": "src/constants\\figures.ts",
+    "count": 24
+  },
+  {
+    "file": "src/constants\\files.ts",
+    "count": 24
+  },
+  {
+    "file": "src/services\\preventSleep.ts",
+    "count": 24
+  },
+  {
+    "file": "src/services\\remoteManagedSettings\\syncCache.ts",
+    "count": 24
+  },
+  {
+    "file": "src/utils\\glob.ts",
+    "count": 24
+  },
+  {
+    "file": "src/utils\\heatmap.ts",
+    "count": 24
+  },
+  {
+    "file": "src/utils\\model\\bedrock.ts",
+    "count": 24
+  },
+  {
+    "file": "src/utils\\queryProfiler.ts",
+    "count": 24
+  },
+  {
+    "file": "src/utils\\telemetry\\pluginTelemetry.ts",
+    "count": 24
+  },
+  {
+    "file": "src/services\\api\\metricsOptOut.ts",
+    "count": 23
+  },
+  {
+    "file": "src/utils\\debug.ts",
+    "count": 23
+  },
+  {
+    "file": "src/utils\\plugins\\pluginVersioning.ts",
+    "count": 23
+  },
+  {
+    "file": "src/utils\\sideQuery.ts",
+    "count": 23
+  },
+  {
+    "file": "src/utils\\windowsPaths.ts",
+    "count": 23
+  },
+  {
+    "file": "src/services\\AgentSummary\\agentSummary.ts",
+    "count": 22
+  },
+  {
+    "file": "src/utils\\codeIndexing.ts",
+    "count": 22
+  },
+  {
+    "file": "src/utils\\cronJitterConfig.ts",
+    "count": 22
+  },
+  {
+    "file": "src/utils\\hooks\\sessionHooks.ts",
+    "count": 22
+  },
+  {
+    "file": "src/utils\\model\\modelStrings.ts",
+    "count": 22
+  },
+  {
+    "file": "src/utils\\path.ts",
+    "count": 22
+  },
+  {
+    "file": "src/utils\\plugins\\reconciler.ts",
+    "count": 22
+  },
+  {
+    "file": "src/utils\\processUserInput\\processBashCommand.tsx",
+    "count": 22
+  },
+  {
+    "file": "src/utils\\warningHandler.ts",
+    "count": 22
+  },
+  {
+    "file": "src/services\\analytics\\datadog.ts",
+    "count": 21
+  },
+  {
+    "file": "src/services\\api\\referral.ts",
+    "count": 21
+  },
+  {
+    "file": "src/types\\plugin.ts",
+    "count": 21
+  },
+  {
+    "file": "src/utils\\detectRepository.ts",
+    "count": 21
+  },
+  {
+    "file": "src/utils\\subprocessEnv.ts",
+    "count": 21
+  },
+  {
+    "file": "src/utils\\tokens.ts",
+    "count": 21
+  },
+  {
+    "file": "src/utils\\argumentSubstitution.ts",
+    "count": 20
+  },
+  {
+    "file": "src/utils\\concurrentSessions.ts",
+    "count": 20
+  },
+  {
+    "file": "src/utils\\context.ts",
+    "count": 20
+  },
+  {
+    "file": "src/utils\\desktopDeepLink.ts",
+    "count": 20
+  },
+  {
+    "file": "src/utils\\modelCost.ts",
+    "count": 20
+  },
+  {
+    "file": "src/utils\\permissions\\PermissionUpdate.ts",
+    "count": 20
+  },
+  {
+    "file": "src/utils\\plugins\\pluginDirectories.ts",
+    "count": 20
+  },
+  {
+    "file": "src/utils\\settings\\validation.ts",
+    "count": 20
+  },
+  {
+    "file": "src/utils\\shellConfig.ts",
+    "count": 20
+  },
+  {
+    "file": "src/utils\\truncate.ts",
+    "count": 20
+  },
+  {
+    "file": "src/constants\\apiLimits.ts",
+    "count": 19
+  },
+  {
+    "file": "src/constants\\xml.ts",
+    "count": 19
+  },
+  {
+    "file": "src/services\\api\\dumpPrompts.ts",
+    "count": 19
+  },
+  {
+    "file": "src/services\\mcp\\elicitationHandler.ts",
+    "count": 19
+  },
+  {
+    "file": "src/services\\rateLimitMocking.ts",
+    "count": 19
+  },
+  {
+    "file": "src/services\\voiceKeyterms.ts",
+    "count": 19
+  },
+  {
+    "file": "src/utils\\activityManager.ts",
+    "count": 19
+  },
+  {
+    "file": "src/utils\\asciicast.ts",
+    "count": 19
+  },
+  {
+    "file": "src/utils\\horizontalScroll.ts",
+    "count": 19
+  },
+  {
+    "file": "src/utils\\nativeInstaller\\packageManagers.ts",
+    "count": 19
+  },
+  {
+    "file": "src/utils\\pdf.ts",
+    "count": 19
+  },
+  {
+    "file": "src/utils\\plugins\\pluginAutoupdate.ts",
+    "count": 19
+  },
+  {
+    "file": "src/utils\\readEditContext.ts",
+    "count": 19
+  },
+  {
+    "file": "src/services\\compact\\prompt.ts",
+    "count": 18
+  },
+  {
+    "file": "src/services\\oauth\\auth-code-listener.ts",
+    "count": 18
+  },
+  {
+    "file": "src/utils\\bash\\parser.ts",
+    "count": 18
+  },
+  {
+    "file": "src/utils\\errors.ts",
+    "count": 18
+  },
+  {
+    "file": "src/utils\\exampleCommands.ts",
+    "count": 18
+  },
+  {
+    "file": "src/utils\\http.ts",
+    "count": 18
+  },
+  {
+    "file": "src/utils\\localInstaller.ts",
+    "count": 18
+  },
+  {
+    "file": "src/utils\\permissions\\dangerousPatterns.ts",
+    "count": 18
+  },
+  {
+    "file": "src/utils\\secureStorage\\keychainPrefetch.ts",
+    "count": 18
+  },
+  {
+    "file": "src/utils\\suggestions\\shellHistoryCompletion.ts",
+    "count": 18
+  },
+  {
+    "file": "src/utils\\terminal.ts",
+    "count": 18
+  },
+  {
+    "file": "src/services\\analytics\\index.ts",
+    "count": 17
+  },
+  {
+    "file": "src/services\\compact\\grouping.ts",
+    "count": 17
+  },
+  {
+    "file": "src/services\\compact\\postCompactCleanup.ts",
+    "count": 17
+  },
+  {
+    "file": "src/services\\mcp\\types.ts",
+    "count": 17
+  },
+  {
+    "file": "src/services\\remoteManagedSettings\\syncCacheState.ts",
+    "count": 17
+  },
+  {
+    "file": "src/services\\SessionMemory\\prompts.ts",
+    "count": 17
+  },
+  {
+    "file": "src/types\\hooks.ts",
+    "count": 17
+  },
+  {
+    "file": "src/utils\\computerUse\\appNames.ts",
+    "count": 17
+  },
+  {
+    "file": "src/utils\\deepLink\\protocolHandler.ts",
+    "count": 17
+  },
+  {
+    "file": "src/utils\\hooks\\hooksConfigManager.ts",
+    "count": 17
+  },
+  {
+    "file": "src/utils\\model\\agent.ts",
+    "count": 17
+  },
+  {
+    "file": "src/utils\\sanitization.ts",
+    "count": 17
+  },
+  {
+    "file": "src/utils\\sdkEventQueue.ts",
+    "count": 17
+  },
+  {
+    "file": "src/utils\\suggestions\\slackChannelSuggestions.ts",
+    "count": 17
+  },
+  {
+    "file": "src/utils\\terminalPanel.ts",
+    "count": 17
+  },
+  {
+    "file": "src/utils\\user.ts",
+    "count": 17
+  },
+  {
+    "file": "src/services\\analytics\\sink.ts",
+    "count": 16
+  },
+  {
+    "file": "src/services\\api\\overageCreditGrant.ts",
+    "count": 16
+  },
+  {
+    "file": "src/services\\autoDream\\consolidationLock.ts",
+    "count": 16
+  },
+  {
+    "file": "src/services\\plugins\\PluginInstallationManager.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\doctorContextWarnings.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\envUtils.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\errorLogSink.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\fileStateCache.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\messages\\mappers.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\model\\validateModel.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\mtls.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\plugins\\cacheUtils.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\plugins\\zipCacheAdapters.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\settings\\constants.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\settings\\toolValidationConfig.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\sideQuestion.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\swarm\\backends\\detection.ts",
+    "count": 16
+  },
+  {
+    "file": "src/utils\\words.ts",
+    "count": 16
+  },
+  {
+    "file": "src/services\\compact\\apiMicrocompact.ts",
+    "count": 15
+  },
+  {
+    "file": "src/utils\\computerUse\\computerUseLock.ts",
+    "count": 15
+  },
+  {
+    "file": "src/utils\\genericProcessUtils.ts",
+    "count": 15
+  },
+  {
+    "file": "src/utils\\githubRepoPathMapping.ts",
+    "count": 15
+  },
+  {
+    "file": "src/utils\\idePathConversion.ts",
+    "count": 15
+  },
+  {
+    "file": "src/utils\\mcpInstructionsDelta.ts",
+    "count": 15
+  },
+  {
+    "file": "src/utils\\mcpWebSocketTransport.ts",
+    "count": 15
+  },
+  {
+    "file": "src/utils\\permissions\\bypassPermissionsKillswitch.ts",
+    "count": 15
+  },
+  {
+    "file": "src/utils\\permissions\\classifierDecision.ts",
+    "count": 15
+  },
+  {
+    "file": "src/utils\\permissions\\permissionExplainer.ts",
+    "count": 15
+  },
+  {
+    "file": "src/utils\\plugins\\performStartupChecks.tsx",
+    "count": 15
+  },
+  {
+    "file": "src/utils\\staticRender.tsx",
+    "count": 15
+  },
+  {
+    "file": "src/services\\mcp\\claudeai.ts",
+    "count": 14
+  },
+  {
+    "file": "src/utils\\authFileDescriptor.ts",
+    "count": 14
+  },
+  {
+    "file": "src/utils\\filePersistence\\filePersistence.ts",
+    "count": 14
+  },
+  {
+    "file": "src/utils\\mcp\\elicitationValidation.ts",
+    "count": 14
+  },
+  {
+    "file": "src/utils\\plugins\\fetchTelemetry.ts",
+    "count": 14
+  },
+  {
+    "file": "src/utils\\plugins\\orphanedPluginFilter.ts",
+    "count": 14
+  },
+  {
+    "file": "src/utils\\swarm\\teammateInit.ts",
+    "count": 14
+  },
+  {
+    "file": "src/utils\\teammateContext.ts",
+    "count": 14
+  },
+  {
+    "file": "src/services\\mcp\\mcpStringUtils.ts",
+    "count": 13
+  },
+  {
+    "file": "src/utils\\caCerts.ts",
+    "count": 13
+  },
+  {
+    "file": "src/utils\\claudeInChrome\\setupPortable.ts",
+    "count": 13
+  },
+  {
+    "file": "src/utils\\computerUse\\cleanup.ts",
+    "count": 13
+  },
+  {
+    "file": "src/utils\\computerUse\\gates.ts",
+    "count": 13
+  },
+  {
+    "file": "src/utils\\deepLink\\parseDeepLink.ts",
+    "count": 13
+  },
+  {
+    "file": "src/utils\\groupToolUses.ts",
+    "count": 13
+  },
+  {
+    "file": "src/utils\\imageStore.ts",
+    "count": 13
+  },
+  {
+    "file": "src/utils\\jetbrains.ts",
+    "count": 13
+  },
+  {
+    "file": "src/utils\\queueProcessor.ts",
+    "count": 13
+  },
+  {
+    "file": "src/utils\\sessionFileAccessHooks.ts",
+    "count": 13
+  },
+  {
+    "file": "src/utils\\sessionIngressAuth.ts",
+    "count": 13
+  },
+  {
+    "file": "src/utils\\systemPrompt.ts",
+    "count": 13
+  },
+  {
+    "file": "src/utils\\treeify.ts",
+    "count": 13
+  },
+  {
+    "file": "src/services\\lsp\\config.ts",
+    "count": 12
+  },
+  {
+    "file": "src/services\\mcp\\vscodeSdkMcp.ts",
+    "count": 12
+  },
+  {
+    "file": "src/services\\plugins\\pluginCliCommands.ts",
+    "count": 12
+  },
+  {
+    "file": "src/utils\\abortController.ts",
+    "count": 12
+  },
+  {
+    "file": "src/utils\\bash\\prefix.ts",
+    "count": 12
+  },
+  {
+    "file": "src/utils\\cliHighlight.ts",
+    "count": 12
+  },
+  {
+    "file": "src/utils\\filePersistence\\outputsScanner.ts",
+    "count": 12
+  },
+  {
+    "file": "src/utils\\fileReadCache.ts",
+    "count": 12
+  },
+  {
+    "file": "src/utils\\hooks\\apiQueryHookHelper.ts",
+    "count": 12
+  },
+  {
+    "file": "src/utils\\hooks\\execPromptHook.ts",
+    "count": 12
+  },
+  {
+    "file": "src/utils\\mcp\\dateTimeParser.ts",
+    "count": 12
+  },
+  {
+    "file": "src/utils\\permissions\\PermissionPromptToolResultSchema.ts",
+    "count": 12
+  },
+  {
+    "file": "src/utils\\platform.ts",
+    "count": 12
+  },
+  {
+    "file": "src/utils\\renderOptions.ts",
+    "count": 12
+  },
+  {
+    "file": "src/utils\\shell\\powershellDetection.ts",
+    "count": 12
+  },
+  {
+    "file": "src/utils\\systemTheme.ts",
+    "count": 12
+  },
+  {
+    "file": "src/constants\\common.ts",
+    "count": 11
+  },
+  {
+    "file": "src/constants\\system.ts",
+    "count": 11
+  },
+  {
+    "file": "src/services\\mcp\\headersHelper.ts",
+    "count": 11
+  },
+  {
+    "file": "src/utils\\billing.ts",
+    "count": 11
+  },
+  {
+    "file": "src/utils\\claudeDesktop.ts",
+    "count": 11
+  },
+  {
+    "file": "src/utils\\exportRenderer.tsx",
+    "count": 11
+  },
+  {
+    "file": "src/utils\\git\\gitignore.ts",
+    "count": 11
+  },
+  {
+    "file": "src/utils\\managedEnvConstants.ts",
+    "count": 11
+  },
+  {
+    "file": "src/utils\\model\\check1mAccess.ts",
+    "count": 11
+  },
+  {
+    "file": "src/utils\\permissions\\getNextPermissionMode.ts",
+    "count": 11
+  },
+  {
+    "file": "src/utils\\process.ts",
+    "count": 11
+  },
+  {
+    "file": "src/utils\\secureStorage\\fallbackStorage.ts",
+    "count": 11
+  },
+  {
+    "file": "src/utils\\settings\\applySettingsChange.ts",
+    "count": 11
+  },
+  {
+    "file": "src/utils\\settings\\mdm\\rawRead.ts",
+    "count": 11
+  },
+  {
+    "file": "src/utils\\streamlinedTransform.ts",
+    "count": 11
+  },
+  {
+    "file": "src/utils\\toolPool.ts",
+    "count": 11
+  },
+  {
+    "file": "src/services\\MagicDocs\\prompts.ts",
+    "count": 10
+  },
+  {
+    "file": "src/utils\\apiPreconnect.ts",
+    "count": 10
+  },
+  {
+    "file": "src/utils\\background\\remote\\preconditions.ts",
+    "count": 10
+  },
+  {
+    "file": "src/utils\\bufferedWriter.ts",
+    "count": 10
+  },
+  {
+    "file": "src/utils\\crypto.ts",
+    "count": 10
+  },
+  {
+    "file": "src/utils\\getWorktreePaths.ts",
+    "count": 10
+  },
+  {
+    "file": "src/utils\\mcpOutputStorage.ts",
+    "count": 10
+  },
+  {
+    "file": "src/utils\\mcpValidation.ts",
+    "count": 10
+  },
+  {
+    "file": "src/utils\\pasteStore.ts",
+    "count": 10
+  },
+  {
+    "file": "src/utils\\plugins\\pluginIdentifier.ts",
+    "count": 10
+  },
+  {
+    "file": "src/utils\\QueryGuard.ts",
+    "count": 10
+  },
+  {
+    "file": "src/utils\\settings\\mdm\\constants.ts",
+    "count": 10
+  },
+  {
+    "file": "src/utils\\streamJsonStdoutGuard.ts",
+    "count": 10
+  },
+  {
+    "file": "src/utils\\swarm\\backends\\teammateModeSnapshot.ts",
+    "count": 10
+  },
+  {
+    "file": "src/services\\settingsSync\\types.ts",
+    "count": 9
+  },
+  {
+    "file": "src/services\\tips\\tipRegistry.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\contextAnalysis.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\deepLink\\banner.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\execFileNoThrow.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\execFileNoThrowPortable.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\fileRead.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\ghPrStatus.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\intl.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\permissions\\PermissionUpdateSchema.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\plugins\\hintRecommendation.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\plugins\\pluginBlocklist.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\plugins\\pluginFlagging.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\processUserInput\\processTextPrompt.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\sessionEnvironment.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\swarm\\teammateLayoutManager.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\teamDiscovery.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\telemetry\\bigqueryExporter.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\telemetry\\events.ts",
+    "count": 9
+  },
+  {
+    "file": "src/utils\\toolSchemaCache.ts",
+    "count": 9
+  },
+  {
+    "file": "src/constants\\tools.ts",
+    "count": 8
+  },
+  {
+    "file": "src/services\\mcp\\oauthPort.ts",
+    "count": 8
+  },
+  {
+    "file": "src/utils\\aws.ts",
+    "count": 8
+  },
+  {
+    "file": "src/utils\\background\\remote\\remoteSession.ts",
+    "count": 8
+  },
+  {
+    "file": "src/utils\\backgroundHousekeeping.ts",
+    "count": 8
+  },
+  {
+    "file": "src/utils\\caCertsConfig.ts",
+    "count": 8
+  },
+  {
+    "file": "src/utils\\completionCache.ts",
+    "count": 8
+  },
+  {
+    "file": "src/utils\\computerUse\\drainRunLoop.ts",
+    "count": 8
+  },
+  {
+    "file": "src/utils\\computerUse\\hostAdapter.ts",
+    "count": 8
+  },
+  {
+    "file": "src/utils\\hooks\\postSamplingHooks.ts",
+    "count": 8
+  },
+  {
+    "file": "src/utils\\imageValidation.ts",
+    "count": 8
+  },
+  {
+    "file": "src/utils\\plugins\\loadPluginOutputStyles.ts",
+    "count": 8
+  },
+  {
+    "file": "src/utils\\sessionUrl.ts",
+    "count": 8
+  },
+  {
+    "file": "src/utils\\suggestions\\skillUsageTracking.ts",
+    "count": 8
+  },
+  {
+    "file": "src/utils\\swarm\\reconnection.ts",
+    "count": 8
+  },
+  {
+    "file": "src/constants\\toolLimits.ts",
+    "count": 7
+  },
+  {
+    "file": "src/services\\api\\bootstrap.ts",
+    "count": 7
+  },
+  {
+    "file": "src/services\\mcp\\SdkControlTransport.ts",
+    "count": 7
+  },
+  {
+    "file": "src/services\\remoteManagedSettings\\securityCheck.tsx",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\binaryCheck.ts",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\CircularBuffer.ts",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\claudeInChrome\\toolRendering.tsx",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\collapseBackgroundBashNotifications.ts",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\configConstants.ts",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\fileOperationAnalytics.ts",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\pdfUtils.ts",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\peerAddress.ts",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\screenshotClipboard.ts",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\settings\\validationTips.ts",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\status.tsx",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\teleport\\environmentSelection.ts",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\timeouts.ts",
+    "count": 7
+  },
+  {
+    "file": "src/utils\\tokenBudget.ts",
+    "count": 7
+  },
+  {
+    "file": "src/services\\compact\\timeBasedMCConfig.ts",
+    "count": 6
+  },
+  {
+    "file": "src/services\\internalLogging.ts",
+    "count": 6
+  },
+  {
+    "file": "src/services\\mcp\\InProcessTransport.ts",
+    "count": 6
+  },
+  {
+    "file": "src/types\\ids.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\advisor.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\contextSuggestions.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\diff.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\fingerprint.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\hooks\\AsyncHookRegistry.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\hooks\\skillImprovement.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\hyperlink.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\inProcessTeammateHelpers.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\keyboardShortcuts.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\messages\\systemInit.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\model\\configs.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\model\\deprecation.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\sessionActivity.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\sessionTitle.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\slashCommandParsing.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\systemDirectories.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\textHighlighting.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\undercover.ts",
+    "count": 6
+  },
+  {
+    "file": "src/utils\\which.ts",
+    "count": 6
+  },
+  {
+    "file": "src/constants\\betas.ts",
+    "count": 5
+  },
+  {
+    "file": "src/constants\\outputStyles.ts",
+    "count": 5
+  },
+  {
+    "file": "src/constants\\product.ts",
+    "count": 5
+  },
+  {
+    "file": "src/services\\mcp\\envExpansion.ts",
+    "count": 5
+  },
+  {
+    "file": "src/services\\remoteManagedSettings\\types.ts",
+    "count": 5
+  },
+  {
+    "file": "src/services\\tips\\tipScheduler.ts",
+    "count": 5
+  },
+  {
+    "file": "src/services\\tools\\toolOrchestration.ts",
+    "count": 5
+  },
+  {
+    "file": "src/services\\toolUseSummary\\toolUseSummaryGenerator.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\agentId.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\agentSwarmsEnabled.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\cachePaths.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\cleanupRegistry.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\computerUse\\toolRendering.tsx",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\contentArray.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\deepLink\\terminalPreference.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\diagLogs.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\gitSettings.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\hooks\\hookHelpers.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\idleTimeout.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\modifiers.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\notebook.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\permissions\\autoModeState.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\plugins\\gitAvailability.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\queryContext.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\settings\\validateEditTool.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\sleep.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\taggedId.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\xdg.ts",
+    "count": 5
+  },
+  {
+    "file": "src/utils\\zodToJsonSchema.ts",
+    "count": 5
+  },
+  {
+    "file": "src/constants\\systemPromptSections.ts",
+    "count": 4
+  },
+  {
+    "file": "src/services\\analytics\\sinkKillswitch.ts",
+    "count": 4
+  },
+  {
+    "file": "src/services\\api\\usage.ts",
+    "count": 4
+  },
+  {
+    "file": "src/services\\autoDream\\config.ts",
+    "count": 4
+  },
+  {
+    "file": "src/services\\extractMemories\\prompts.ts",
+    "count": 4
+  },
+  {
+    "file": "src/services\\mcp\\officialRegistry.ts",
+    "count": 4
+  },
+  {
+    "file": "src/services\\policyLimits\\types.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\autoRunIssue.tsx",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\awsAuthStatusManager.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\bash\\registry.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\browser.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\claudeInChrome\\prompt.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\cliArgs.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\computerUse\\common.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\computerUse\\mcpServer.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\computerUse\\setup.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\crossProjectResume.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\displayTags.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\dxt\\helpers.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\formatBriefTimestamp.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\generators.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\hooks\\fileChangedWatcher.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\hooks\\hookEvents.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\permissions\\PermissionMode.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\permissions\\PermissionRule.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\planModeV2.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\privacyLevel.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\profilerBase.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\promptCategory.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\set.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\settings\\settingsCache.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\signal.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\swarm\\constants.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\swarm\\teammateModel.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\toolErrors.ts",
+    "count": 4
+  },
+  {
+    "file": "src/utils\\userPromptKeywords.ts",
+    "count": 4
+  },
+  {
+    "file": "src/services\\analytics\\config.ts",
+    "count": 3
+  },
+  {
+    "file": "src/services\\api\\adminRequests.ts",
+    "count": 3
+  },
+  {
+    "file": "src/services\\api\\firstTokenDate.ts",
+    "count": 3
+  },
+  {
+    "file": "src/services\\awaySummary.ts",
+    "count": 3
+  },
+  {
+    "file": "src/services\\compact\\compactWarningState.ts",
+    "count": 3
+  },
+  {
+    "file": "src/services\\mcp\\channelAllowlist.ts",
+    "count": 3
+  },
+  {
+    "file": "src/services\\mcp\\normalization.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\bundledMode.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\computerUse\\escHotkey.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\cwd.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\directMemberMessage.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\hash.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\hooks\\registerFrontmatterHooks.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\ink.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\memory\\versions.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\messagePredicates.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\model\\antModels.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\model\\contextWindowUpgradeCheck.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\model\\modelCapabilities.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\permissions\\classifierShared.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\permissions\\PermissionResult.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\plugins\\addDirPluginSettings.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\plugins\\managedPlugins.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\plugins\\officialMarketplace.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\secureStorage\\plainTextStorage.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\settings\\allErrors.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\settings\\managedPath.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\settings\\pluginOnlyPolicy.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\shell\\shellProvider.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\standaloneAgent.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\teamMemoryOps.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\telemetry\\skillLoadedEvent.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\telemetryAttributes.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\uuid.ts",
+    "count": 3
+  },
+  {
+    "file": "src/utils\\workloadContext.ts",
+    "count": 3
+  },
+  {
+    "file": "src/constants\\keys.ts",
+    "count": 2
+  },
+  {
+    "file": "src/constants\\turnCompletionVerbs.ts",
+    "count": 2
+  },
+  {
+    "file": "src/services\\autoDream\\consolidationPrompt.ts",
+    "count": 2
+  },
+  {
+    "file": "src/services\\notifier.ts",
+    "count": 2
+  },
+  {
+    "file": "src/services\\oauth\\getOauthProfile.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\autoModeDenials.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\bash\\shellPrefix.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\collapseHookSummaries.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\embeddedTools.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\hooks\\registerSkillHooks.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\nativeInstaller\\index.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\permissions\\denialTracking.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\plugins\\pluginPolicy.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\plugins\\walkPluginMarkdown.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\preflightChecks.tsx",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\sandbox\\sandbox-ui-utils.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\secureStorage\\index.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\sequential.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\settings\\internalWrites.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\statusNoticeDefinitions.tsx",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\teleport\\environments.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\ultraplan\\keyword.ts",
+    "count": 2
+  },
+  {
+    "file": "src/utils\\xml.ts",
+    "count": 2
+  },
+  {
+    "file": "src/constants\\cyberRiskInstruction.ts",
+    "count": 1
+  },
+  {
+    "file": "src/constants\\errorIds.ts",
+    "count": 1
+  },
+  {
+    "file": "src/constants\\spinnerVerbs.ts",
+    "count": 1
+  },
+  {
+    "file": "src/services\\api\\emptyUsage.ts",
+    "count": 1
+  },
+  {
+    "file": "src/services\\api\\ultrareviewQuota.ts",
+    "count": 1
+  },
+  {
+    "file": "src/services\\compact\\compactWarningHook.ts",
+    "count": 1
+  },
+  {
+    "file": "src/services\\mcp\\MCPConnectionManager.tsx",
+    "count": 1
+  },
+  {
+    "file": "src/services\\mcpServerApproval.tsx",
+    "count": 1
+  },
+  {
+    "file": "src/services\\teamMemorySync\\teamMemSecretGuard.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\classifierApprovals.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\classifierApprovalsHook.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\collapseTeammateShutdowns.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\combinedAbortSignal.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\computerUse\\inputLoader.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\computerUse\\swiftLoader.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\controlMessageCompat.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\execSyncWrapper.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\filePersistence\\types.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\findExecutable.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\getWorktreePathsPortable.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\github\\ghAuthStatus.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\highlightMatch.tsx",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\immediateCommand.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\jsonRead.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\lazySchema.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\lockfile.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\model\\aliases.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\model\\modelSupportOverrides.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\model\\providers.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\objectGroupBy.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\permissions\\bashClassifier.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\semanticBoolean.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\semanticNumber.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\semver.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\sessionEnvVars.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\shell\\resolveDefaultShell.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\shell\\shellToolUtils.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\sinks.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\statusNoticeHelpers.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\swarm\\leaderPermissionBridge.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\swarm\\teammatePromptAddendum.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\systemPromptType.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\task\\outputFormatting.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\task\\sdkProgress.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\tempfile.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\userAgent.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\withResolvers.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\worktreeModeEnabled.ts",
+    "count": 1
+  },
+  {
+    "file": "src/utils\\yaml.ts",
+    "count": 1
+  }
+]

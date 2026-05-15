@@ -15,36 +15,35 @@ import { maybeResizeAndDownsampleImageBuffer } from '../../utils/imageResizer.js
 import { getMaxOutputLength } from '../../utils/shell/outputLimits.js'
 import { countCharInString, plural } from '../../utils/stringUtils.js'
 /**
- * Strips leading and trailing lines that contain only whitespace/newlines.
- * Unlike trim(), this preserves whitespace within content lines and only removes
- * completely empty lines from the beginning and end.
+ * 去掉开头和结尾那些只包含空白字符/换行的行。
+ * 与 trim() 不同，它会保留内容行内部的空白，只删除首尾完全空白的行。
  */
 export function stripEmptyLines(content: string): string {
   const lines = content.split('\n')
 
-  // Find the first non-empty line
+  // 找到第一条非空行。
   let startIndex = 0
   while (startIndex < lines.length && lines[startIndex]?.trim() === '') {
     startIndex++
   }
 
-  // Find the last non-empty line
+  // 找到最后一条非空行。
   let endIndex = lines.length - 1
   while (endIndex >= 0 && lines[endIndex]?.trim() === '') {
     endIndex--
   }
 
-  // If all lines are empty, return empty string
+  // 如果所有行都为空，则返回空字符串。
   if (startIndex > endIndex) {
     return ''
   }
 
-  // Return the slice with non-empty lines
+  // 返回包含非空行的切片。
   return lines.slice(startIndex, endIndex + 1).join('\n')
 }
 
 /**
- * Check if content is a base64 encoded image data URL
+ * 检查内容是否是 base64 编码的图片 data URL。
  */
 export function isImageOutput(content: string): boolean {
   return /^data:image\/[a-z0-9.+_-]+;base64,/i.test(content)
@@ -53,8 +52,8 @@ export function isImageOutput(content: string): boolean {
 const DATA_URI_RE = /^data:([^;]+);base64,(.+)$/
 
 /**
- * Parse a data-URI string into its media type and base64 payload.
- * Input is trimmed before matching.
+ * 将 data-URI 字符串解析为 media type 与 base64 payload。
+ * 匹配前会先对输入执行 trim。
  */
 export function parseDataUri(
   s: string,
@@ -65,8 +64,8 @@ export function parseDataUri(
 }
 
 /**
- * Build an image tool_result block from shell stdout containing a data URI.
- * Returns null if parse fails so callers can fall through to text handling.
+ * 从 shell stdout 中包含的 data URI 构建 image 类型的 tool_result block。
+ * 如果解析失败则返回 null，让调用方回退到文本处理流程。
  */
 export function buildImageToolResult(
   stdout: string,
@@ -90,22 +89,21 @@ export function buildImageToolResult(
   }
 }
 
-// Cap file reads to 20 MB — any image data URI larger than this is
-// well beyond what the API accepts (5 MB base64) and would OOM if read
-// into memory.
+// 文件读取上限为 20 MB。任何超过这个大小的图片 data URI 都远超 API 可接受范围
+// （base64 后 5 MB），而且读入内存时也很容易触发 OOM。
 const MAX_IMAGE_FILE_SIZE = 20 * 1024 * 1024
 
 /**
- * Resize image output from a shell tool. stdout is capped at
- * getMaxOutputLength() when read back from the shell output file — if the
- * full output spilled to disk, re-read it from there, since truncated base64
- * would decode to a corrupt image that either throws here or gets rejected by
- * the API. Caps dimensions too: compressImageBuffer only checks byte size, so
- * a small-but-high-DPI PNG (e.g. matplotlib at dpi=300) sails through at full
- * resolution and poisons many-image requests (CC-304).
+ * 重新调整 shell tool 输出的图片尺寸。
+ * 当从 shell 输出文件中回读 stdout 时，内容会被 getMaxOutputLength() 截断；
+ * 如果完整输出已经溢写到磁盘，就必须从磁盘重新读回来，否则被截断的 base64
+ * 会解码成损坏图片，要么在这里报错，要么被 API 拒收。
+ * 这里还会限制图片尺寸：compressImageBuffer 只检查字节大小，
+ * 因此某些“字节不大但 DPI 很高”的 PNG（例如 matplotlib 的 dpi=300）
+ * 会以完整分辨率漏过去，从而污染多图请求（CC-304）。
  *
- * Returns the re-encoded data URI on success, or null if the source didn't
- * parse as a data URI (caller decides whether to flip isImage).
+ * 成功时返回重新编码后的 data URI；如果源内容本身无法解析为 data URI，
+ * 则返回 null（是否把 isImage 翻回去由调用方决定）。
  */
 export async function resizeShellImageOutput(
   stdout: string,
@@ -175,13 +173,13 @@ export function resetCwdIfOutsideProject(
   const shouldMaintain = shouldMaintainProjectWorkingDir()
   if (
     shouldMaintain ||
-    // Fast path: originalCwd is unconditionally in allWorkingDirectories
-    // (filesystem.ts), so when cwd hasn't moved, pathInAllowedWorkingPath is
-    // trivially true — skip its syscalls for the no-cd common case.
+    // 快路径：originalCwd 一定存在于 allWorkingDirectories 中
+    // （见 filesystem.ts），因此当 cwd 没变时，pathInAllowedWorkingPath
+    // 必然为真，可以跳过其系统调用，优化“没有 cd”的常见路径。
     (cwd !== originalCwd &&
       !pathInAllowedWorkingPath(cwd, toolPermissionContext))
   ) {
-    // Reset to original directory if maintaining project dir OR outside allowed working directory
+    // 如果要求维持项目目录，或当前目录已跑到允许工作目录之外，就重置回原目录。
     setCwd(originalCwd)
     if (!shouldMaintain) {
       logEvent('tengu_bash_tool_reset_to_original_dir', {})
@@ -192,8 +190,8 @@ export function resetCwdIfOutsideProject(
 }
 
 /**
- * Creates a human-readable summary of structured content blocks.
- * Used to display MCP results with images and text in the UI.
+ * 为结构化内容块生成一段适合人读的摘要。
+ * 用于在 UI 中展示同时包含图片和文本的 MCP 结果。
  */
 export function createContentSummary(content: ContentBlockParam[]): string {
   const parts: string[] = []
@@ -205,7 +203,7 @@ export function createContentSummary(content: ContentBlockParam[]): string {
       imageCount++
     } else if (block.type === 'text' && 'text' in block) {
       textCount++
-      // Include first 200 chars of text blocks for context
+      // 带上文本块的前 200 个字符，作为上下文预览。
       const preview = block.text.slice(0, 200)
       parts.push(preview + (block.text.length > 200 ? '...' : ''))
     }

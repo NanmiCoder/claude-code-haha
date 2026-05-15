@@ -3,11 +3,11 @@ import { Event } from './event.js'
 export type TerminalFocusEventType = 'terminalfocus' | 'terminalblur'
 
 /**
- * Event fired when the terminal window gains or loses focus.
+ * 终端窗口获得或失去焦点时触发的事件。
  *
- * Uses DECSET 1004 focus reporting - the terminal sends:
- * - CSI I (\x1b[I) when the terminal gains focus
- * - CSI O (\x1b[O) when the terminal loses focus
+ * 使用 DECSET 1004 焦点上报，终端会发送：
+ * - 终端获得焦点时发送 CSI I (\x1b[I)
+ * - 终端失去焦点时发送 CSI O (\x1b[O)
  */
 export class TerminalFocusEvent extends Event {
   readonly type: TerminalFocusEventType

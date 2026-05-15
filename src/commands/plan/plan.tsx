@@ -69,7 +69,7 @@ export async function call(onDone: LocalJSXCommandOnDone, context: LocalJSXComma
   const appState = getAppState();
   const currentMode = appState.toolPermissionContext.mode;
 
-  // If not in plan mode, enable it
+  // 如果当前不在 plan mode，就启用它
   if (currentMode !== 'plan') {
     handlePlanModeTransition(currentMode, 'plan');
     setAppState(prev => ({
@@ -91,7 +91,7 @@ export async function call(onDone: LocalJSXCommandOnDone, context: LocalJSXComma
     return null;
   }
 
-  // Already in plan mode - show the current plan
+  // 已经在 plan mode，显示当前 plan
   const planContent = getPlan();
   const planPath = getPlanFilePath();
   if (!planContent) {
@@ -99,7 +99,7 @@ export async function call(onDone: LocalJSXCommandOnDone, context: LocalJSXComma
     return null;
   }
 
-  // If user typed "/plan open", open in editor
+  // 如果用户输入 "/plan open"，就在编辑器中打开
   const argList = args.trim().split(/\s+/);
   if (argList[0] === 'open') {
     const result = await editFileInEditor(planPath);
@@ -114,7 +114,7 @@ export async function call(onDone: LocalJSXCommandOnDone, context: LocalJSXComma
   const editorName = editor ? toIDEDisplayName(editor) : undefined;
   const display = <PlanDisplay planContent={planContent} planPath={planPath} editorName={editorName} />;
 
-  // Render to string and pass to onDone like local commands do
+  // 渲染为字符串，并像 local commands 那样传给 onDone
   const output = await renderToString(display);
   onDone(output);
   return null;

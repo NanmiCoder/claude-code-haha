@@ -9,8 +9,8 @@ import { generateShellSuggestionsLabel } from '../shellPermissionHelpers.js';
 export type BashToolUseOption = 'yes' | 'yes-apply-suggestions' | 'yes-prefix-edited' | 'yes-classifier-reviewed' | 'no';
 
 /**
- * Check if a description already exists in the allow list.
- * Compares lowercase and trailing-whitespace-trimmed versions.
+ * 检查某条描述是否已存在于 allow list 中。
+ * 比较时会统一转成小写，并去掉尾部空白。
  */
 function descriptionAlreadyExists(description: string, existingDescriptions: string[]): boolean {
   const normalized = description.toLowerCase().trimEnd();
@@ -18,14 +18,14 @@ function descriptionAlreadyExists(description: string, existingDescriptions: str
 }
 
 /**
- * Strip output redirections so filenames don't show as commands in the label.
+ * 去掉输出重定向，避免文件名在标签里被误显示成命令。
  */
 function stripBashRedirections(command: string): string {
   const {
     commandWithoutRedirections,
     redirections
   } = extractOutputRedirections(command);
-  // Only use stripped version if there were actual redirections
+  // 只有在确实存在重定向时，才使用剥离后的版本。
   return redirections.length > 0 ? commandWithoutRedirections : command;
 }
 export function bashToolUseOptions({
@@ -48,14 +48,14 @@ export function bashToolUseOptions({
   onAcceptFeedbackChange: (value: string) => void;
   onClassifierDescriptionChange?: (value: string) => void;
   classifierDescription?: string;
-  /** Whether the initial classifier description was empty. When true, hides the option. */
+  /** 初始 classifier 描述是否为空；为空时隐藏该选项。 */
   initialClassifierDescriptionEmpty?: boolean;
   existingAllowDescriptions?: string[];
   yesInputMode?: boolean;
   noInputMode?: boolean;
-  /** Editable prefix rule content (e.g., "npm run:*"). When set, replaces Haiku-based suggestions. */
+  /** 可编辑的前缀规则内容（例如 "npm run:*"）；设置后会替代基于 Haiku 的建议。 */
   editablePrefix?: string;
-  /** Callback when the user edits the prefix value. */
+  /** 用户编辑前缀值时触发的回调。 */
   onEditablePrefixChange?: (value: string) => void;
 }): OptionWithDescription<BashToolUseOption>[] {
   const options: OptionWithDescription<BashToolUseOption>[] = [];
@@ -75,12 +75,11 @@ export function bashToolUseOptions({
     });
   }
 
-  // Only show "always allow" options when not restricted by allowManagedPermissionRulesOnly
+  // 只有在未被 allowManagedPermissionRulesOnly 限制时，才显示“始终允许”选项。
   if (shouldShowAlwaysAllowOptions()) {
-    // Show an editable input for the prefix rule instead of the
-    // Haiku-generated suggestion label — but only when the suggestions
-    // don't contain non-Bash items (addDirectories, Read rules) that
-    // the editable prefix can't represent.
+    // 用可编辑的前缀规则输入框替代 Haiku 生成的建议标签，
+    // 但前提是 suggestions 里不包含 editable prefix 无法表达的
+    // 非 Bash 项（如 addDirectories、Read 规则）。
     const hasNonBashSuggestions = suggestions.some(s => s.type === 'addDirectories' || s.type === 'addRules' && s.rules?.some(r => r.toolName !== BASH_TOOL_NAME));
     if (editablePrefix !== undefined && onEditablePrefixChange && !hasNonBashSuggestions && suggestions.length > 0) {
       options.push({
@@ -105,12 +104,12 @@ export function bashToolUseOptions({
       }
     }
 
-    // Add classifier-reviewed option if enabled, the initial description was
-    // non-empty, the description doesn't already exist in the allow list,
-    // and the decision reason is NOT a server-side classifier block
-    // (prompt-based rules don't help when the server-side classifier triggers first).
-    // Skip when the editable prefix option is already shown — they serve the
-    // same role and having two identical-looking "don't ask again" inputs is confusing.
+    // 仅在以下条件满足时，才添加 classifier-reviewed 选项：
+    // classifier 已启用、初始描述非空、该描述尚未存在于 allow list 中，
+    // 且 decision reason 不是服务端 classifier block
+    // （当服务端 classifier 先触发时，prompt-based 规则并不能解决问题）。
+    // 如果 editable prefix 选项已经显示，则跳过这里，
+    // 因为它们作用相近，同时展示两个长得一样的“不要再问”输入框会让人困惑。
     const editablePrefixShown = options.some(o => o.value === 'yes-prefix-edited');
     if ("external" === 'ant' && !editablePrefixShown && isClassifierPermissionsEnabled() && onClassifierDescriptionChange && !initialClassifierDescriptionEmpty && !descriptionAlreadyExists(classifierDescription ?? '', existingAllowDescriptions) && decisionReason?.type !== 'classifier') {
       options.push({

@@ -1,17 +1,16 @@
 import { saveGlobalConfig } from '../utils/config.js'
 
 /**
- * Migrate the `replBridgeEnabled` config key to `remoteControlAtStartup`.
+ * 将 `replBridgeEnabled` 配置键迁移到 `remoteControlAtStartup`。
  *
- * The old key was an implementation detail that leaked into user-facing config.
- * This migration copies the value to the new key and removes the old one.
- * Idempotent — only acts when the old key exists and the new one doesn't.
+ * 旧键原本是一个实现细节，却泄漏到了面向用户的配置中。
+ * 这个迁移会把它的值复制到新键，然后移除旧键。
+ * 幂等——只有在旧键存在且新键不存在时才会生效。
  */
 export function migrateReplBridgeEnabledToRemoteControlAtStartup(): void {
   saveGlobalConfig(prev => {
-    // The old key is no longer in the GlobalConfig type, so access it via
-    // an untyped cast. Only migrate if the old key exists and the new key
-    // hasn't been set yet.
+    // 旧键已经不在 GlobalConfig 类型里了，所以这里通过
+    // 非类型化的 cast 访问它。只有当旧键存在且新键尚未设置时才迁移。
     const oldValue = (prev as Record<string, unknown>)['replBridgeEnabled']
     if (oldValue === undefined) return prev
     if (prev.remoteControlAtStartup !== undefined) return prev

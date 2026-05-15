@@ -34,59 +34,54 @@ export type DOMElement = {
   childNodes: DOMNode[]
   textStyles?: TextStyles
 
-  // Internal properties
+  // 内部属性
   onComputeLayout?: () => void
   onRender?: () => void
   onImmediateRender?: () => void
-  // Used to skip empty renders during React 19's effect double-invoke in test mode
+  // 用于在测试模式下跳过 React 19 effect 双调用产生的空渲染
   hasRenderedContent?: boolean
 
-  // When true, this node needs re-rendering
+  // 为 true 时，表示该节点需要重新渲染
   dirty: boolean
-  // Set by the reconciler's hideInstance/unhideInstance; survives style updates.
+  // 由 reconciler 的 hideInstance/unhideInstance 设置；样式更新后仍会保留。
   isHidden?: boolean
-  // Event handlers set by the reconciler for the capture/bubble dispatcher.
-  // Stored separately from attributes so handler identity changes don't
-  // mark dirty and defeat the blit optimization.
+  // 由 reconciler 为 capture/bubble dispatcher 设置的事件处理器。
+  // 单独存放而不是放进 attributes，避免 handler 身份变化导致节点被标脏，
+  // 从而破坏 blit 优化。
   _eventHandlers?: Record<string, unknown>
 
-  // Scroll state for overflow: 'scroll' boxes. scrollTop is the number of
-  // rows the content is scrolled down by. scrollHeight/scrollViewportHeight
-  // are computed at render time and stored for imperative access. stickyScroll
-  // auto-pins scrollTop to the bottom when content grows.
+  // overflow: 'scroll' 盒子的滚动状态。scrollTop 表示内容向下滚动了多少行。
+  // scrollHeight / scrollViewportHeight 在渲染时计算，并缓存起来供命令式访问。
+  // stickyScroll 会在内容增长时自动把 scrollTop 钉到底部。
   scrollTop?: number
-  // Accumulated scroll delta not yet applied to scrollTop. The renderer
-  // drains this at SCROLL_MAX_PER_FRAME rows/frame so fast flicks show
-  // intermediate frames instead of one big jump. Direction reversal
-  // naturally cancels (pure accumulator, no target tracking).
+  // 尚未应用到 scrollTop 上的累计滚动增量。renderer 会按每帧
+  // SCROLL_MAX_PER_FRAME 行的速度逐步耗尽它，这样快速滑动时就能看到中间帧，
+  // 而不是一次性大跳跃。方向反转会自然抵消（纯累加器，不追踪目标值）。
   pendingScrollDelta?: number
-  // Render-time clamp bounds for virtual scroll. useVirtualScroll writes
-  // the currently-mounted children's coverage span; render-node-to-output
-  // clamps scrollTop to stay within it. Prevents blank screen when
-  // scrollTo's direct write races past React's async re-render — instead
-  // of painting spacer (blank), the renderer holds at the edge of mounted
-  // content until React catches up (next commit updates these bounds and
-  // the clamp releases). Undefined = no clamp (sticky-scroll, cold start).
+  // 虚拟滚动在渲染时使用的 clamp 边界。useVirtualScroll 会写入当前已挂载子节点的
+  // 覆盖范围，render-node-to-output 会把 scrollTop 限制在这个范围内。这样当
+  // scrollTo 的直接写入跑在 React 异步重渲染前面时，就不会出现白屏；renderer
+  // 会先停在已挂载内容的边缘，直到 React 追上来（下一个 commit 会更新这些边界，
+  // clamp 随后解除）。Undefined 表示不做 clamp（sticky-scroll、冷启动）。
   scrollClampMin?: number
   scrollClampMax?: number
   scrollHeight?: number
   scrollViewportHeight?: number
   scrollViewportTop?: number
   stickyScroll?: boolean
-  // Set by ScrollBox.scrollToElement; render-node-to-output reads
-  // el.yogaNode.getComputedTop() (FRESH — same Yoga pass as scrollHeight)
-  // and sets scrollTop = top + offset, then clears this. Unlike an
-  // imperative scrollTo(N) which bakes in a number that's stale by the
-  // time the throttled render fires, the element ref defers the position
-  // read to paint time. One-shot.
+  // 由 ScrollBox.scrollToElement 设置；render-node-to-output 会读取
+  // el.yogaNode.getComputedTop()（最新值，与 scrollHeight 属于同一轮 Yoga 计算），
+  // 然后设置 scrollTop = top + offset，最后清掉该字段。与把数字预先算死的
+  // 命令式 scrollTo(N) 不同，元素 ref 会把位置读取延后到绘制时再进行，因此不会
+  // 因节流渲染而读到过期值。该行为只生效一次。
   scrollAnchor?: { el: DOMElement; offset: number }
-  // Only set on ink-root. The document owns focus — any node can
-  // reach it by walking parentNode, like browser getRootNode().
+  // 仅设置在 ink-root 上。焦点归 document 所有，任意节点都可以像浏览器的
+  // getRootNode() 一样通过 parentNode 向上查找到它。
   focusManager?: FocusManager
-  // React component stack captured at createInstance time (reconciler.ts),
-  // e.g. ['ToolUseLoader', 'Messages', 'REPL']. Only populated when
-  // CLAUDE_CODE_DEBUG_REPAINTS is set. Used by findOwnerChainAtRow to
-  // attribute scrollback-diff full-resets to the component that caused them.
+  // 在 createInstance 时（reconciler.ts）捕获的 React 组件栈，
+  // 例如 ['ToolUseLoader', 'Messages', 'REPL']。仅在设置了
+  // CLAUDE_CODE_DEBUG_REPAINTS 时才会填充。findOwnerChainAtRow 会利用它，
+  // 将 scrollback-diff 导致的 full reset 归因到真正触发它的组件。
   debugOwnerChain?: string[]
 } & InkNode
 
@@ -166,10 +161,9 @@ export const insertBeforeNode = (
   const index = node.childNodes.indexOf(beforeChildNode)
 
   if (index >= 0) {
-    // Calculate yoga index BEFORE modifying childNodes.
-    // We can't use DOM index directly because some children (like ink-progress,
-    // ink-link, ink-virtual-text) don't have yogaNodes, so DOM indices don't
-    // match yoga indices.
+    // 在修改 childNodes 之前先计算 Yoga 下标。
+    // 不能直接使用 DOM 下标，因为有些子节点（例如 ink-progress、ink-link、
+    // ink-virtual-text）没有 yogaNode，因此 DOM 下标与 Yoga 下标并不一致。
     let yogaIndex = 0
     if (newChildNode.yogaNode && node.yogaNode) {
       for (let i = 0; i < index; i++) {
@@ -209,7 +203,7 @@ export const removeChildNode = (
     removeNode.parentNode?.yogaNode?.removeChild(removeNode.yogaNode)
   }
 
-  // Collect cached rects from the removed subtree so they can be cleared
+  // 收集被移除子树中的缓存 rect，供后续清理使用
   collectRemovedRects(node, removeNode)
 
   removeNode.parentNode = undefined
@@ -229,10 +223,9 @@ function collectRemovedRects(
 ): void {
   if (removed.nodeName === '#text') return
   const elem = removed as DOMElement
-  // If this node or any ancestor in the removed subtree was absolute,
-  // its painted pixels may overlap non-siblings — flag for global blit
-  // disable. Normal-flow removals only affect direct siblings, which
-  // hasRemovedChild already handles.
+  // 如果被移除子树中的该节点或其任一祖先是 absolute 定位，
+  // 那么其绘制过的像素就可能覆盖到非兄弟节点，因此要打上全局禁用 blit 的标记。
+  // 普通文档流中的删除只会影响直接兄弟节点，而那部分已有 hasRemovedChild 处理。
   const isAbsolute = underAbsolute || elem.style.position === 'absolute'
   const cached = nodeCache.get(elem)
   if (cached) {
@@ -249,13 +242,13 @@ export const setAttribute = (
   key: string,
   value: DOMNodeAttribute,
 ): void => {
-  // Skip 'children' - React handles children via appendChild/removeChild,
-  // not attributes. React always passes a new children reference, so
-  // tracking it as an attribute would mark everything dirty every render.
+  // 跳过 'children'：React 通过 appendChild/removeChild 管理子节点，
+  // 而不是通过 attributes。React 每次都会传入新的 children 引用，若把它当作
+  // attribute 跟踪，就会导致每一轮 render 都把整棵树标脏。
   if (key === 'children') {
     return
   }
-  // Skip if unchanged
+  // 若未变化则跳过
   if (node.attributes[key] === value) {
     return
   }

@@ -7,10 +7,10 @@ export const RARITIES = [
 ] as const
 export type Rarity = (typeof RARITIES)[number]
 
-// One species name collides with a model-codename canary in excluded-strings.txt.
-// The check greps build output (not source), so runtime-constructing the value keeps
-// the literal out of the bundle while the check stays armed for the actual codename.
-// All species encoded uniformly; `as` casts are type-position only (erased pre-bundle).
+// 有一个物种名会与 excluded-strings.txt 中针对模型代号的 canary 检查冲突。
+// 该检查 grep 的是构建产物（不是源码），因此在运行时构造该值可以
+// 让字面量不进入 bundle，同时仍对真实模型代号保持检查。
+// 所有物种都统一这样编码；`as` 断言只位于类型位置（打包前会被擦除）。
 const c = String.fromCharCode
 // biome-ignore format: keep the species list compact
 
@@ -97,7 +97,7 @@ export const STAT_NAMES = [
 ] as const
 export type StatName = (typeof STAT_NAMES)[number]
 
-// Deterministic parts — derived from hash(userId)
+// 确定性部分——由 hash(userId) 派生
 export type CompanionBones = {
   rarity: Rarity
   species: Species
@@ -107,7 +107,7 @@ export type CompanionBones = {
   stats: Record<StatName, number>
 }
 
-// Model-generated soul — stored in config after first hatch
+// 模型生成的 soul——首次 hatch 后存入 config
 export type CompanionSoul = {
   name: string
   personality: string

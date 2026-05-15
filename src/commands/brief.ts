@@ -16,9 +16,9 @@ import type {
 } from '../types/command.js'
 import { lazySchema } from '../utils/lazySchema.js'
 
-// Zod guards against fat-fingered GB pushes (same pattern as pollConfig.ts /
-// cronScheduler.ts). A malformed config falls back to DEFAULT_BRIEF_CONFIG
-// entirely rather than being partially trusted.
+// Zod 用于防止 GB 配置被手滑推错（与 pollConfig.ts /
+// cronScheduler.ts 相同模式）。畸形配置会完全回退到 DEFAULT_BRIEF_CONFIG，
+// 而不是部分信任其中内容。
 const briefConfigSchema = lazySchema(() =>
   z.object({
     enable_slash_command: z.boolean(),
@@ -30,11 +30,11 @@ const DEFAULT_BRIEF_CONFIG: BriefConfig = {
   enable_slash_command: false,
 }
 
-// No TTL — this gate controls slash-command *visibility*, not a kill switch.
-// CACHED_MAY_BE_STALE still has one background-update flip (first call kicks
-// off fetch; second call sees fresh value), but no additional flips after that.
-// The tool-availability gate (tengu_kairos_brief in isBriefEnabled) keeps its
-// 5-min TTL because that one IS a kill switch.
+// 不设置 TTL，这个开关控制的是 slash-command 的可见性，不是 kill switch。
+// CACHED_MAY_BE_STALE 仍会发生一次后台更新翻转（第一次调用触发
+// fetch；第二次调用看到新值），之后不会再翻转。
+// tool-availability 开关（isBriefEnabled 中的 tengu_kairos_brief）保留
+// 5 分钟 TTL，因为那个才是真正的 kill switch。
 function getBriefConfig(): BriefConfig {
   const raw = getFeatureValue_CACHED_MAY_BE_STALE<unknown>(
     'tengu_kairos_brief_config',
@@ -64,8 +64,8 @@ const brief = {
         const current = context.getAppState().isBriefOnly
         const newState = !current
 
-        // Entitlement check only gates the on-transition — off is always
-        // allowed so a user whose GB gate flipped mid-session isn't stuck.
+        // entitlement 检查只限制开启过程，关闭始终
+        // 允许，这样中途 GB 开关变化的用户不会被卡住。
         if (newState && !isBriefEntitled()) {
           logEvent('tengu_brief_mode_toggled', {
             enabled: false,
@@ -79,11 +79,11 @@ const brief = {
           return null
         }
 
-        // Two-way: userMsgOptIn tracks isBriefOnly so the tool is available
-        // exactly when brief mode is on. This invalidates prompt cache on
-        // each toggle (tool list changes), but a stale tool list is worse —
-        // when /brief is enabled mid-session the model was previously left
-        // without the tool, emitting plain text the filter hides.
+        // 双向同步：userMsgOptIn 跟踪 isBriefOnly，使该 tool
+        // 只在 brief mode 开启时可用。这会在每次切换时使 prompt cache 失效
+        // （因为 tool 列表变化），但 tool 列表陈旧更糟，
+        // 启用 /brief 时，model 否则仍可能没有该 tool，
+        // 从而输出会被过滤器隐藏的纯文本。
         setUserMsgOptIn(newState)
 
         context.setAppState(prev => {
@@ -98,16 +98,17 @@ const brief = {
             'slash_command' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         })
 
-        // The tool list change alone isn't a strong enough signal mid-session
-        // (model may keep emitting plain text from inertia, or keep calling a
-        // tool that just vanished). Inject an explicit reminder into the next
-        // turn's context so the transition is unambiguous.
-        // Skip when Kairos is active: isBriefEnabled() short-circuits on
-        // getKairosActive() so the tool never actually leaves the list, and
-        // the Kairos system prompt already mandates SendUserMessage.
-        // Inline <system-reminder> wrap — importing wrapInSystemReminder from
-        // utils/messages.ts pulls constants/xml.ts into the bridge SDK bundle
-        // via this module's import chain, tripping the excluded-strings check.
+        // 仅靠 tool 列表变化，在会话中途还不足以形成强信号
+        // （model 可能因惯性继续输出纯文本，或继续调用
+        // 刚刚消失的 tool）。把显式提醒注入下一轮
+        // 的上下文，让切换没有歧义。
+        // Kairos 激活时跳过：isBriefEnabled() 会在
+        // getKairosActive() 上短路，所以该 tool 实际上不会离开列表，
+        // 而且 Kairos system prompt 已经强制要求 SendUserMessage。
+        // 内联 <system-reminder> 包装，避免从
+        // utils/messages.ts 导入 wrapInSystemReminder 时经由本模块的导入链
+        // 把 constants/xml.ts 拉进 bridge SDK bundle，
+        // 从而触发 excluded-strings 检查。
         const metaMessages = getKairosActive()
           ? undefined
           : [

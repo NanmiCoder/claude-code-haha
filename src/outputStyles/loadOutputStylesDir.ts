@@ -11,17 +11,17 @@ import {
 import { clearPluginOutputStyleCache } from '../utils/plugins/loadPluginOutputStyles.js'
 
 /**
- * Loads markdown files from .claude/output-styles directories throughout the project
- * and from ~/.claude/output-styles directory and converts them to output styles.
+ * 从项目内各级 .claude/output-styles 目录，以及 ~/.claude/output-styles 目录中
+ * 加载 markdown 文件，并将它们转换为 output style。
  *
- * Each filename becomes a style name, and the file content becomes the style prompt.
- * The frontmatter provides name and description.
+ * 每个文件名都会成为 style 名称，文件内容则成为 style prompt。
+ * frontmatter 提供 name 和 description。
  *
- * Structure:
- * - Project .claude/output-styles/*.md -> project styles
- * - User ~/.claude/output-styles/*.md -> user styles (overridden by project styles)
+ * 目录结构：
+ * - 项目 .claude/output-styles/*.md -> 项目级 style
+ * - 用户 ~/.claude/output-styles/*.md -> 用户级 style（会被项目级 style 覆盖）
  *
- * @param cwd Current working directory for project directory traversal
+ * @param cwd 用于遍历项目目录的当前工作目录
  */
 export const getOutputStyleDirStyles = memoize(
   async (cwd: string): Promise<OutputStyleConfig[]> => {
@@ -37,7 +37,7 @@ export const getOutputStyleDirStyles = memoize(
             const fileName = basename(filePath)
             const styleName = fileName.replace(/\.md$/, '')
 
-            // Get style configuration from frontmatter
+            // 从 frontmatter 提取 style 配置。
             const name = (frontmatter['name'] || styleName) as string
             const description =
               coerceDescriptionToString(
@@ -49,7 +49,7 @@ export const getOutputStyleDirStyles = memoize(
                 `Custom ${styleName} output style`,
               )
 
-            // Parse keep-coding-instructions flag (supports both boolean and string values)
+            // 解析 keep-coding-instructions 标记（同时支持 boolean 和 string）。
             const keepCodingInstructionsRaw =
               frontmatter['keep-coding-instructions']
             const keepCodingInstructions =
@@ -61,7 +61,7 @@ export const getOutputStyleDirStyles = memoize(
                   ? false
                   : undefined
 
-            // Warn if force-for-plugin is set on non-plugin output style
+            // 如果非插件 output style 设置了 force-for-plugin，则发出警告。
             if (frontmatter['force-for-plugin'] !== undefined) {
               logForDebugging(
                 `Output style "${name}" has force-for-plugin set, but this option only applies to plugin output styles. Ignoring.`,

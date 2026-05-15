@@ -1,10 +1,10 @@
 /**
- * Thin HTTP wrappers for the CCR v2 code-session API.
+ * 对 CCR v2 code-session API 的轻量 HTTP 封装。
  *
- * Separate file from remoteBridgeCore.ts so the SDK /bridge subpath can
- * export createCodeSession + fetchRemoteCredentials without bundling the
- * heavy CLI tree (analytics, transport, etc.). Callers supply explicit
- * accessToken + baseUrl — no implicit auth or config reads.
+ * 从 remoteBridgeCore.ts 中拆出单独文件，这样 SDK /bridge 子路径就能导出
+ * createCodeSession 和 fetchRemoteCredentials，而不必打包沉重的 CLI 树
+ * （analytics、transport 等）。调用方需显式传入 accessToken 和 baseUrl，
+ * 不做隐式鉴权或配置读取。
  */
 
 import axios from 'axios'
@@ -35,9 +35,9 @@ export async function createCodeSession(
   try {
     response = await axios.post(
       url,
-      // bridge: {} is the positive signal for the oneof runner — omitting it
-      // (or sending environment_id: "") now 400s. BridgeRunner is an empty
-      // message today; it's a placeholder for future bridge-specific options.
+      // bridge: {} 是 oneof runner 的显式信号。省略它
+      // （或发送 environment_id: ""）现在会返回 400。BridgeRunner 目前是
+      // 空消息体，只是为未来 bridge 专属选项预留的位置。
       { title, bridge: {}, ...(tags?.length ? { tags } : {}) },
       {
         headers: oauthHeaders(accessToken),
@@ -80,8 +80,8 @@ export async function createCodeSession(
 }
 
 /**
- * Credentials from POST /bridge. JWT is opaque — do not decode.
- * Each /bridge call bumps worker_epoch server-side (it IS the register).
+ * 来自 POST /bridge 的凭据。JWT 是不透明值，不要解码。
+ * 每次调用 /bridge 都会在服务端递增 worker_epoch（它本身就是注册动作）。
  */
 export type RemoteCredentials = {
   worker_jwt: string
@@ -145,8 +145,8 @@ export async function fetchRemoteCredentials(
     )
     return null
   }
-  // protojson serializes int64 as a string to avoid JS precision loss;
-  // Go may also return a number depending on encoder settings.
+  // protojson 会把 int64 序列化为字符串，以避免 JS 精度丢失；
+  // Go 也可能根据 encoder 设置返回 number。
   const rawEpoch = data.worker_epoch
   const epoch = typeof rawEpoch === 'string' ? Number(rawEpoch) : rawEpoch
   if (

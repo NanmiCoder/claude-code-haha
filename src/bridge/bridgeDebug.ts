@@ -3,51 +3,51 @@ import { BridgeFatalError } from './bridgeApi.js'
 import type { BridgeApiClient } from './types.js'
 
 /**
- * Ant-only fault injection for manually testing bridge recovery paths.
+ * 仅供 ant 使用的故障注入，用于手动测试 bridge 恢复路径。
  *
- * Real failure modes this targets (BQ 2026-03-12, 7-day window):
- *   poll 404 not_found_error   — 147K sessions/week, dead onEnvironmentLost gate
- *   ws_closed 1002/1006        —  22K sessions/week, zombie poll after close
- *   register transient failure —  residual: network blips during doReconnect
+ * 它针对的真实故障模式（BQ 2026-03-12，7 天窗口）：
+ *   poll 404 not_found_error   — 每周 147K 个 session，onEnvironmentLost gate 失效
+ *   ws_closed 1002/1006        — 每周 22K 个 session，关闭后仍有僵尸 poll
+ *   register transient failure — 剩余问题：doReconnect 期间的网络抖动
  *
- * Usage: /bridge-kick <subcommand> from the REPL while Remote Control is
- * connected, then tail debug.log to watch the recovery machinery react.
+ * 用法：在 Remote Control 已连接时，从 REPL 执行 /bridge-kick <subcommand>，
+ * 然后 tail debug.log，观察恢复机制如何响应。
  *
- * Module-level state is intentional here: one bridge per REPL process, the
- * /bridge-kick slash command has no other way to reach into initBridgeCore's
- * closures, and teardown clears the slot.
+ * 这里刻意使用模块级状态：每个 REPL 进程只有一个 bridge，
+ * /bridge-kick slash command 没有其他方式进入 initBridgeCore 的闭包，
+ * 且 teardown 会清理该槽位。
  */
 
-/** One-shot fault to inject on the next matching api call. */
+/** 下一次匹配到对应 API 调用时注入的一次性故障。 */
 type BridgeFault = {
   method:
     | 'pollForWork'
     | 'registerBridgeEnvironment'
     | 'reconnectSession'
     | 'heartbeatWork'
-  /** Fatal errors go through handleErrorStatus → BridgeFatalError. Transient
-   *  errors surface as plain axios rejections (5xx / network). Recovery code
-   *  distinguishes the two: fatal → teardown, transient → retry/backoff. */
+  /** Fatal 错误会走 handleErrorStatus → BridgeFatalError。Transient
+   *  错误则表现为普通 axios rejection（5xx / network）。恢复代码会据此区分：
+  *  具体行为是 fatal → teardown，transient → retry/backoff。 */
   kind: 'fatal' | 'transient'
   status: number
   errorType?: string
-  /** Remaining injections. Decremented on consume; removed at 0. */
+  /** 剩余注入次数。consume 时递减；减到 0 后移除。 */
   count: number
 }
 
 export type BridgeDebugHandle = {
-  /** Invoke the transport's permanent-close handler directly. Tests the
-   *  ws_closed → reconnectEnvironmentWithSession escalation (#22148). */
+  /** 直接调用 transport 的 permanent-close handler。用于测试
+   *  ws_closed → reconnectEnvironmentWithSession 升级路径（#22148）。 */
   fireClose: (code: number) => void
-  /** Call reconnectEnvironmentWithSession() — same as SIGUSR2 but
-   *  reachable from the slash command. */
+  /** 调用 reconnectEnvironmentWithSession()，与 SIGUSR2 等效，但
+   *  可以从 slash command 触达。 */
   forceReconnect: () => void
-  /** Queue a fault for the next N calls to the named api method. */
+  /** 为指定 API 方法接下来的 N 次调用排入一个故障。 */
   injectFault: (fault: BridgeFault) => void
-  /** Abort the at-capacity sleep so an injected poll fault lands
-   *  immediately instead of up to 10min later. */
+  /** 中止满容量 sleep，使注入的 poll 故障立即生效，
+   *  而不是最多延后 10 分钟。 */
   wakePollLoop: () => void
-  /** env/session IDs for the debug.log grep. */
+  /** 供 debug.log grep 使用的 env/session ID。 */
   describe: () => string
 }
 
@@ -75,11 +75,10 @@ export function injectBridgeFault(fault: BridgeFault): void {
 }
 
 /**
- * Wrap a BridgeApiClient so each call first checks the fault queue. If a
- * matching fault is queued, throw the specified error instead of calling
- * through. Delegates everything else to the real client.
+ * 包装 BridgeApiClient，使每次调用都先检查故障队列。如果存在匹配故障，
+ * 就抛出指定错误而不是继续调用真实客户端。其他情况全部委托给真实客户端。
  *
- * Only called when USER_TYPE === 'ant' — zero overhead in external builds.
+ * 仅在 USER_TYPE === 'ant' 时调用，因此对外部构建没有额外开销。
  */
 export function wrapApiForFaultInjection(
   api: BridgeApiClient,
@@ -104,8 +103,8 @@ export function wrapApiForFaultInjection(
         fault.errorType,
       )
     }
-    // Transient: mimic an axios rejection (5xx / network). No .status on
-    // the error itself — that's how the catch blocks distinguish.
+    // Transient：模拟 axios rejection（5xx / network）。错误对象本身不带
+    // .status，catch 代码块正是据此进行区分。
     throw new Error(`[injected transient] ${context} ${fault.status}`)
   }
 

@@ -38,11 +38,11 @@ export async function validateDirectoryForWorkspace(
     }
   }
 
-  // resolve() strips the trailing slash expandPath can leave on absolute
-  // inputs, so /foo and /foo/ map to the same storage key (CC-33).
+  // resolve() 会去掉 expandPath 在绝对路径上可能留下的尾随斜杠，
+  // 因此 /foo 和 /foo/ 会映射到同一个存储键（CC-33）。
   const absolutePath = resolve(expandPath(directoryPath))
 
-  // Check if path exists and is a directory (single syscall)
+  // 检查路径是否存在且为目录（单次 syscall）
   try {
     const stats = await stat(absolutePath)
     if (!stats.isDirectory()) {
@@ -54,9 +54,9 @@ export async function validateDirectoryForWorkspace(
     }
   } catch (e: unknown) {
     const code = getErrnoCode(e)
-    // Match prior existsSync() semantics: treat any of these as "not found"
-    // rather than re-throwing. EACCES/EPERM in particular must not crash
-    // startup when a settings-configured additional directory is inaccessible.
+    // 与此前 existsSync() 的语义保持一致：这些情况都视为“未找到”，
+    // 而不是重新抛出。尤其是 EACCES/EPERM，不能让启动过程崩溃，
+    // 当 settings 中配置的附加目录不可访问时也是如此。
     if (
       code === 'ENOENT' ||
       code === 'ENOTDIR' ||
@@ -72,10 +72,10 @@ export async function validateDirectoryForWorkspace(
     throw e
   }
 
-  // Get current permission context
+  // 获取当前权限上下文
   const currentWorkingDirs = allWorkingDirectories(permissionContext)
 
-  // Check if already within an existing working directory
+  // 检查是否已位于现有工作目录内
   for (const workingDir of currentWorkingDirs) {
     if (pathInWorkingPath(absolutePath, workingDir)) {
       return {

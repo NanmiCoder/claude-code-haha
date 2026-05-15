@@ -130,22 +130,22 @@ import {
   runPreToolUseHooks,
 } from './toolHooks.js'
 
-/** Minimum total hook duration (ms) to show inline timing summary */
+/** 显示内联耗时摘要所需的最小 Hook 总时长（毫秒） */
 export const HOOK_TIMING_DISPLAY_THRESHOLD_MS = 500
-/** Log a debug warning when hooks/permission-decision block for this long. Matches
- * BashTool's PROGRESS_THRESHOLD_MS — the collapsed view feels stuck past this. */
+/** 当 Hook/permission-decision 阻塞达到该时长时记录调试警告。与
+ * BashTool 的 PROGRESS_THRESHOLD_MS 保持一致——超过这个时间后，折叠视图会显得卡住。 */
 const SLOW_PHASE_LOG_THRESHOLD_MS = 2000
 
 /**
- * Classify a tool execution error into a telemetry-safe string.
+ * 将工具执行错误归类为 telemetry-safe 字符串。
  *
- * In minified/external builds, `error.constructor.name` is mangled into
- * short identifiers like "nJT" or "Chq" — useless for diagnostics.
- * This function extracts structured, telemetry-safe information instead:
- * - TelemetrySafeError: use its telemetryMessage (already vetted)
- * - Node.js fs errors: log the error code (ENOENT, EACCES, etc.)
- * - Known error types: use their unminified name
- * - Fallback: "Error" (better than a mangled 3-char identifier)
+ * 在压缩版/外部构建中，`error.constructor.name` 会被混淆成
+ * 像 "nJT" 或 "Chq" 这样的短标识，对诊断没有帮助。
+ * 此函数会改为提取结构化、可安全用于遥测的信息：
+ * - TelemetrySafeError：使用它的 telemetryMessage（已审查）
+ * - Node.js fs 错误：记录错误码（ENOENT、EACCES 等）
+ * - 已知错误类型：使用它们未压缩的名称
+ * - 兜底："Error"（总比被混淆的 3 字符标识更有意义）
  */
 export function classifyToolError(error: unknown): string {
   if (
@@ -154,14 +154,14 @@ export function classifyToolError(error: unknown): string {
     return error.telemetryMessage.slice(0, 200)
   }
   if (error instanceof Error) {
-    // Node.js filesystem errors have a `code` property (ENOENT, EACCES, etc.)
-    // These are safe to log and much more useful than the constructor name.
+    // Node.js 文件系统错误带有 `code` 属性（ENOENT、EACCES 等）
+    // 这些值可以安全记录，而且比构造函数名称有用得多。
     const errnoCode = getErrnoCode(error)
     if (typeof errnoCode === 'string') {
       return `Error:${errnoCode}`
     }
-    // ShellError, ImageSizeError, etc. have stable `.name` properties
-    // that survive minification (they're set in the constructor).
+    // ShellError、ImageSizeError 等具有稳定的 `.name` 属性，
+    // 在压缩后仍能保留（它们是在构造函数中设置的）。
     if (error.name && error.name !== 'Error' && error.name.length > 3) {
       return error.name.slice(0, 60)
     }
@@ -171,12 +171,11 @@ export function classifyToolError(error: unknown): string {
 }
 
 /**
- * Map a rule's origin to the documented OTel `source` vocabulary, matching
- * the interactive path's semantics (permissionLogging.ts:81): session-scoped
- * grants are temporary, on-disk grants are permanent, and user-authored
- * denies are user_reject regardless of persistence. Everything the user
- * didn't write (cliArg, policySettings, projectSettings, flagSettings) is
- * config.
+ * 将规则来源映射到文档化的 OTel `source` 词汇，并与交互路径的
+ * 语义保持一致（permissionLogging.ts:81）：会话范围的授权是临时的，
+ * 落盘授权是永久的，而用户手写的拒绝无论是否持久化都属于 user_reject。
+ * 任何不是用户直接写入的内容（cliArg、policySettings、projectSettings、
+ * flagSettings）都归为 config。
  */
 function ruleSourceToOTelSource(
   ruleSource: string,
@@ -194,15 +193,15 @@ function ruleSourceToOTelSource(
 }
 
 /**
- * Map a PermissionDecisionReason to the OTel `source` label for the
- * non-interactive tool_decision path, staying within the documented
- * vocabulary (config, hook, user_permanent, user_temporary, user_reject).
+ * 将 PermissionDecisionReason 映射为非交互式 tool_decision 路径的
+ * OTel `source` 标签，并保持在文档规定的词汇范围内
+ * （config、hook、user_permanent、user_temporary、user_reject）。
  *
- * For permissionPromptTool, the SDK host may set decisionClassification on
- * the PermissionResult to tell us exactly what happened (once vs always vs
- * cache hit — the host knows, we can't tell from {behavior:'allow'} alone).
- * Without it, we fall back conservatively: allow → user_temporary,
- * deny → user_reject.
+ * 对于 permissionPromptTool，SDK host 可能会在 PermissionResult 上设置
+ * decisionClassification，用来准确描述发生了什么
+ * （once、always 或 cache hit——host 知道，而我们仅凭 {behavior:'allow'}
+ * 无法判断）。如果没有这个字段，就保守回退为：allow → user_temporary，
+ * deny → user_reject。
  */
 function decisionReasonToOTelSource(
   reason: PermissionDecisionReason | undefined,
@@ -213,9 +212,9 @@ function decisionReasonToOTelSource(
   }
   switch (reason.type) {
     case 'permissionPromptTool': {
-      // toolResult is typed `unknown` on PermissionDecisionReason but carries
-      // the parsed Output from PermissionPromptToolResultSchema. Narrow at
-      // runtime rather than widen the cross-file type.
+      // PermissionDecisionReason 上的 toolResult 类型是 `unknown`，
+      // 但它实际携带的是 PermissionPromptToolResultSchema 解析后的 Output。
+      // 在运行时收窄类型，而不是扩大跨文件类型。
       const toolResult = reason.toolResult as
         | { decisionClassification?: string }
         | undefined
@@ -293,17 +292,17 @@ function findMcpServerConnection(
     return undefined
   }
 
-  // mcpInfo.serverName is normalized (e.g., "claude_ai_Slack"), but client.name
-  // is the original name (e.g., "claude.ai Slack"). Normalize both for comparison.
+  // mcpInfo.serverName 是归一化后的名称（例如 "claude_ai_Slack"），
+  // 但 client.name 是原始名称（例如 "claude.ai Slack"）。比较前需要两边都归一化。
   return mcpClients.find(
     client => normalizeNameForMCP(client.name) === mcpInfo.serverName,
   )
 }
 
 /**
- * Extracts the MCP server transport type from a tool name.
- * Returns the server type (stdio, sse, http, ws, sdk, etc.) for MCP tools,
- * or undefined for built-in tools.
+ * 从工具名中提取 MCP server 的传输类型。
+ * 对于 MCP 工具，返回 server 类型（stdio、sse、http、ws、sdk 等）；
+ * 对于内建工具则返回 undefined。
  */
 function getMcpServerType(
   toolName: string,
@@ -312,7 +311,7 @@ function getMcpServerType(
   const serverConnection = findMcpServerConnection(toolName, mcpClients)
 
   if (serverConnection?.type === 'connected') {
-    // Handle stdio configs where type field is optional (defaults to 'stdio')
+    // 处理 type 字段可选的 stdio 配置（默认值为 'stdio'）
     return serverConnection.config.type ?? 'stdio'
   }
 
@@ -320,8 +319,8 @@ function getMcpServerType(
 }
 
 /**
- * Extracts the MCP server base URL for a tool by looking up its server connection.
- * Returns undefined for stdio servers, built-in tools, or if the server is not connected.
+ * 通过查找工具对应的 server connection，提取 MCP server 的 base URL。
+ * 对于 stdio server、内建工具，或 server 未连接的情况，返回 undefined。
  */
 function getMcpServerBaseUrlFromToolName(
   toolName: string,
@@ -341,15 +340,15 @@ export async function* runToolUse(
   toolUseContext: ToolUseContext,
 ): AsyncGenerator<MessageUpdateLazy, void> {
   const toolName = toolUse.name
-  // First try to find in the available tools (what the model sees)
+  // 先在可用工具列表中查找（也就是模型可见的工具）
   let tool = findToolByName(toolUseContext.options.tools, toolName)
 
-  // If not found, check if it's a deprecated tool being called by alias
-  // (e.g., old transcripts calling "KillShell" which is now an alias for "TaskStop")
-  // Only fall back for tools where the name matches an alias, not the primary name
+  // 如果没找到，检查是否是通过别名调用的已弃用工具
+  // （例如旧 transcript 调用 "KillShell"，而它现在是 "TaskStop" 的别名）
+  // 仅在名称匹配别名而不是主名称时才回退
   if (!tool) {
     const fallbackTool = findToolByName(getAllBaseTools(), toolName)
-    // Only use fallback if the tool was found via alias (deprecated name)
+    // 只有在通过别名（弃用名称）找到工具时才使用回退
     if (fallbackTool && fallbackTool.aliases?.includes(toolName)) {
       tool = fallbackTool
     }
@@ -365,7 +364,7 @@ export async function* runToolUse(
     toolUseContext.options.mcpClients,
   )
 
-  // Check if the tool exists
+  // 检查工具是否存在
   if (!tool) {
     const sanitizedToolName = sanitizeToolNameForAnalytics(toolName)
     logForDebugging(`Unknown tool ${toolName}: ${toolUse.id}`)
@@ -501,11 +500,11 @@ function streamedCheckPermissionsAndCallTool(
   mcpServerType: McpServerType,
   mcpServerBaseUrl: ReturnType<typeof getLoggingSafeMcpBaseUrl>,
 ): AsyncIterable<MessageUpdateLazy> {
-  // This is a bit of a hack to get progress events and final results
-  // into a single async iterable.
+  // 这里用了一个稍显取巧的方法，把进度事件和最终结果
+  // 放进同一个 async iterable。
   //
-  // Ideally the progress reporting and tool call reporting would
-  // be via separate mechanisms.
+  // 理想情况下，进度上报和工具调用结果上报
+  // 应该通过各自独立的机制完成。
   const stream = new Stream<MessageUpdateLazy>()
   checkPermissionsAndCallTool(
     tool,
@@ -570,20 +569,20 @@ function streamedCheckPermissionsAndCallTool(
 }
 
 /**
- * Appended to Zod errors when a deferred tool wasn't in the discovered-tool
- * set — re-runs the claude.ts schema-filter scan dispatch-time to detect the
- * mismatch. The raw Zod error ("expected array, got string") doesn't tell the
- * model to re-load the tool; this hint does. Null if the schema was sent.
+ * 当延迟工具不在 discovered-tool set 中时，将此提示附加到 Zod 错误后面——
+ * 在 dispatch 时重新运行 claude.ts 的 schema-filter 扫描以检测不匹配。
+ * 原始 Zod 错误（"expected array, got string"）不会告诉模型重新加载该工具；
+ * 这个提示会。如果 schema 已发送，则返回 null。
  */
 export function buildSchemaNotSentHint(
   tool: Tool,
   messages: Message[],
   tools: readonly { name: string }[],
 ): string | null {
-  // Optimistic gating — reconstructing claude.ts's full useToolSearch
-  // computation is fragile. These two gates prevent pointing at a ToolSearch
-  // that isn't callable; occasional misfires (Haiku, tst-auto below threshold)
-  // cost one extra round-trip on an already-failing path.
+  // 乐观门控——重建 claude.ts 的完整 useToolSearch 计算逻辑很脆弱。
+  // 这两个门槛用于避免指向一个不可调用的 ToolSearch；偶发误判
+  // （如 Haiku、tst-auto 低于阈值）顶多只会让已经失败的路径
+  // 多一次往返。
   if (!isToolSearchEnabledOptimistic()) return null
   if (!isToolSearchToolAvailable(tools)) return null
   if (!isDeferredTool(tool)) return null
@@ -611,7 +610,7 @@ async function checkPermissionsAndCallTool(
     progress: ToolProgress<ToolProgressData> | ProgressMessage<HookProgress>,
   ) => void,
 ): Promise<MessageUpdateLazy[]> {
-  // Validate input types with zod (surprisingly, the model is not great at generating valid input)
+  // 用 zod 校验输入类型（有点意外的是，模型并不擅长稳定生成合法输入）
   const parsedInput = tool.inputSchema.safeParse(input)
   if (!parsedInput.success) {
     let errorContent = formatZodValidationError(tool.name, parsedInput.error)
@@ -679,7 +678,7 @@ async function checkPermissionsAndCallTool(
     ]
   }
 
-  // Validate input values. Each tool has its own validation logic
+  // 校验输入值。每个工具都有自己的验证逻辑
   const isValidCall = await tool.validateInput?.(
     parsedInput.data,
     toolUseContext,
@@ -731,12 +730,12 @@ async function checkPermissionsAndCallTool(
       },
     ]
   }
-  // Speculatively start the bash allow classifier check early so it runs in
-  // parallel with pre-tool hooks, deny/ask classifiers, and permission dialog
-  // setup. The UI indicator (setClassifierChecking) is NOT set here — it's
-  // set in interactiveHandler.ts only when the permission check returns `ask`
-  // with a pendingClassifierCheck. This avoids flashing "classifier running"
-  // for commands that auto-allow via prefix rules.
+  // 提前推测性地启动 bash allow classifier 检查，让它与 pre-tool Hook、
+  // deny/ask classifier 以及权限对话框初始化并行进行。
+  // 这里不会设置 UI 指示器（setClassifierChecking）——只有当权限检查
+  // 返回带 pendingClassifierCheck 的 `ask` 时，才会在 interactiveHandler.ts
+  // 中设置。这样可以避免那些通过前缀规则自动允许的命令闪出
+  // “classifier running” 提示。
   if (
     tool.name === BASH_TOOL_NAME &&
     parsedInput.data &&
@@ -753,11 +752,11 @@ async function checkPermissionsAndCallTool(
 
   const resultingMessages = []
 
-  // Defense-in-depth: strip _simulatedSedEdit from model-provided Bash input.
-  // This field is internal-only — it must only be injected by the permission
-  // system (SedEditPermissionRequest) after user approval. If the model supplies
-  // it, the schema's strictObject should already reject it, but we strip here
-  // as a safeguard against future regressions.
+  // 纵深防御：从模型提供的 Bash 输入中去掉 _simulatedSedEdit。
+  // 这个字段仅供内部使用——只能在用户批准后，由权限系统
+  // （SedEditPermissionRequest）注入。如果模型自行传入，schema 的
+  // strictObject 理论上已经会拒绝它，但我们仍在这里移除，作为
+  // 防止未来回归的额外保险。
   let processedInput = parsedInput.data
   if (
     tool.name === BASH_TOOL_NAME &&
@@ -772,14 +771,13 @@ async function checkPermissionsAndCallTool(
     processedInput = rest as typeof processedInput
   }
 
-  // Backfill legacy/derived fields on a shallow clone so hooks/canUseTool see
-  // them without affecting tool.call(). SendMessageTool adds fields; file
-  // tools overwrite file_path with expandPath — that mutation must not reach
-  // call() because tool results embed the input path verbatim (e.g. "File
-  // created successfully at: {path}"), and changing it alters the serialized
-  // transcript and VCR fixture hashes. If a hook/permission later returns a
-  // fresh updatedInput, callInput converges on it below — that replacement
-  // is intentional and should reach call().
+  // 在浅拷贝上回填 legacy/derived 字段，让 hooks/canUseTool 能看到它们，
+  // 同时不影响 tool.call()。SendMessageTool 会新增字段；文件工具会用
+  // expandPath 覆盖 file_path——这个改动绝不能传进 call()，因为工具结果
+  // 会原样嵌入输入路径（例如 "File created successfully at: {path}"），
+  // 改掉后会影响序列化 transcript 和 VCR fixture 的哈希。
+  // 如果后续 hook/permission 返回了新的 updatedInput，下面会让 callInput
+  // 收敛到它——这种替换是有意为之的，应该传递给 call()。
   let callInput = processedInput
   const backfilledClone =
     tool.backfillObservableInput &&
@@ -832,8 +830,8 @@ async function checkPermissionsAndCallTool(
         hookPermissionResult = result.hookPermissionResult
         break
       case 'hookUpdatedInput':
-        // Hook provided updatedInput without making a permission decision (passthrough)
-        // Update processedInput so it's used in the normal permission flow
+        // Hook 提供了 updatedInput，但没有给出权限决策（透传场景）。
+        // 更新 processedInput，使其继续参与正常的权限流程。
         processedInput = result.updatedInput
         break
       case 'preventContinuation':
@@ -860,6 +858,7 @@ async function checkPermissionsAndCallTool(
         return resultingMessages
     }
   }
+
   const preToolHookDurationMs = Date.now() - preToolHookStart
   getStatsStore()?.observe('pre_tool_hook_duration_ms', preToolHookDurationMs)
   if (preToolHookDurationMs >= SLOW_PHASE_LOG_THRESHOLD_MS) {
@@ -869,8 +868,8 @@ async function checkPermissionsAndCallTool(
     )
   }
 
-  // Emit PreToolUse summary immediately so it's visible while the tool executes.
-  // Use wall-clock time (not sum of individual durations) since hooks run in parallel.
+  // 立即发出 PreToolUse 摘要，使其在工具执行期间就可见。
+  // 由于 Hook 是并行执行的，这里使用墙钟时间，而不是单个耗时之和。
   if (process.env.USER_TYPE === 'ant' && preToolHookInfos.length > 0) {
     if (preToolHookDurationMs > HOOK_TIMING_DISPLAY_THRESHOLD_MS) {
       resultingMessages.push({
@@ -913,8 +912,8 @@ async function checkPermissionsAndCallTool(
   )
   startToolBlockedOnUserSpan()
 
-  // Check whether we have permission to use the tool,
-  // and ask the user for permission if we don't
+  // 检查我们是否有权限使用该工具，
+  // 如果没有，则向用户请求权限
   const permissionMode = toolUseContext.getAppState().toolPermissionContext.mode
   const permissionStart = Date.now()
 
@@ -930,10 +929,10 @@ async function checkPermissionsAndCallTool(
   const permissionDecision = resolved.decision
   processedInput = resolved.input
   const permissionDurationMs = Date.now() - permissionStart
-  // In auto mode, canUseTool awaits the classifier (side_query) — if that's
-  // slow the collapsed view shows "Running…" with no (Ns) tick since
-  // bash_progress hasn't started yet. Auto-only: in default mode this timer
-  // includes interactive-dialog wait (user think time), which is just noise.
+  // 在 auto 模式下，canUseTool 会等待 classifier（side_query）——如果它很慢，
+  // 折叠视图会显示 "Running…"，但没有 (Ns) 计时，因为 bash_progress
+  // 还没开始。这个问题只出现在 auto 模式：在 default mode 下，这个计时
+  // 还包含交互对话框等待（用户思考时间），因此只是噪声。
   if (
     permissionDurationMs >= SLOW_PHASE_LOG_THRESHOLD_MS &&
     permissionMode === 'auto'
@@ -945,10 +944,9 @@ async function checkPermissionsAndCallTool(
     )
   }
 
-  // Emit tool_decision OTel event and code-edit counter if the interactive
-  // permission path didn't already log it (headless mode bypasses permission
-  // logging, so we need to emit both the generic event and the code-edit
-  // counter here)
+  // 如果交互式权限路径尚未记录，则发出 tool_decision OTel 事件和
+  // code-edit 计数器（headless 模式会绕过权限日志，因此这里需要同时补发
+  // 通用事件和 code-edit 计数器）
   if (
     permissionDecision.behavior !== 'ask' &&
     !toolUseContext.toolDecisions?.has(toolUseID)
@@ -965,7 +963,7 @@ async function checkPermissionsAndCallTool(
       tool_name: sanitizeToolNameForAnalytics(tool.name),
     })
 
-    // Increment code-edit tool decision counter for headless mode
+    // 为 headless 模式递增 code-edit 工具决策计数器
     if (isCodeEditingTool(tool.name)) {
       void buildCodeEditToolAttributes(
         tool,
@@ -976,7 +974,7 @@ async function checkPermissionsAndCallTool(
     }
   }
 
-  // Add message if permission was granted/denied by PermissionRequest hook
+  // 如果权限是由 PermissionRequest Hook 批准/拒绝的，则补充一条消息
   if (
     permissionDecision.decisionReason?.type === 'hook' &&
     permissionDecision.decisionReason.hookName === 'PermissionRequest' &&
@@ -993,7 +991,7 @@ async function checkPermissionsAndCallTool(
   }
 
   if (permissionDecision.behavior !== 'allow') {
-    logForDebugging(`${tool.name} tool permission denied`)
+    // 仅当没有详细 Hook 消息时，才使用通用的 "Execution stopped" 消息
     const decisionInfo = toolUseContext.toolDecisions?.get(toolUseID)
     endToolBlockedOnUserSpan('reject', decisionInfo?.source || 'unknown')
     endToolSpan()
@@ -1002,6 +1000,7 @@ async function checkPermissionsAndCallTool(
       messageID:
         messageId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       toolName: sanitizeToolNameForAnalytics(tool.name),
+      isAsk: permissionDecision.behavior === 'ask',
 
       queryChainId: toolUseContext.queryTracking
         ?.chainId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -1020,13 +1019,15 @@ async function checkPermissionsAndCallTool(
       }),
       ...mcpToolDetailsForAnalytics(tool.name, mcpServerType, mcpServerBaseUrl),
     })
+
+    // 构建顶层 content：tool_result（为兼容 is_error 只能是文本）+ 并列的图片块
     let errorMessage = permissionDecision.message
-    // Only use generic "Execution stopped" message if we don't have a detailed hook message
+    // 仅当没有详细的 Hook 消息时，才使用通用的 "Execution stopped" 消息
     if (shouldPreventContinuation && !errorMessage) {
       errorMessage = `Execution stopped by PreToolUse hook${stopReason ? `: ${stopReason}` : ''}`
     }
 
-    // Build top-level content: tool_result (text-only for is_error compatibility) + images alongside
+    // 构建顶层 content：tool_result（为兼容 is_error 只能是文本）+ 并列图片块
     const messageContent: ContentBlockParam[] = [
       {
         type: 'tool_result',
@@ -1036,7 +1037,7 @@ async function checkPermissionsAndCallTool(
       },
     ]
 
-    // Add image blocks at top level (not inside tool_result, which rejects non-text with is_error)
+    // 将图片块添加到顶层（不能放在 tool_result 内，因为 is_error 下它会拒绝非文本内容）
     const rejectContentBlocks =
       permissionDecision.behavior === 'ask'
         ? permissionDecision.contentBlocks
@@ -1045,7 +1046,7 @@ async function checkPermissionsAndCallTool(
       messageContent.push(...rejectContentBlocks)
     }
 
-    // Generate sequential imagePasteIds so each image renders with a distinct label
+    // 生成连续的 imagePasteIds，使每张图片都能显示不同的标签
     let rejectImageIds: number[] | undefined
     if (rejectContentBlocks?.length) {
       const imageCount = count(
@@ -1070,8 +1071,8 @@ async function checkPermissionsAndCallTool(
       }),
     })
 
-    // Run PermissionDenied hooks for auto mode classifier denials.
-    // If a hook returns {retry: true}, tell the model it may retry.
+    // 对 auto 模式 classifier 拒绝执行 PermissionDenied Hook。
+    // 如果某个 Hook 返回 {retry: true}，则告知模型可以重试。
     if (
       feature('TRANSCRIPT_CLASSIFIER') &&
       permissionDecision.decisionReason?.type === 'classifier' &&
@@ -1125,15 +1126,15 @@ async function checkPermissionsAndCallTool(
     ...mcpToolDetailsForAnalytics(tool.name, mcpServerType, mcpServerBaseUrl),
   })
 
-  // Use the updated input from permissions if provided
-  // (Don't overwrite if undefined - processedInput may have been modified by passthrough hooks)
+  // 如果权限流程提供了更新后的输入，则使用它
+  // （如果是 undefined 则不要覆盖——processedInput 可能已被透传 Hook 修改）
   if (permissionDecision.updatedInput !== undefined) {
     processedInput = permissionDecision.updatedInput
   }
 
-  // Prepare tool parameters for logging in tool_result event.
-  // Gated by OTEL_LOG_TOOL_DETAILS — tool parameters can contain sensitive
-  // content (bash commands, MCP server names, etc.) so they're opt-in only.
+  // 为 tool_result 事件准备工具参数日志。
+  // 受 OTEL_LOG_TOOL_DETAILS 控制——工具参数可能包含敏感内容
+  // （bash 命令、MCP server 名称等），因此仅在显式开启时记录。
   const telemetryToolInput = extractToolInputForTelemetry(processedInput)
   let toolParameters: Record<string, unknown> = {}
   if (isToolDetailsLoggingEnabled()) {
@@ -1178,14 +1179,13 @@ async function checkPermissionsAndCallTool(
   const startTime = Date.now()
 
   startSessionActivity('tool_exec')
-  // If processedInput still points at the backfill clone, no hook/permission
-  // replaced it — pass the pre-backfill callInput so call() sees the model's
-  // original field values. Otherwise converge on the hook-supplied input.
-  // Permission/hook flows may return a fresh object derived from the
-  // backfilled clone (e.g. via inputSchema.parse). If its file_path matches
-  // the backfill-expanded value, restore the model's original so the tool
-  // result string embeds the path the model emitted — keeps transcript/VCR
-  // hashes stable. Other hook modifications flow through unchanged.
+  // 如果 processedInput 仍然指向回填后的 clone，说明没有 Hook/permission
+  // 替换它——这时应传入回填前的 callInput，让 call() 看到模型最初给出的
+  // 字段值。否则，就收敛到 Hook 提供的输入。
+  // Permission/Hook 流程可能会返回一个基于回填 clone 生成的新对象
+  // （例如通过 inputSchema.parse）。如果其中的 file_path 与回填扩展后的
+  // 值相同，就恢复为模型原始值，这样工具结果字符串仍会嵌入模型发出的路径，
+  // 从而保持 transcript/VCR 哈希稳定。其他 Hook 修改则保持不变地透传。
   if (
     backfilledClone &&
     processedInput !== callInput &&
@@ -1223,11 +1223,11 @@ async function checkPermissionsAndCallTool(
     const durationMs = Date.now() - startTime
     addToToolDuration(durationMs)
 
-    // Log tool content/output as span event if enabled
+    // 如已启用，则将工具内容/输出记录为 span 事件
     if (result.data && typeof result.data === 'object') {
       const contentAttributes: Record<string, string | number | boolean> = {}
 
-      // Read tool: capture file_path and content
+      // Read 工具：记录 file_path 和 content
       if (tool.name === FILE_READ_TOOL_NAME && 'content' in result.data) {
         if ('file_path' in processedInput) {
           contentAttributes.file_path = String(processedInput.file_path)
@@ -1235,7 +1235,7 @@ async function checkPermissionsAndCallTool(
         contentAttributes.content = String(result.data.content)
       }
 
-      // Edit/Write tools: capture file_path and diff
+      // Edit/Write 工具：记录 file_path 和 diff
       if (
         (tool.name === FILE_EDIT_TOOL_NAME ||
           tool.name === FILE_WRITE_TOOL_NAME) &&
@@ -1243,21 +1243,21 @@ async function checkPermissionsAndCallTool(
       ) {
         contentAttributes.file_path = String(processedInput.file_path)
 
-        // For Edit, capture the actual changes made
+        // 对于 Edit，记录实际发生的变更
         if (tool.name === FILE_EDIT_TOOL_NAME && 'diff' in result.data) {
           contentAttributes.diff = String(result.data.diff)
         }
-        // For Write, capture the written content
+        // 对于 Write，记录写入的内容
         if (tool.name === FILE_WRITE_TOOL_NAME && 'content' in processedInput) {
           contentAttributes.content = String(processedInput.content)
         }
       }
 
-      // Bash tool: capture command
+      // Bash 工具：记录命令
       if (tool.name === BASH_TOOL_NAME && 'command' in processedInput) {
         const bashInput = processedInput as BashToolInput
         contentAttributes.bash_command = bashInput.command
-        // Also capture output if available
+        // 如有输出，也一并记录
         if ('output' in result.data) {
           contentAttributes.output = String(result.data.output)
         }
@@ -1268,9 +1268,9 @@ async function checkPermissionsAndCallTool(
       }
     }
 
-    // Capture structured output from tool result if present
+    // 如果工具结果中包含 structured output，则记录下来
     if (typeof result === 'object' && 'structured_output' in result) {
-      // Store the structured output in an attachment message
+      // 将 structured output 存入 attachment message
       resultingMessages.push({
         message: createAttachmentMessage({
           type: 'structured_output',
@@ -1280,15 +1280,15 @@ async function checkPermissionsAndCallTool(
     }
 
     endToolExecutionSpan({ success: true })
-    // Pass tool result for new_context logging
+    // 传入 tool result 以便记录 new_context 日志
     const toolResultStr =
       result.data && typeof result.data === 'object'
         ? jsonStringify(result.data)
         : String(result.data ?? '')
     endToolSpan(toolResultStr)
 
-    // Map the tool result to API format once and cache it. This block is reused
-    // by addToolResult (skipping the remap) and measured here for analytics.
+    // 将工具结果映射为 API 格式一次并缓存下来。
+    // 这个块会被 addToolResult 复用（从而跳过重复映射），并在此处用于埋点统计。
     const mappedToolResultBlock = tool.mapToolResultToToolResultBlockParam(
       result.data,
       toolUseID,
@@ -1300,7 +1300,7 @@ async function checkPermissionsAndCallTool(
         ? mappedContent.length
         : jsonStringify(mappedContent).length
 
-    // Extract file extension for file-related tools
+    // 为文件相关工具提取文件扩展名
     let fileExtension: ReturnType<typeof getFileExtensionForAnalytics>
     if (processedInput && typeof processedInput === 'object') {
       if (
@@ -1356,7 +1356,7 @@ async function checkPermissionsAndCallTool(
       ...mcpToolDetailsForAnalytics(tool.name, mcpServerType, mcpServerBaseUrl),
     })
 
-    // Enrich tool parameters with git commit ID from successful git commit output
+    // 从成功的 git commit 输出中提取 commit ID，并补充到工具参数里
     if (
       isToolDetailsLoggingEnabled() &&
       (tool.name === BASH_TOOL_NAME || tool.name === POWERSHELL_TOOL_NAME) &&
@@ -1373,7 +1373,7 @@ async function checkPermissionsAndCallTool(
       }
     }
 
-    // Log tool result event for OTLP with tool parameters and decision context
+    // 结合工具参数和决策上下文，为 OTLP 记录 tool result 事件
     const mcpServerScope = isMcpTool(tool)
       ? getMcpServerScopeFromToolName(tool.name)
       : null
@@ -1394,7 +1394,7 @@ async function checkPermissionsAndCallTool(
       ...(mcpServerScope && { mcp_server_scope: mcpServerScope }),
     })
 
-    // Run PostToolUse hooks
+    // 执行 PostToolUse Hook
     let toolOutput = result.data
     const hookResults = []
     const toolContextModifier = result.contextModifier
@@ -1404,8 +1404,8 @@ async function checkPermissionsAndCallTool(
       toolUseResult: unknown,
       preMappedBlock?: ToolResultBlockParam,
     ) {
-      // Use the pre-mapped block when available (non-MCP tools where hooks
-      // don't modify the output), otherwise map from scratch.
+      // 若可用则使用预映射的 block（适用于 Hook 不会修改输出的非 MCP 工具），
+      // 否则从头重新映射。
       const toolResultBlock = preMappedBlock
         ? await processPreMappedToolResultBlock(
             preMappedBlock,
@@ -1414,10 +1414,10 @@ async function checkPermissionsAndCallTool(
           )
         : await processToolResultBlock(tool, toolUseResult, toolUseID)
 
-      // Build content blocks - tool result first, then optional feedback
+      // 构建内容块：先放 tool result，再放可选反馈
       const contentBlocks: ContentBlockParam[] = [toolResultBlock]
-      // Add accept feedback if user provided feedback when approving
-      // (acceptFeedback only exists on PermissionAllowDecision, which is guaranteed here)
+      // 如果用户在批准时提供了反馈，则追加 accept feedback
+      // （acceptFeedback 只存在于 PermissionAllowDecision 上，这里可保证成立）
       if (
         'acceptFeedback' in permissionDecision &&
         permissionDecision.acceptFeedback
@@ -1428,7 +1428,7 @@ async function checkPermissionsAndCallTool(
         })
       }
 
-      // Add content blocks (e.g., pasted images) from the permission decision
+      // 添加权限决策里附带的内容块（例如粘贴的图片）
       const allowContentBlocks =
         'contentBlocks' in permissionDecision
           ? permissionDecision.contentBlocks
@@ -1437,7 +1437,7 @@ async function checkPermissionsAndCallTool(
         contentBlocks.push(...allowContentBlocks)
       }
 
-      // Generate sequential imagePasteIds so each image renders with a distinct label
+      // 生成连续的 imagePasteIds，使每张图片都能显示不同的标签
       let allowImageIds: number[] | undefined
       if (allowContentBlocks?.length) {
         const imageCount = count(
@@ -1473,7 +1473,7 @@ async function checkPermissionsAndCallTool(
       })
     }
 
-    // TOOD(hackyon): refactor so we don't have different experiences for MCP tools
+    // TOOD(hackyon): 重构，避免 MCP 工具与其他工具的体验不一致
     if (!isMcpTool(tool)) {
       await addToolResult(toolOutput, mappedToolResultBlock)
     }
@@ -1541,8 +1541,8 @@ async function checkPermissionsAndCallTool(
       await addToolResult(toolOutput)
     }
 
-    // Show PostToolUse hook timing inline below tool result when > 500ms.
-    // Use wall-clock time (not sum of individual durations) since hooks run in parallel.
+    // 当 PostToolUse Hook 耗时超过 500ms 时，在 tool result 下方内联显示耗时。
+    // 由于 Hook 是并行运行的，这里使用墙钟时间，而不是单个耗时之和。
     if (process.env.USER_TYPE === 'ant' && postToolHookInfos.length > 0) {
       if (postToolHookDurationMs > HOOK_TIMING_DISPLAY_THRESHOLD_MS) {
         resultingMessages.push({
@@ -1562,13 +1562,13 @@ async function checkPermissionsAndCallTool(
       }
     }
 
-    // If the tool provided new messages, add them to the list to return.
+    // 如果工具返回了新消息，则将其加入返回列表
     if (result.newMessages && result.newMessages.length > 0) {
       for (const message of result.newMessages) {
         resultingMessages.push({ message })
       }
     }
-    // If hook indicated to prevent continuation after successful execution, yield a stop reason message
+    // 如果 Hook 指出成功执行后应阻止继续，则产出一条停止原因消息
     if (shouldPreventContinuation) {
       resultingMessages.push({
         message: createAttachmentMessage({
@@ -1581,7 +1581,7 @@ async function checkPermissionsAndCallTool(
       })
     }
 
-    // Yield the remaining hook results after the other messages are sent
+    // 在其他消息发送完后，再产出剩余的 Hook 结果
     for (const hookResult of hookResults) {
       resultingMessages.push(hookResult)
     }
@@ -1596,8 +1596,8 @@ async function checkPermissionsAndCallTool(
     })
     endToolSpan()
 
-    // Handle MCP auth errors by updating the client status to 'needs-auth'
-    // This updates the /mcp display to show the server needs re-authorization
+    // 通过将 client 状态更新为 'needs-auth' 来处理 MCP 认证错误
+    // 这样 /mcp 界面会显示该 server 需要重新授权
     if (error instanceof McpAuthError) {
       toolUseContext.setAppState(prevState => {
         const serverName = error.serverName
@@ -1608,7 +1608,7 @@ async function checkPermissionsAndCallTool(
           return prevState
         }
         const existingClient = prevState.mcp.clients[existingClientIndex]
-        // Only update if client was connected (don't overwrite other states)
+        // 仅在 client 之前处于 connected 状态时才更新（不要覆盖其他状态）
         if (!existingClient || existingClient.type !== 'connected') {
           return prevState
         }
@@ -1666,7 +1666,7 @@ async function checkPermissionsAndCallTool(
           mcpServerBaseUrl,
         ),
       })
-      // Log tool result error event for OTLP with tool parameters and decision context
+      // 结合工具参数和决策上下文，为 OTLP 记录 tool result 错误事件
       const mcpServerScope = isMcpTool(tool)
         ? getMcpServerScopeFromToolName(tool.name)
         : null
@@ -1690,10 +1690,10 @@ async function checkPermissionsAndCallTool(
     }
     const content = formatError(error)
 
-    // Determine if this was a user interrupt
+    // 判断这是否属于用户中断
     const isInterrupt = error instanceof AbortError
 
-    // Run PostToolUseFailure hooks
+    // 执行 PostToolUseFailure Hook
     const hookMessages: MessageUpdateLazy<
       AttachmentMessage | ProgressMessage<HookProgress>
     >[] = []
@@ -1737,7 +1737,7 @@ async function checkPermissionsAndCallTool(
     ]
   } finally {
     stopSessionActivity('tool_exec')
-    // Clean up decision info after logging
+    // 记录完成后清理 decision 信息
     if (decisionInfo) {
       toolUseContext.toolDecisions?.delete(toolUseID)
     }

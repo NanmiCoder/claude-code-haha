@@ -22,7 +22,7 @@ export async function call(
   context: ToolUseContext & LocalJSXCommandContext,
   args: string,
 ): Promise<null> {
-  // Teammates cannot set their own color
+  // Teammates 不能设置自己的颜色
   if (isTeammate()) {
     onDone(
       'Cannot set color: This session is a swarm teammate. Teammate colors are assigned by the team leader.',
@@ -41,13 +41,13 @@ export async function call(
 
   const colorArg = args.trim().toLowerCase()
 
-  // Handle reset to default (gray)
+  // 处理重置为默认值（gray）
   if (RESET_ALIASES.includes(colorArg as (typeof RESET_ALIASES)[number])) {
     const sessionId = getSessionId() as UUID
     const fullPath = getTranscriptPath()
 
-    // Use "default" sentinel (not empty string) so truthiness guards
-    // in sessionStorage.ts persist the reset across session restarts
+    // 使用 "default" sentinel（而不是空字符串），这样 sessionStorage.ts 中的 truthiness guard
+    // 才能在 session 重启后也持久化这次重置
     await saveAgentColor(sessionId, 'default', fullPath)
 
     context.setAppState(prev => ({
@@ -75,10 +75,10 @@ export async function call(
   const sessionId = getSessionId() as UUID
   const fullPath = getTranscriptPath()
 
-  // Save to transcript for persistence across sessions
+  // 写入 transcript，以便跨 session 持久化
   await saveAgentColor(sessionId, colorArg, fullPath)
 
-  // Update AppState for immediate effect
+  // 更新 AppState 以立即生效
   context.setAppState(prev => ({
     ...prev,
     standaloneAgentContext: {

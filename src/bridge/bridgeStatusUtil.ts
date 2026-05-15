@@ -6,7 +6,7 @@ import { stringWidth } from '../ink/stringWidth.js'
 import { formatDuration, truncateToWidth } from '../utils/format.js'
 import { getGraphemeSegmenter } from '../utils/intl.js'
 
-/** Bridge status state machine states. */
+/** Bridge 状态机的状态。 */
 export type StatusState =
   | 'idle'
   | 'attached'
@@ -14,10 +14,10 @@ export type StatusState =
   | 'reconnecting'
   | 'failed'
 
-/** How long a tool activity line stays visible after last tool_start (ms). */
+/** 工具活动行在最后一次 tool_start 之后保持可见的时长（毫秒）。 */
 export const TOOL_DISPLAY_EXPIRY_MS = 30_000
 
-/** Interval for the shimmer animation tick (ms). */
+/** shimmer 动画 tick 的间隔（毫秒）。 */
 export const SHIMMER_INTERVAL_MS = 150
 
 export function timestamp(): string {
@@ -30,12 +30,12 @@ export function timestamp(): string {
 
 export { formatDuration, truncateToWidth as truncatePrompt }
 
-/** Abbreviate a tool activity summary for the trail display. */
+/** 为 trail 展示缩写工具活动摘要。 */
 export function abbreviateActivity(summary: string): string {
   return truncateToWidth(summary, 30)
 }
 
-/** Build the connect URL shown when the bridge is idle. */
+/** 构造 bridge 空闲时显示的连接 URL。 */
 export function buildBridgeConnectUrl(
   environmentId: string,
   ingressUrl?: string,
@@ -45,9 +45,9 @@ export function buildBridgeConnectUrl(
 }
 
 /**
- * Build the session URL shown when a session is attached. Delegates to
- * getRemoteSessionUrl for the cse_→session_ prefix translation, then appends
- * the v1-specific ?bridge={environmentId} query.
+ * 构造 session 已附着时显示的 session URL。委托给 getRemoteSessionUrl
+ * 完成 cse_→session_ 前缀转换，然后追加 v1 特有的
+ * ?bridge={environmentId} 查询参数。
  */
 export function buildBridgeSessionUrl(
   sessionId: string,
@@ -57,7 +57,7 @@ export function buildBridgeSessionUrl(
   return `${getRemoteSessionUrl(sessionId, ingressUrl)}?bridge=${environmentId}`
 }
 
-/** Compute the glimmer index for a reverse-sweep shimmer animation. */
+/** 为反向扫过的 shimmer 动画计算 glimmer 索引。 */
 export function computeGlimmerIndex(
   tick: number,
   messageWidth: number,
@@ -67,14 +67,14 @@ export function computeGlimmerIndex(
 }
 
 /**
- * Split text into three segments by visual column position for shimmer rendering.
+ * 按视觉列位置将文本拆成三段，用于 shimmer 渲染。
  *
- * Uses grapheme segmentation and `stringWidth` so the split is correct for
- * multi-byte characters, emoji, and CJK glyphs.
+ * 使用 grapheme segmentation 和 `stringWidth`，确保对多字节字符、emoji
+ * 和 CJK 字形的拆分都正确。
  *
- * Returns `{ before, shimmer, after }` strings. Both renderers (chalk in
- * bridgeUI.ts and React/Ink in bridge.tsx) apply their own coloring to
- * these segments.
+ * 返回 `{ before, shimmer, after }` 字符串。两个渲染器
+ * （bridgeUI.ts 中的 chalk，以及 bridge.tsx 中的 React/Ink）
+ * 会各自为这些片段着色。
  */
 export function computeShimmerSegments(
   text: string,
@@ -84,12 +84,12 @@ export function computeShimmerSegments(
   const shimmerStart = glimmerIndex - 1
   const shimmerEnd = glimmerIndex + 1
 
-  // When shimmer is offscreen, return all text as "before"
+  // 当 shimmer 位于屏幕外时，把全部文本作为 "before" 返回
   if (shimmerStart >= messageWidth || shimmerEnd < 0) {
     return { before: text, shimmer: '', after: '' }
   }
 
-  // Split into at most 3 segments by visual column position
+  // 按视觉列位置最多拆成 3 段
   const clampedStart = Math.max(0, shimmerStart)
   let colPos = 0
   let before = ''
@@ -110,7 +110,7 @@ export function computeShimmerSegments(
   return { before, shimmer, after }
 }
 
-/** Computed bridge status label and color from connection state. */
+/** 根据连接状态计算得到的 bridge 状态标签和颜色。 */
 export type BridgeStatusInfo = {
   label:
     | 'Remote Control failed'
@@ -120,7 +120,7 @@ export type BridgeStatusInfo = {
   color: 'error' | 'warning' | 'success'
 }
 
-/** Derive a status label and color from the bridge connection state. */
+/** 从 bridge 连接状态推导状态标签和颜色。 */
 export function getBridgeStatus({
   error,
   connected,
@@ -140,23 +140,23 @@ export function getBridgeStatus({
   return { label: 'Remote Control connecting\u2026', color: 'warning' }
 }
 
-/** Footer text shown when bridge is idle (Ready state). */
+/** bridge 空闲时（Ready 状态）显示的页脚文本。 */
 export function buildIdleFooterText(url: string): string {
   return `Code everywhere with the Claude app or ${url}`
 }
 
-/** Footer text shown when a session is active (Connected state). */
+/** session 活跃时（Connected 状态）显示的页脚文本。 */
 export function buildActiveFooterText(url: string): string {
   return `Continue coding in the Claude app or ${url}`
 }
 
-/** Footer text shown when the bridge has failed. */
+/** bridge 失败时显示的页脚文本。 */
 export const FAILED_FOOTER_TEXT = 'Something went wrong, please try again'
 
 /**
- * Wrap text in an OSC 8 terminal hyperlink. Zero visual width for layout purposes.
- * strip-ansi (used by stringWidth) correctly strips these sequences, so
- * countVisualLines in bridgeUI.ts remains accurate.
+ * 使用 OSC 8 终端超链接包装文本。出于布局目的，其视觉宽度为 0。
+ * strip-ansi（被 stringWidth 使用）会正确移除这些序列，因此
+ * bridgeUI.ts 中的 countVisualLines 仍然准确。
  */
 export function wrapWithOsc8Link(text: string, url: string): string {
   return `\x1b]8;;${url}\x07${text}\x1b]8;;\x07`

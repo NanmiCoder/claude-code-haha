@@ -44,81 +44,79 @@ function parseKey(keypress: ParsedKey): [Key, string] {
     tab: keypress.name === 'tab',
     backspace: keypress.name === 'backspace',
     delete: keypress.name === 'delete',
-    // `parseKeypress` parses \u001B\u001B[A (meta + up arrow) as meta = false
-    // but with option = true, so we need to take this into account here
-    // to avoid breaking changes in Ink.
-    // TODO(vadimdemedes): consider removing this in the next major version.
+    // `parseKeypress` 会把 \u001B\u001B[A（meta + 向上箭头）解析成 meta = false
+    // 但 option = true，因此这里需要把这种情况一并考虑进去，避免在 Ink 中引入
+    // 破坏性变化。
+    // TODO(vadimdemedes): 考虑在下一个 major 版本移除这段兼容逻辑。
     meta: keypress.meta || keypress.name === 'escape' || keypress.option,
-    // Super (Cmd on macOS / Win key) — only arrives via kitty keyboard
-    // protocol CSI u sequences. Distinct from meta (Alt/Option) so
-    // bindings like cmd+c can be expressed separately from opt+c.
+    // Super（macOS 上的 Cmd / Windows 上的 Win 键）只会通过 kitty keyboard
+    // protocol 的 CSI u 序列到达。它与 meta（Alt/Option）区分开来，
+    // 因而像 cmd+c 这样的绑定可以与 opt+c 分别表达。
     super: keypress.super,
   }
 
   let input = keypress.ctrl ? keypress.name : keypress.sequence
 
-  // Handle undefined input case
+  // 处理 input 为 undefined 的情况
   if (input === undefined) {
     input = ''
   }
 
-  // When ctrl is set, keypress.name for space is the literal word "space".
-  // Convert to actual space character for consistency with the CSI u branch
-  // (which maps 'space' → ' '). Without this, ctrl+space leaks the literal
-  // word "space" into text input.
+  // 当 ctrl 为 true 时，space 对应的 keypress.name 是字面字符串 "space"。
+  // 这里把它转换成真实空格字符，以与 CSI u 分支的行为保持一致
+  // （该分支会把 'space' 映射为 ' '）。否则 ctrl+space 会把字面词 "space"
+  // 泄漏进文本输入。
   if (keypress.ctrl && input === 'space') {
     input = ' '
   }
 
-  // Suppress unrecognized escape sequences that were parsed as function keys
-  // (matched by FN_KEY_RE) but have no name in the keyName map.
-  // Examples: ESC[25~ (F13/Right Alt on Windows), ESC[26~ (F14), etc.
-  // Without this, the ESC prefix is stripped below and the remainder (e.g.,
-  // "[25~") leaks into the input as literal text.
+  // 屏蔽那些被解析成 function key（命中 FN_KEY_RE）但在 keyName map 中
+  // 没有名字的未识别转义序列。
+  // 例如：ESC[25~（Windows 上的 F13/Right Alt）、ESC[26~（F14）等。
+  // 没有这层处理时，下面去掉 ESC 前缀后，剩余部分（例如 "[25~"）会作为
+  // 字面文本泄漏到输入里。
   if (keypress.code && !keypress.name) {
     input = ''
   }
 
-  // Suppress ESC-less SGR mouse fragments. When a heavy React commit blocks
-  // the event loop past App's 50ms NORMAL_TIMEOUT flush, a CSI split across
-  // stdin chunks gets its buffered ESC flushed as a lone Escape key, and the
-  // continuation arrives as a text token with name='' — which falls through
-  // all of parseKeypress's ESC-anchored regexes and the nonAlphanumericKeys
-  // clear below (name is falsy). The fragment then leaks into the prompt as
-  // literal `[<64;74;16M`. This is the same defensive sink as the F13 guard
-  // above; the underlying tokenizer-flush race is upstream of this layer.
+  // 屏蔽缺失 ESC 前缀的 SGR 鼠标片段。当沉重的 React commit 让事件循环阻塞
+  // 超过 App 的 50ms NORMAL_TIMEOUT flush 时，一个被拆成多个 stdin chunk 的
+  // CSI 会先把缓冲里的 ESC 当成单独的 Escape 键刷出来，而后续片段会以
+  // name='' 的 text token 形式到达。它会绕过 parseKeypress 中所有以 ESC 为锚点
+  // 的正则，以及下面的 nonAlphanumericKeys 清理逻辑（因为 name 是 falsy），
+  // 最终把字面文本 `[<64;74;16M` 泄漏进提示符。这里与上面的 F13 保护一样，
+  // 属于防御性兜底；真正的 tokenizer flush 竞争发生在这一层之前。
   if (!keypress.name && /^\[<\d+;\d+;\d+[Mm]/.test(input)) {
     input = ''
   }
 
-  // Strip meta if it's still remaining after `parseKeypress`
-  // TODO(vadimdemedes): remove this in the next major version.
+  // 如果 `parseKeypress` 之后还残留 meta 前缀，则把它去掉。
+  // TODO(vadimdemedes): 考虑在下一个 major 版本移除这段兼容逻辑。
   if (input.startsWith('\u001B')) {
     input = input.slice(1)
   }
 
-  // Track whether we've already processed this as a special sequence
-  // that converted input to the key name (CSI u or application keypad mode).
-  // For these, we don't want to clear input with nonAlphanumericKeys check.
+  // 记录当前输入是否已作为特殊序列处理过，并已把 input 转成 key name
+  //（CSI u 或 application keypad mode）。对于这类情况，不应再被下面的
+  // nonAlphanumericKeys 检查清空。
   let processedAsSpecialSequence = false
 
-  // Handle CSI u sequences (Kitty keyboard protocol): after stripping ESC,
-  // we're left with "[codepoint;modifieru" (e.g., "[98;3u" for Alt+b).
-  // Use the parsed key name instead for input handling. Require a digit
-  // after [ — real CSI u is always [<digits>…u, and a bare startsWith('[')
-  // false-matches X10 mouse at row 85 (Cy = 85+32 = 'u'), leaking the
-  // literal text "mouse" into the prompt via processedAsSpecialSequence.
+  // 处理 CSI u 序列（Kitty keyboard protocol）：去掉 ESC 后，剩下的是
+  // "[codepoint;modifieru"（例如 Alt+b 对应 "[98;3u"）。这里改用解析后的
+  // key name 作为输入。要求 `[` 后面必须跟数字，因为真实的 CSI u 一定是
+  // [<digits>…u；如果只写 startsWith('[')，会把第 85 行的 X10 mouse
+  //（Cy = 85+32 = 'u'）误判进去，进而经由 processedAsSpecialSequence
+  // 把字面文本 "mouse" 泄漏到提示符中。
   if (/^\[\d/.test(input) && input.endsWith('u')) {
     if (!keypress.name) {
-      // Unmapped Kitty functional key (Caps Lock 57358, F13–F35, KP nav,
-      // bare modifiers, etc.) — keycodeToName() returned undefined. Swallow
-      // so the raw "[57358u" doesn't leak into the prompt. See #38781.
+      // 未映射的 Kitty 功能键（Caps Lock 57358、F13–F35、数字键盘导航、
+      // 裸修饰键等），即 keycodeToName() 返回 undefined 的情况。这里直接吞掉，
+      // 避免原始的 "[57358u" 泄漏到提示符。见 #38781。
       input = ''
     } else {
-      // 'space' → ' '; 'escape' → '' (key.escape carries it;
-      // processedAsSpecialSequence bypasses the nonAlphanumericKeys
-      // clear below, so we must handle it explicitly here);
-      // otherwise use key name.
+      // 'space' → ' '；'escape' → ''（key.escape 已经携带该信息；
+      // processedAsSpecialSequence 会绕过下面的 nonAlphanumericKeys 清理，
+      // 因此这里必须显式处理）；否则直接使用 key name。
       input =
         keypress.name === 'space'
           ? ' '
@@ -129,16 +127,15 @@ function parseKey(keypress: ParsedKey): [Key, string] {
     processedAsSpecialSequence = true
   }
 
-  // Handle xterm modifyOtherKeys sequences: after stripping ESC, we're left
-  // with "[27;modifier;keycode~" (e.g., "[27;3;98~" for Alt+b). Same
-  // extraction as CSI u — without this, printable-char keycodes (single-letter
-  // names) skip the nonAlphanumericKeys clear and leak "[27;..." as input.
+  // 处理 xterm modifyOtherKeys 序列：去掉 ESC 后剩下
+  // "[27;modifier;keycode~"（例如 Alt+b 对应 "[27;3;98~"）。提取逻辑与
+  // CSI u 相同；没有这一步时，可打印字符 keycode（单字母 name）会绕过
+  // nonAlphanumericKeys 清理，并把 "[27;..." 泄漏成输入。
   if (input.startsWith('[27;') && input.endsWith('~')) {
     if (!keypress.name) {
-      // Unmapped modifyOtherKeys keycode — swallow for consistency with
-      // the CSI u handler above. Practically untriggerable today (xterm
-      // modifyOtherKeys only sends ASCII keycodes, all mapped), but
-      // guards against future terminal behavior.
+      // 未映射的 modifyOtherKeys keycode。为与上面的 CSI u 处理保持一致，
+      // 这里直接吞掉。按当前情况几乎无法触发（xterm modifyOtherKeys 只发送
+      // ASCII keycode，且都已有映射），但可以防御未来终端行为变化。
       input = ''
     } else {
       input =
@@ -151,9 +148,9 @@ function parseKey(keypress: ParsedKey): [Key, string] {
     processedAsSpecialSequence = true
   }
 
-  // Handle application keypad mode sequences: after stripping ESC,
-  // we're left with "O<letter>" (e.g., "Op" for numpad 0, "Oy" for numpad 9).
-  // Use the parsed key name (the digit character) for input handling.
+  // 处理 application keypad mode 序列：去掉 ESC 后剩下的是 "O<letter>"
+  //（例如数字键盘 0 对应 "Op"，数字键盘 9 对应 "Oy"）。这里使用解析后的
+  // key name（即数字字符）作为输入。
   if (
     input.startsWith('O') &&
     input.length === 2 &&
@@ -164,9 +161,9 @@ function parseKey(keypress: ParsedKey): [Key, string] {
     processedAsSpecialSequence = true
   }
 
-  // Clear input for non-alphanumeric keys (arrows, function keys, etc.)
-  // Skip this for CSI u and application keypad mode sequences since
-  // those were already converted to their proper input characters.
+  // 对非字母数字按键（方向键、功能键等）清空 input。
+  // CSI u 和 application keypad mode 序列已经被转换成正确的输入字符，
+  // 因此这里要跳过。
   if (
     !processedAsSpecialSequence &&
     keypress.name &&
@@ -175,8 +172,8 @@ function parseKey(keypress: ParsedKey): [Key, string] {
     input = ''
   }
 
-  // Set shift=true for uppercase letters (A-Z)
-  // Must check it's actually a letter, not just any char unchanged by toUpperCase
+  // 对大写字母（A-Z）设置 shift=true。
+  // 必须确认它真的是字母，而不是某个调用 toUpperCase 后恰好不变的字符。
   if (
     input.length === 1 &&
     typeof input[0] === 'string' &&

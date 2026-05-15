@@ -49,8 +49,8 @@ function useVoiceStore() {
 }
 
 /**
- * Subscribe to a slice of voice state. Only re-renders when the selected
- * value changes (compared via Object.is).
+ * 订阅 voice state 的某个切片。
+ * 只有当选中值发生变化时才会重新渲染（通过 Object.is 比较）。
  */
 export function useVoiceState(selector) {
   const $ = _c(3);
@@ -69,18 +69,19 @@ export function useVoiceState(selector) {
 }
 
 /**
- * Get the voice state setter. Stable reference — never causes re-renders.
- * store.setState is synchronous: callers can read getVoiceState() immediately
- * after to observe the new value (VoiceKeybindingHandler relies on this).
+ * 获取 voice state 的 setter。
+ * 这个引用是稳定的，不会触发重新渲染。
+ * store.setState 是同步的，因此调用方可以在调用后立刻通过 getVoiceState()
+ * 读取最新值（VoiceKeybindingHandler 依赖这一点）。
  */
 export function useSetVoiceState() {
   return useVoiceStore().setState;
 }
 
 /**
- * Get a synchronous reader for fresh state inside callbacks. Unlike
- * useVoiceState (which subscribes), this doesn't cause re-renders — use
- * inside event handlers that need to read state set earlier in the same tick.
+ * 获取一个可在回调内部同步读取最新状态的 reader。
+ * 与会建立订阅的 useVoiceState 不同，它不会触发重渲染；
+ * 适合用于那些需要在同一个 tick 内读取稍早刚写入状态的事件处理器。
  */
 export function useGetVoiceState() {
   return useVoiceStore().getState;

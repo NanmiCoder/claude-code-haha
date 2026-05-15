@@ -1,10 +1,9 @@
 /**
- * Thin launchers for one-off dialog JSX sites in main.tsx.
- * Each launcher dynamically imports its component and wires the `done` callback
- * identically to the original inline call site. Zero behavior change.
+ * main.tsx 中一次性对话框 JSX 调用点的轻量级启动器。
+ * 每个启动器都会动态导入对应组件，并以与原始内联调用点完全相同的方式绑定 `done` 回调。行为不变。
  *
- * Part of the main.tsx React/JSX extraction effort. See sibling PRs
- * perf/extract-interactive-helpers and perf/launch-repl.
+ * 属于 main.tsx 的 React/JSX 拆分工作。参见相邻 PR：
+ * perf/extract-interactive-helpers 和 perf/launch-repl。
  */
 import React from 'react';
 import type { AssistantSession } from './assistant/sessionDiscovery.js';
@@ -18,13 +17,13 @@ import type { TeleportRemoteResponse } from './utils/conversationRecovery.js';
 import type { FpsMetrics } from './utils/fpsTracker.js';
 import type { ValidationError } from './utils/settings/validation.js';
 
-// Type-only access to ResumeConversation's Props via the module type.
-// No runtime cost - erased at compile time.
+// 通过模块类型仅在类型层面访问 ResumeConversation 的 Props。
+// 没有运行时开销，编译时会被擦除。
 type ResumeConversationProps = React.ComponentProps<typeof import('./screens/ResumeConversation.js').ResumeConversation>;
 
 /**
- * Site ~3173: SnapshotUpdateDialog (agent memory snapshot update prompt).
- * Original callback wiring: onComplete={done}, onCancel={() => done('keep')}.
+ * 位置 ~3173：SnapshotUpdateDialog（agent memory 快照更新提示）。
+ * 原始回调绑定：onComplete={done}，onCancel={() => done('keep')}。
  */
 export async function launchSnapshotUpdateDialog(root: Root, props: {
   agentType: string;
@@ -38,8 +37,8 @@ export async function launchSnapshotUpdateDialog(root: Root, props: {
 }
 
 /**
- * Site ~3250: InvalidSettingsDialog (settings validation errors).
- * Original callback wiring: onContinue={done}, onExit passed through from caller.
+ * 位置 ~3250：InvalidSettingsDialog（设置校验错误）。
+ * 原始回调绑定：onContinue={done}，onExit 由调用方透传。
  */
 export async function launchInvalidSettingsDialog(root: Root, props: {
   settingsErrors: ValidationError[];
@@ -52,8 +51,8 @@ export async function launchInvalidSettingsDialog(root: Root, props: {
 }
 
 /**
- * Site ~4229: AssistantSessionChooser (pick a bridge session to attach to).
- * Original callback wiring: onSelect={id => done(id)}, onCancel={() => done(null)}.
+ * 位置 ~4229：AssistantSessionChooser（选择要附加的 bridge 会话）。
+ * 原始回调绑定：onSelect={id => done(id)}，onCancel={() => done(null)}。
  */
 export async function launchAssistantSessionChooser(root: Root, props: {
   sessions: AssistantSession[];
@@ -65,10 +64,9 @@ export async function launchAssistantSessionChooser(root: Root, props: {
 }
 
 /**
- * `claude assistant` found zero sessions — show the same install wizard
- * as `/assistant` when daemon.json is empty. Resolves to the installed dir on
- * success, null on cancel. Rejects on install failure so the caller can
- * distinguish errors from user cancellation.
+ * 当 `claude assistant` 未找到任何会话，且 daemon.json 为空时，
+ * 显示与 `/assistant` 相同的安装向导。成功时解析为安装目录，
+ * 取消时返回 null。安装失败时会 reject，便于调用方区分错误与用户取消。
  */
 export async function launchAssistantInstallWizard(root: Root): Promise<string | null> {
   const {
@@ -85,8 +83,8 @@ export async function launchAssistantInstallWizard(root: Root): Promise<string |
 }
 
 /**
- * Site ~4549: TeleportResumeWrapper (interactive teleport session picker).
- * Original callback wiring: onComplete={done}, onCancel={() => done(null)}, source="cliArg".
+ * 位置 ~4549：TeleportResumeWrapper（交互式 teleport 会话选择器）。
+ * 原始回调绑定：onComplete={done}，onCancel={() => done(null)}，source="cliArg"。
  */
 export async function launchTeleportResumeWrapper(root: Root): Promise<TeleportRemoteResponse | null> {
   const {
@@ -96,8 +94,8 @@ export async function launchTeleportResumeWrapper(root: Root): Promise<TeleportR
 }
 
 /**
- * Site ~4597: TeleportRepoMismatchDialog (pick a local checkout of the target repo).
- * Original callback wiring: onSelectPath={done}, onCancel={() => done(null)}.
+ * 位置 ~4597：TeleportRepoMismatchDialog（选择目标仓库的本地检出路径）。
+ * 原始回调绑定：onSelectPath={done}，onCancel={() => done(null)}。
  */
 export async function launchTeleportRepoMismatchDialog(root: Root, props: {
   targetRepo: string;
@@ -110,9 +108,9 @@ export async function launchTeleportRepoMismatchDialog(root: Root, props: {
 }
 
 /**
- * Site ~4903: ResumeConversation mount (interactive session picker).
- * Uses renderAndRun, NOT showSetupDialog. Wraps in <App><KeybindingSetup>.
- * Preserves original Promise.all parallelism between getWorktreePaths and imports.
+ * 位置 ~4903：ResumeConversation 挂载点（交互式会话选择器）。
+ * 使用 renderAndRun，而不是 showSetupDialog。包裹在 <App><KeybindingSetup> 中。
+ * 保留 getWorktreePaths 与 imports 之间原本的 Promise.all 并行性。
  */
 export async function launchResumeChooser(root: Root, appProps: {
   getFpsMetrics: () => FpsMetrics | undefined;

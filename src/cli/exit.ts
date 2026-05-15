@@ -1,21 +1,21 @@
 /**
- * CLI exit helpers for subcommand handlers.
+ * 供子命令处理器使用的 CLI 退出辅助函数。
  *
- * Consolidates the 4-5 line "print + lint-suppress + exit" block that was
- * copy-pasted ~60 times across `claude mcp *` / `claude plugin *` handlers.
- * The `: never` return type lets TypeScript narrow control flow at call sites
- * without a trailing `return`.
+ * 将那段 4-5 行的“print + lint-suppress + exit”代码块收敛起来，
+ * 这段代码此前在 `claude mcp *` / `claude plugin *` handlers 中被复制粘贴了约 60 次。
+ * `: never` 返回类型让 TypeScript 能在调用点收窄控制流，
+ * 无需额外写尾部 `return`。
  */
 /* eslint-disable custom-rules/no-process-exit -- centralized CLI exit point */
 
-// `return undefined as never` (not a post-exit throw) — tests spy on
-// process.exit and let it return. Call sites write `return cliError(...)`
-// where subsequent code would dereference narrowed-away values under mock.
-// cliError uses console.error (tests spy on console.error); cliOk uses
-// process.stdout.write (tests spy on process.stdout.write — Bun's console.log
-// doesn't route through a spied process.stdout.write).
+// `return undefined as never`（不是 exit 之后再 throw）—— tests 会 spy on
+// process.exit 并让它返回。调用点会写成 `return cliError(...)`，
+// 这样后续代码就不会在 mock 环境下解引用已被收窄掉的值。
+// cliError 使用 console.error（tests 会 spy on console.error）；cliOk 使用
+// process.stdout.write（tests 会 spy on process.stdout.write，而 Bun 的 console.log
+// 不会走到被 spy 的 process.stdout.write）。
 
-/** Write an error message to stderr (if given) and exit with code 1. */
+/** 将错误消息写入 stderr（如果提供），并以退出码 1 退出。 */
 export function cliError(msg?: string): never {
   // biome-ignore lint/suspicious/noConsole: centralized CLI error output
   if (msg) console.error(msg)
@@ -23,7 +23,7 @@ export function cliError(msg?: string): never {
   return undefined as never
 }
 
-/** Write a message to stdout (if given) and exit with code 0. */
+/** 将消息写入 stdout（如果提供），并以退出码 0 退出。 */
 export function cliOk(msg?: string): never {
   if (msg) process.stdout.write(msg + '\n')
   process.exit(0)
