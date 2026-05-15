@@ -307,6 +307,14 @@ describe('ConversationService', () => {
     )
     expect(env.CC_HAHA_DESKTOP_SERVER_URL).toBe('http://127.0.0.1:3456')
     expect(env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING).toBe('1')
+    expect(env.CLAUDE_CODE_RESUME_INTERRUPTED_TURN).toBe('1')
+  })
+
+  test('buildChildEnv does not force interrupted-turn resume for non-SDK sessions', async () => {
+    const service = new ConversationService() as any
+    const env = (await service.buildChildEnv('/tmp')) as Record<string, string>
+
+    expect(env.CLAUDE_CODE_RESUME_INTERRUPTED_TURN).toBeUndefined()
   })
 
   test('uses bun entrypoint fallback on Windows dev mode', () => {

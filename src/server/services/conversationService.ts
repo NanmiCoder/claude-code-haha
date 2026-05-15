@@ -925,6 +925,16 @@ export class ConversationService {
       CLAUDE_CODE_ENABLE_TASKS: '1',
       CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
       CLAUDE_CODE_DIAGNOSTICS_FILE: cliDiagnosticsPath,
+      // Desktop frequently restarts the SDK CLI in-place (stop generation,
+      // runtime/model switch, reconnect). When the previous turn was
+      // interrupted, print.ts only re-enqueues that interrupted user prompt if
+      // this env flag is enabled. Without it, the resumed transcript keeps the
+      // synthetic "[Request interrupted by user]" / "No response requested."
+      // pair, but the interrupted prompt is not actively resumed on restart,
+      // which can make follow-up turns appear to "forget" earlier user input.
+      ...(sdkUrl
+        ? { CLAUDE_CODE_RESUME_INTERRUPTED_TURN: '1' }
+        : {}),
       CLAUDE_COWORK_MEMORY_PATH_OVERRIDE: this.resolveDesktopAutoMemoryPath(workDir),
       CALLER_DIR: workDir,
       PWD: workDir,
