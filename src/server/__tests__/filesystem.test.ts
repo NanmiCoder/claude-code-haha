@@ -1,12 +1,18 @@
-import { afterEach, describe, expect, it } from 'bun:test'
+import { afterEach, beforeAll, describe, expect, it } from 'bun:test'
 import { execFileSync } from 'child_process'
 import * as fs from 'fs'
 import * as fsp from 'fs/promises'
 import * as os from 'os'
 import * as path from 'path'
 import { handleFilesystemRoute } from '../api/filesystem.js'
+import { configureWorkspaceRoot } from '../services/workspaceRootInstance.js'
 
 const cleanupDirs = new Set<string>()
+
+beforeAll(() => {
+  // Configure workspace root to allow access to the user's home directory and /tmp.
+  configureWorkspaceRoot(os.homedir())
+})
 
 function makeUrl(route: string, params: Record<string, string>): URL {
   const url = new URL(`http://localhost${route}`)

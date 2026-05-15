@@ -16,3 +16,7 @@ export function getWorkspaceRoot(): WorkspaceRoot {
   }
   return instance
 }
+
+export function resetWorkspaceRoot(): void {
+  instance = null
+}

@@ -12,6 +12,21 @@ import { execFileNoThrowWithCwd } from '../../utils/execFileNoThrow.js'
 import { findGitRoot, gitExe } from '../../utils/git.js'
 import { ripGrep } from '../../utils/ripgrep.js'
 import { getInitialSettings } from '../../utils/settings/settings.js'
+import { getWorkspaceRoot } from '../services/workspaceRootInstance.js'
+
+function ensureInsideWorkspaceRoot(targetPath: string): string | null {
+  let root
+  try {
+    root = getWorkspaceRoot()
+  } catch {
+    // Workspace root not configured — allow all paths (used in non-SaaS test scenarios)
+    return null
+  }
+  if (!root.isInsideRoot(targetPath)) {
+    return 'Access denied: path outside workspace root'
+  }
+  return null
+}
 
 type FilesystemEntry = {
   name: string
@@ -74,6 +89,10 @@ export async function handleFilesystemRoute(pathname: string, url: URL): Promise
     return handleServeFile(url)
   }
 
+  if (pathname === '/api/filesystem/read') {
+    return handleRead(url)
+  }
+
   return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 })
 }
 
@@ -84,6 +103,9 @@ async function handleServeFile(url: URL): Promise<Response> {
   }
 
   const resolvedPath = path.resolve(filePath)
+
+  const guard = ensureInsideWorkspaceRoot(resolvedPath)
+  if (guard) return json({ error: guard }, 403)
 
   if (!isAllowedFilesystemPath(resolvedPath)) {
     return json({ error: 'Access denied: path outside allowed directory' }, 403)
@@ -120,9 +142,35 @@ async function handleServeFile(url: URL): Promise<Response> {
   }
 }
 
+async function handleRead(url: URL): Promise<Response> {
+  const filePath = url.searchParams.get('path')
+  if (!filePath) {
+    return json({ error: 'Missing path parameter' }, 400)
+  }
+
+  const resolvedPath = path.resolve(filePath)
+
+  const guard = ensureInsideWorkspaceRoot(resolvedPath)
+  if (guard) return json({ error: guard }, 403)
+
+  try {
+    const stat = fs.statSync(resolvedPath)
+    if (!stat.isFile()) {
+      return json({ error: 'Not a file' }, 400)
+    }
+    const data = fs.readFileSync(resolvedPath, 'utf-8')
+    return json({ path: resolvedPath, content: data }, 200)
+  } catch {
+    return json({ error: 'File not found' }, 404)
+  }
+}
+
 async function handleBrowse(url: URL): Promise<Response> {
   const targetPath = url.searchParams.get('path') || os.homedir() || '/'
   const resolvedPath = path.resolve(targetPath)
+
+  const guard = ensureInsideWorkspaceRoot(resolvedPath)
+  if (guard) return json({ error: guard }, 403)
 
   if (!isAllowedFilesystemPath(resolvedPath)) {
     return json({ error: 'Access denied: path outside allowed directory' }, 403)
