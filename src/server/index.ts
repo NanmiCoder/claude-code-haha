@@ -5,6 +5,9 @@
  * 读写与 CLI 完全相同的文件系统，确保 CLI/UI 数据互通。
  */
 
+import * as path from 'node:path'
+import * as fs from 'node:fs'
+import { configureWorkspaceRoot } from './services/workspaceRootInstance.js'
 import { handleApiRequest } from './router.js'
 import { handleWebSocket, type WebSocketData } from './ws/handler.js'
 import { resolveCors, type CorsResolution } from './middleware/cors.js'
@@ -120,6 +123,12 @@ function originFromUrl(value: string | null): string | null {
 
 export function startServer(port = PORT, host = HOST) {
   enableConfigs()
+  const workspacesDir =
+    process.env.CC_HAHA_WORKSPACES_ROOT ||
+    path.resolve(process.cwd(), 'workspaces')
+  const workspaceRoot = configureWorkspaceRoot(workspacesDir)
+  fs.mkdirSync(workspaceRoot.getRoot(), { recursive: true })
+  console.log(`[Server] Workspace root: ${workspaceRoot.getRoot()}`)
   diagnosticsService.installConsoleCapture()
   diagnosticsService.installProcessCapture()
   ProviderService.setServerPort(port)

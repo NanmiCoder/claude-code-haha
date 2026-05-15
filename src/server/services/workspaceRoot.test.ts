@@ -36,3 +36,13 @@ describe('WorkspaceRoot', () => {
     expect(() => root.resolveWorkspaceDir(path.join(tmpRoot, 'x'))).toThrow(/invalid workspace name/i)
   })
 })
+
+import { getWorkspaceRoot, configureWorkspaceRoot } from './workspaceRootInstance.js'
+
+describe('workspace root singleton', () => {
+  it('returns the configured singleton', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'cc-haha-ws-singleton-'))
+    configureWorkspaceRoot(tmp)
+    expect(getWorkspaceRoot().getRoot()).toBe(tmp)
+  })
+})
