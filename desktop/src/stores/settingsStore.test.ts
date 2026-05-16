@@ -597,3 +597,108 @@ describe('settingsStore H5 access behavior', () => {
     expect('h5AccessGeneratedToken' in useSettingsStore.getState()).toBe(false)
   })
 })
+
+describe('settingsStore observer sessions hidden', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+  })
+
+  it('defaults to false (observer sessions visible)', async () => {
+    const { useSettingsStore } = await import('./settingsStore')
+
+    expect(useSettingsStore.getState().observerSessionsHidden).toBe(false)
+  })
+
+  it('hydrates claudeMemObserverSessionsHidden from user settings', async () => {
+    vi.doMock('../api/settings', () => ({
+      settingsApi: {
+        getUser: vi.fn().mockResolvedValue({ claudeMemObserverSessionsHidden: true }),
+        updateUser: vi.fn(),
+        getPermissionMode: vi.fn().mockResolvedValue({ mode: 'default' }),
+        setPermissionMode: vi.fn(),
+        getCliLauncherStatus: vi.fn(),
+      },
+    }))
+    vi.doMock('../api/models', () => ({
+      modelsApi: {
+        list: vi.fn().mockResolvedValue({ models: [] }),
+        getCurrent: vi.fn().mockResolvedValue({ model: null }),
+        setCurrent: vi.fn(),
+        getEffort: vi.fn().mockResolvedValue({ level: 'medium' }),
+        setEffort: vi.fn(),
+      },
+    }))
+    vi.doMock('../api/h5Access', () => ({
+      h5AccessApi: {
+        get: vi.fn().mockResolvedValue({
+          settings: {
+            enabled: false,
+            tokenPreview: null,
+            allowedOrigins: [],
+            publicBaseUrl: null,
+          },
+        }),
+        enable: vi.fn(),
+        disable: vi.fn(),
+        regenerate: vi.fn(),
+        update: vi.fn(),
+      },
+    }))
+
+    const { useSettingsStore } = await import('./settingsStore')
+
+    await useSettingsStore.getState().fetchAll()
+
+    expect(useSettingsStore.getState().observerSessionsHidden).toBe(true)
+  })
+
+  it('persists toggle state to user settings', async () => {
+    const updateUser = vi.fn().mockResolvedValue({ ok: true })
+
+    vi.doMock('../api/settings', () => ({
+      settingsApi: {
+        getUser: vi.fn(),
+        updateUser,
+        getPermissionMode: vi.fn(),
+        setPermissionMode: vi.fn(),
+        getCliLauncherStatus: vi.fn(),
+      },
+    }))
+    vi.doMock('../api/models', () => ({
+      modelsApi: {
+        list: vi.fn(),
+        getCurrent: vi.fn(),
+        setCurrent: vi.fn(),
+        getEffort: vi.fn(),
+        setEffort: vi.fn(),
+      },
+    }))
+    vi.doMock('../api/h5Access', () => ({
+      h5AccessApi: {
+        get: vi.fn().mockResolvedValue({
+          settings: {
+            enabled: false,
+            tokenPreview: null,
+            allowedOrigins: [],
+            publicBaseUrl: null,
+          },
+        }),
+        enable: vi.fn(),
+        disable: vi.fn(),
+        regenerate: vi.fn(),
+        update: vi.fn(),
+      },
+    }))
+
+    const { useSettingsStore } = await import('./settingsStore')
+
+    await useSettingsStore.getState().setObserverSessionsHidden(true)
+    expect(useSettingsStore.getState().observerSessionsHidden).toBe(true)
+    expect(updateUser).toHaveBeenCalledWith({ claudeMemObserverSessionsHidden: true })
+
+    await useSettingsStore.getState().setObserverSessionsHidden(false)
+    expect(useSettingsStore.getState().observerSessionsHidden).toBe(false)
+    expect(updateUser).toHaveBeenCalledWith({ claudeMemObserverSessionsHidden: undefined })
+  })
+})

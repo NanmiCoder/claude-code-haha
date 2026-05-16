@@ -102,6 +102,7 @@ vi.mock('../../i18n', () => ({
 import { Sidebar } from './Sidebar'
 import { useChatStore } from '../../stores/chatStore'
 import { useSessionStore } from '../../stores/sessionStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { useTabStore } from '../../stores/tabStore'
 import { useUIStore } from '../../stores/uiStore'
 import type { SessionListItem } from '../../types/session'
@@ -1044,5 +1045,89 @@ describe('Sidebar', () => {
       configurable: true,
       value: originalVisibility,
     })
+  })
+})
+
+describe('Sidebar observer session filtering', () => {
+  const fetchSessions = vi.fn()
+
+  beforeEach(() => {
+    fetchSessions.mockReset()
+    useTabStore.setState({ tabs: [], activeTabId: null })
+    useSessionStore.setState({
+      sessions: [],
+      activeSessionId: null,
+      isLoading: false,
+      error: null,
+      selectedProjects: [],
+      availableProjects: [],
+      isBatchMode: false,
+      selectedSessionIds: new Set(),
+      fetchSessions,
+      createSession: vi.fn(),
+      deleteSession: vi.fn(),
+      deleteSessions: vi.fn(),
+    })
+    useUIStore.setState({
+      sidebarOpen: true,
+      addToast: vi.fn(),
+    } as Partial<ReturnType<typeof useUIStore.getState>>)
+    useSettingsStore.setState({ observerSessionsHidden: false })
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  const observerSession = {
+    id: 'observer-1',
+    title: 'Hello memory agent',
+    createdAt: new Date().toISOString(),
+    modifiedAt: new Date().toISOString(),
+    messageCount: 5,
+    projectPath: '-Users-test--claude-mem-observer-sessions',
+    workDir: '/Users/test/.claude-mem/observer-sessions',
+    workDirExists: true,
+  }
+
+  const normalSession = {
+    id: 'normal-1',
+    title: 'Bug fix in auth',
+    createdAt: new Date().toISOString(),
+    modifiedAt: new Date().toISOString(),
+    messageCount: 3,
+    projectPath: '-Users-test-my-project',
+    workDir: '/Users/test/my-project',
+    workDirExists: true,
+  }
+
+  it('shows observer sessions when toggle is off', () => {
+    useSettingsStore.setState({ observerSessionsHidden: false })
+    useSessionStore.setState({ sessions: [normalSession, observerSession] })
+
+    render(<Sidebar />)
+
+    expect(screen.getByText('Hello memory agent')).toBeInTheDocument()
+    expect(screen.getByText('Bug fix in auth')).toBeInTheDocument()
+  })
+
+  it('hides observer sessions when toggle is on', () => {
+    useSettingsStore.setState({ observerSessionsHidden: true })
+    useSessionStore.setState({ sessions: [normalSession, observerSession] })
+
+    render(<Sidebar />)
+
+    expect(screen.queryByText('Hello memory agent')).not.toBeInTheDocument()
+    expect(screen.getByText('Bug fix in auth')).toBeInTheDocument()
+  })
+
+  it('shows no sessions message when all sessions are filtered out', () => {
+    useSettingsStore.setState({ observerSessionsHidden: true })
+    useSessionStore.setState({ sessions: [observerSession] })
+
+    render(<Sidebar />)
+
+    expect(screen.queryByText('Hello memory agent')).not.toBeInTheDocument()
+    expect(screen.getByText('No sessions')).toBeInTheDocument()
   })
 })
