@@ -4,6 +4,25 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 const webNodeModules = path.resolve(__dirname, 'node_modules')
+const tauriStub = path.resolve(__dirname, 'src', 'tauri-stub.ts')
+
+// All Tauri packages that desktop/src may import.
+// Map each to our web stub so both dev scanning and production builds resolve cleanly.
+const TAURI_PACKAGES = [
+  '@tauri-apps/api/core',
+  '@tauri-apps/api/event',
+  '@tauri-apps/api/window',
+  '@tauri-apps/api/app',
+  '@tauri-apps/plugin-shell',
+  '@tauri-apps/plugin-process',
+  '@tauri-apps/plugin-notification',
+  '@tauri-apps/plugin-updater',
+  '@tauri-apps/plugin-dialog',
+]
+
+const tauriAlias = Object.fromEntries(
+  TAURI_PACKAGES.map((pkg) => [pkg, tauriStub]),
+)
 
 export default defineConfig({
   root: path.resolve(__dirname),
@@ -16,7 +35,6 @@ export default defineConfig({
         if (!importer) return null
         if (id.startsWith('.') || id.startsWith('@desktop') || id.startsWith('@/')) return null
         if (id.startsWith('@tauri-apps/')) return null
-        // Try to resolve from web/node_modules
         try {
           return this.resolve(id, webNodeModules, { skipSelf: true })
         } catch {
@@ -29,12 +47,10 @@ export default defineConfig({
     outDir: path.resolve(__dirname, 'dist'),
     emptyOutDir: true,
     chunkSizeWarningLimit: 2200,
-    rollupOptions: {
-      external: (id: string) => id.startsWith('@tauri-apps/'),
-    },
   },
   resolve: {
     alias: {
+      ...tauriAlias,
       '@desktop': path.resolve(__dirname, '..', 'desktop', 'src'),
       '@': path.resolve(__dirname, '..', 'desktop', 'src'),
       'lucide-react': path.resolve(__dirname, 'node_modules/lucide-react'),
