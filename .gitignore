@@ -74,3 +74,6 @@ runtime/__pycache__
 
 # Codex logs
 .codex-logs/
+# Web frontend build output
+web/dist/
+web/bun.lock
