@@ -143,13 +143,18 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
   activateProvider: async (id) => {
     await providersApi.activate(id)
     await get().fetchProviders()
-    // 更新默认 provider 时，同步刷新默认 model，避免 settings.json 里残留
-    // 旧 provider 的 model id 导致默认选择指向不存在的模型。
     const provider = get().providers.find((p) => p.id === id)
     if (provider) {
       const settings = useSettingsStore.getState()
-      await settings.setModel(provider.models.main)
+      const currentModelId = settings.currentModel?.id
+      const modelIds = providerModelIds(provider)
+      // 只在当前模型不兼容新 provider 时才 fallback 到 main model，
+      // 避免静默覆盖用户已选模型（#494）。
+      if (!currentModelId || !modelIds.has(currentModelId)) {
+        await settings.setModel(provider.models.main)
+      }
       await settings.fetchAll()
+      refreshConnectedSessionsForProvider(provider, get().activeId)
     }
   },
 
