@@ -73,7 +73,7 @@ export function AskUserQuestion({ sessionId, toolUseId, input, result }: Props) 
   const inputObject = (input && typeof input === 'object') ? input as Record<string, unknown> : {}
   const [activeTab, setActiveTab] = useState(0)
   const [selections, setSelections] = useState<QuestionSelections>({})
-  const [freeText, setFreeText] = useState('')
+  const [freeTexts, setFreeTexts] = useState<Record<number, string>>({})
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const composingRef = useRef(false)
 
@@ -95,11 +95,12 @@ export function AskUserQuestion({ sessionId, toolUseId, input, result }: Props) 
         .filter((answer): answer is string => typeof answer === 'string' && answer.trim().length > 0)
         .join(', ')
     }
-    return freeText.trim() || questions
-      .map((question, index) => getSelectedAnswer(question, selections[index]))
+    const textParts = questions.map((_q, i) => freeTexts[i]?.trim()).filter(Boolean)
+    const selectParts = questions
+      .map((question, i) => freeTexts[i]?.trim() ? '' : getSelectedAnswer(question, selections[i]))
       .filter(Boolean)
-      .join('; ')
-  }, [freeText, questions, resultAnswers, selections])
+    return textParts.join('; ') + (textParts.length > 0 && selectParts.length > 0 ? '; ' : '') + selectParts.join('; ')
+  }, [freeTexts, questions, resultAnswers, selections])
   const submitted = Object.keys(resultAnswers).length > 0 || hasSubmitted
 
   const handleSelect = (qIndex: number, label: string) => {
@@ -126,7 +127,7 @@ export function AskUserQuestion({ sessionId, toolUseId, input, result }: Props) 
       }
       return { ...prev, [qIndex]: [label] }
     })
-    setFreeText('')
+    setFreeTexts((prev) => { const next = { ...prev }; delete next[qIndex]; return next })
   }
 
   const handleSubmit = () => {
@@ -134,17 +135,23 @@ export function AskUserQuestion({ sessionId, toolUseId, input, result }: Props) 
 
     const parts: string[] = []
     for (let i = 0; i < questions.length; i++) {
-      const selected = getSelectedAnswer(questions[i]!, selections[i])
-      if (selected) parts.push(selected)
+      const text = freeTexts[i]?.trim()
+      if (text) {
+        parts.push(text)
+      } else {
+        const selected = getSelectedAnswer(questions[i]!, selections[i])
+        if (selected) parts.push(selected)
+      }
     }
-    const response = freeText.trim() || parts.join('; ') || ''
+    const response = parts.join('; ') || ''
     if (!response) return
 
     if (!targetSessionId || !pendingRequest) return
 
     const answers = questions.reduce<Record<string, string>>((acc, question, index) => {
-      if (freeText.trim()) {
-        acc[question.question] = freeText.trim()
+      const text = freeTexts[index]?.trim()
+      if (text) {
+        acc[question.question] = text
       } else {
         const selected = getSelectedAnswer(question, selections[index])
         if (selected) acc[question.question] = selected
@@ -162,7 +169,9 @@ export function AskUserQuestion({ sessionId, toolUseId, input, result }: Props) 
   }
 
   // All questions must be answered (via selection or free text) to enable submit
-  const allAnswered = freeText.trim().length > 0 || questions.every((_, i) => (selections[i]?.length ?? 0) > 0)
+  const allAnswered = questions.every((_, i) =>
+    (freeTexts[i]?.trim()?.length ?? 0) > 0 || (selections[i]?.length ?? 0) > 0
+  )
   const safeActiveTab = Math.min(activeTab, questions.length - 1)
   const activeQuestion = questions[safeActiveTab]
 
@@ -202,7 +211,7 @@ export function AskUserQuestion({ sessionId, toolUseId, input, result }: Props) 
         <div className="flex px-4 border-b border-[var(--color-outline-variant)]/20 bg-[var(--color-surface-container-low)] overflow-x-auto">
           {questions.map((q, i) => {
             const isActive = safeActiveTab === i
-            const isAnswered = (selections[i]?.length ?? 0) > 0
+            const isAnswered = (freeTexts[i]?.trim()?.length ?? 0) > 0 || (selections[i]?.length ?? 0) > 0
             const tabLabel = q.header || `Q${i + 1}`
             return (
               <button
@@ -292,10 +301,12 @@ export function AskUserQuestion({ sessionId, toolUseId, input, result }: Props) 
             </label>
             <input
               type="text"
-              value={freeText}
+              value={freeTexts[safeActiveTab] ?? ''}
               onChange={(e) => {
-                setFreeText(e.target.value)
-                if (e.target.value.trim()) setSelections({})
+                setFreeTexts((prev) => ({ ...prev, [safeActiveTab]: e.target.value }))
+                if (e.target.value.trim()) {
+                  setSelections((prev) => { const next = { ...prev }; delete next[safeActiveTab]; return next })
+                }
               }}
               onCompositionStart={() => { composingRef.current = true }}
               onCompositionEnd={() => { composingRef.current = false }}
