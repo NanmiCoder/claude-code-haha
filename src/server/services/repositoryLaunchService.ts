@@ -10,6 +10,7 @@ import {
   validateWorktreeSlug,
   worktreeBranchName,
 } from '../../utils/worktree.js'
+import { getRuntimeMode } from '../config/runtimeMode.js'
 
 const execFile = promisify(execFileCallback)
 const GIT_TIMEOUT_MS = 10_000
@@ -594,6 +595,13 @@ export async function resolveSessionWorkspaceLaunch(
   options: CreateSessionRepositoryOptions | undefined,
   sessionId: string,
 ): Promise<PreparedSessionWorkspace> {
+  if ((options?.branch || options?.worktree) && getRuntimeMode() === 'web') {
+    throw repositoryBadRequest(
+      REPOSITORY_ERROR.notGit,
+      'Repository / worktree launch is not supported in web mode. Use the default workspace.',
+    )
+  }
+
   const absWorkDir = await resolveDirectory(workDir)
 
   if (!options?.branch && !options?.worktree) {
