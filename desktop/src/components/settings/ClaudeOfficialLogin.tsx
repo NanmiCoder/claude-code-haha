@@ -5,7 +5,7 @@
 // 到 haha server 后,store 的 polling 自动刷新 UI 展示"已登录"。
 
 import { useEffect } from 'react'
-import { open as shellOpen } from '@tauri-apps/plugin-shell'
+import { tauriShellOpen } from '../../lib/tauriBridge'
 import { useHahaOAuthStore } from '../../stores/hahaOAuthStore'
 import { useTranslation } from '../../i18n'
 
@@ -31,10 +31,10 @@ export function ClaudeOfficialLogin() {
     try {
       const { authorizeUrl } = await login()
       try {
-        await shellOpen(authorizeUrl)
+        await tauriShellOpen(authorizeUrl)
         startPolling()
       } catch (err) {
-        console.error('[ClaudeOfficialLogin] shellOpen failed:', err)
+        console.error('[ClaudeOfficialLogin] tauriShellOpen failed:', err)
         useHahaOAuthStore.setState({
           error: t('settings.claudeOfficialLogin.openBrowserFailed'),
         })

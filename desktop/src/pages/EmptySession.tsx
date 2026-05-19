@@ -17,6 +17,11 @@ import { FileSearchMenu, type FileSearchMenuHandle } from '../components/chat/Fi
 import { LocalSlashCommandPanel, type LocalSlashCommandName } from '../components/chat/LocalSlashCommandPanel'
 import { useMobileViewport } from '../hooks/useMobileViewport'
 import { isTauriRuntime } from '../lib/desktopRuntime'
+
+// Build-time gate (BUILD_TARGET=web vite build sets this); runtime detection
+// would also flag jsdom unit tests as "web", which we don't want here.
+const IS_WEB_BUILD =
+  typeof import.meta !== 'undefined' && import.meta.env?.VITE_BUILD_TARGET === 'web'
 import {
   FALLBACK_SLASH_COMMANDS,
   findSlashToken,
@@ -731,16 +736,18 @@ export function EmptySession() {
             </div>
           </div>
 
-          <RepositoryLaunchControls
-            workDir={workDir}
-            onWorkDirChange={handleWorkDirChange}
-            branch={selectedBranch}
-            onBranchChange={setSelectedBranch}
-            useWorktree={useWorktree}
-            onUseWorktreeChange={setUseWorktree}
-            onLaunchReadyChange={setRepositoryLaunchReady}
-            disabled={isSubmitting}
-          />
+          {!IS_WEB_BUILD && (
+            <RepositoryLaunchControls
+              workDir={workDir}
+              onWorkDirChange={handleWorkDirChange}
+              branch={selectedBranch}
+              onBranchChange={setSelectedBranch}
+              useWorktree={useWorktree}
+              onUseWorktreeChange={setUseWorktree}
+              onLaunchReadyChange={setRepositoryLaunchReady}
+              disabled={isSubmitting}
+            />
+          )}
         </div>
       </div>
 

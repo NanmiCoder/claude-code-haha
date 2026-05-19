@@ -3,6 +3,11 @@ import { sessionsApi } from '../api/sessions'
 
 const TAB_STORAGE_KEY = 'cc-haha-open-tabs'
 
+// Build-time gate (BUILD_TARGET=web vite build sets this); runtime detection
+// would also flag jsdom unit tests as "web", which we don't want here.
+const IS_WEB_BUILD =
+  typeof import.meta !== 'undefined' && import.meta.env?.VITE_BUILD_TARGET === 'web'
+
 export const SETTINGS_TAB_ID = '__settings__'
 export const SCHEDULED_TAB_ID = '__scheduled__'
 export const TERMINAL_TAB_PREFIX = '__terminal__'
@@ -69,6 +74,12 @@ export const useTabStore = create<TabStore>((set, get) => ({
   },
 
   openTerminalTab: (cwd) => {
+    if (IS_WEB_BUILD) {
+      // Terminal tabs are unavailable in web target; the entry button is
+      // hidden, but defensively short-circuit here too.
+      console.warn('[tabStore] Terminal tabs are not available in web mode')
+      return ''
+    }
     const { tabs } = get()
     const nextIndex = Math.max(
       0,
