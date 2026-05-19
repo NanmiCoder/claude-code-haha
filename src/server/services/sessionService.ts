@@ -25,6 +25,8 @@ import {
   type PreparedSessionWorkspace,
 } from './repositoryLaunchService.js'
 import { cleanSessionTitleSource } from '../../utils/sessionTitleText.js'
+import { getRuntimeMode } from '../config/runtimeMode.js'
+import { ensureWebWorkspace } from './webWorkspaceService.js'
 
 // ============================================================================
 // Types
@@ -1281,9 +1283,13 @@ export class SessionService {
     workDir?: string,
     repositoryOptions?: CreateSessionRepositoryOptions,
   ): Promise<{ sessionId: string; workDir: string }> {
-    // Default to user home directory when no workDir specified
-    const resolvedWorkDir = workDir || os.homedir()
     const sessionId = crypto.randomUUID()
+
+    // In web mode, when caller does not provide an explicit workDir, materialize
+    // a workspace under workspaces/<sessionId>/ instead of falling back to homedir.
+    const isWebDefault = !workDir && getRuntimeMode() === 'web'
+    const resolvedWorkDir = workDir
+      || (isWebDefault ? await ensureWebWorkspace(sessionId) : os.homedir())
 
     // Resolve to absolute path. NOTE: path.resolve() uses process.cwd() to
     // expand relative paths — in bundled sidecar mode the server's cwd is
