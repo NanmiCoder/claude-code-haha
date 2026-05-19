@@ -9,6 +9,7 @@
   "scripts": {
     "claude-haha": "bun run ./bin/claude-haha",
     "start": "bun run ./bin/claude-haha",
+    "start:web": "CC_HAHA_RUNTIME=web CLAUDE_H5_DIST_DIR=./desktop/dist-web bun run src/server/index.ts",
     "check:pr": "bun run scripts/pr/check-pr.ts",
     "check:impact": "bun run scripts/pr/impact-report.ts",
     "check:policy": "bun test scripts/pr/change-policy.test.ts scripts/pr/changed-files.test.ts scripts/pr/pr-triage-workflow.test.ts scripts/pr/pr-quality-workflow.test.ts scripts/pr/release-workflow.test.ts scripts/pr/quality-contract.test.ts scripts/git-hooks/install.test.ts scripts/quality-gate/quarantine.test.ts scripts/quality-gate/coverage.test.ts scripts/quality-gate/provider-smoke/execute.test.ts scripts/quality-gate/desktop-smoke/execute.test.ts scripts/quality-gate/providerTargets.test.ts scripts/quality-gate/runner.test.ts && bun run check:quarantine",

@@ -3,11 +3,17 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
+const target = process.env.BUILD_TARGET === 'web' ? 'web' : 'desktop'
+const isWeb = target === 'web'
 const host = process.env.TAURI_DEV_HOST
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    'import.meta.env.VITE_BUILD_TARGET': JSON.stringify(target),
+  },
   build: {
+    outDir: isWeb ? 'dist-web' : 'dist',
     chunkSizeWarningLimit: 2200,
     rollupOptions: {
       onwarn(warning, warn) {
