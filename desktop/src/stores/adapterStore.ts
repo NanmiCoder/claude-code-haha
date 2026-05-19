@@ -2,21 +2,21 @@ import { create } from 'zustand'
 import { adaptersApi } from '../api/adapters'
 import type { AdapterFileConfig } from '../types/adapter'
 import type { DingtalkRegistrationBegin, DingtalkRegistrationPoll } from '../api/adapters'
+import { tauriInvoke, TauriUnavailableError } from '../lib/tauriBridge'
 
 /**
  * Tauri command 触发器：让主进程 kill + respawn adapter sidecar，
  * 让 ~/.claude/adapters.json 里的最新凭据被新进程读到，建立飞书 / Telegram / 微信 / 钉钉
  * 的 WebSocket 连接。
  *
- * 在非 Tauri 环境（纯浏览器调试 / 单元测试）这会安静失败 —— 那种场景下
+ * 在非 Tauri 环境（web target / 单元测试）这会安静失败 —— 那种场景下
  * 本来也没有 sidecar 可重启。
  */
 async function notifyTauriRestartAdapters(): Promise<void> {
   try {
-    // 用 dynamic import 避开 SSR / non-tauri 测试环境的硬依赖
-    const { invoke } = await import('@tauri-apps/api/core')
-    await invoke('restart_adapters_sidecar')
+    await tauriInvoke('restart_adapters_sidecar')
   } catch (err) {
+    if (err instanceof TauriUnavailableError) return // expected in web target
     // 不阻塞保存流程 —— 配置文件已经写入，下次启动 App 也会生效
     if (typeof console !== 'undefined') {
       console.warn('[adapterStore] restart_adapters_sidecar failed:', err)

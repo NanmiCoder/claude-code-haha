@@ -1,6 +1,10 @@
 import { create } from 'zustand'
 import type { Update } from '@tauri-apps/plugin-updater'
 import { isTauriRuntime } from '../lib/desktopRuntime'
+// NOTE: in web target isTauriRuntime() returns false, so every action below
+// short-circuits before touching @tauri-apps/* — there is no need for an
+// explicit isWebTarget() branch here. See `lib/tauriBridge.ts` for the
+// shared rationale.
 
 export type UpdateStatus =
   | 'idle'
