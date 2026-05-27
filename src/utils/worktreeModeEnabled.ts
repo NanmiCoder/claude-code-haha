@@ -6,6 +6,4 @@
  * before the cache is populated, silently swallowing --worktree.
  * See https://github.com/anthropics/claude-code/issues/27044.
  */
-export function isWorktreeModeEnabled(): boolean {
-  return true
-}
+export const isWorktreeModeEnabled = true
