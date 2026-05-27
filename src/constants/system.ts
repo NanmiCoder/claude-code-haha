@@ -47,13 +47,14 @@ export function getCLISyspromptPrefix(options?: {
 
 /**
  * Check if attribution header is enabled.
- * Enabled by default, can be disabled via env var or GrowthBook killswitch.
+ * Disabled by default to preserve prompt cache stability.
+ * Can be enabled via env var CLAUDE_CODE_ATTRIBUTION_HEADER or GrowthBook feature flag.
  */
 function isAttributionHeaderEnabled(): boolean {
   if (isEnvDefinedFalsy(process.env.CLAUDE_CODE_ATTRIBUTION_HEADER)) {
     return false
   }
-  return getFeatureValue_CACHED_MAY_BE_STALE('tengu_attribution_header', true)
+  return getFeatureValue_CACHED_MAY_BE_STALE('tengu_attribution_header', false)
 }
 
 /**
