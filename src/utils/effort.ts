@@ -55,6 +55,12 @@ export function modelSupportsMaxEffort(model: string): boolean {
   if (supported3P !== undefined) {
     return supported3P
   }
+  if (model.toLowerCase().includes('deepseek')) {
+    return true
+  }
+  if (model.toLowerCase().includes('opus-4-7')) {
+    return true
+  }
   if (model.toLowerCase().includes('opus-4-6')) {
     return true
   }
@@ -95,10 +101,7 @@ export function parseEffortValue(value: unknown): EffortValue | undefined {
 export function toPersistableEffort(
   value: EffortValue | undefined,
 ): EffortLevel | undefined {
-  if (value === 'low' || value === 'medium' || value === 'high') {
-    return value
-  }
-  if (value === 'max' && process.env.USER_TYPE === 'ant') {
+  if (value === 'low' || value === 'medium' || value === 'high' || value === 'max') {
     return value
   }
   return undefined
