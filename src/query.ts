@@ -547,6 +547,7 @@ async function* queryLoop(
           compactionUsage?.cache_read_input_tokens ?? 0,
         compactionCacheCreationTokens:
           compactionUsage?.cache_creation_input_tokens ?? 0,
+        compactionCacheHitRatio: cacheMetrics?.cacheHitRatio ?? 0,
         compactionTotalTokens: compactionUsage
           ? compactionUsage.input_tokens +
             (compactionUsage.cache_creation_input_tokens ?? 0) +
