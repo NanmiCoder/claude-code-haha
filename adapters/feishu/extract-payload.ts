@@ -69,7 +69,9 @@ export function extractInboundPayload(content: string, msgType: string): Inbound
   }
 
   if (msgType === 'post') {
-    const nodes = (parsed.zh_cn?.content ?? parsed.en_us?.content ?? []) as any[]
+    // Post content can either be multi-locale ({zh_cn:{content:[...]}, en_us:...})
+    // or single-locale ({title:"", content:[[...],...]}). Try both.
+    const nodes = (parsed.zh_cn?.content ?? parsed.en_us?.content ?? parsed.content ?? []) as any[]
     const flat = nodes.flat()
     const textParts: string[] = []
     const downloads: PendingDownload[] = []
