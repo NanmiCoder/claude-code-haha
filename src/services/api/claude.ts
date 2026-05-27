@@ -1039,12 +1039,14 @@ function hasImageInRawMessages(messages: Message[], lastFinalAssistantIndex: num
       for (const block of msg.message.content) {
         if (block.type === 'image') return true;
         if (block.type === 'tool_result' && Array.isArray(block.content)) {
-          if (block.content.some(nested => nested.type === 'image')) return true;
+          if (block.content.some((nested: any) => nested.type === 'image')) return true;
         }
       }
     }
     if (msg.type === 'attachment' && msg.attachment) {
-      const mimeType = msg.attachment.mimeType || '';
+      if (msg.attachment.type === 'image') return true;
+      if (msg.attachment.type === 'file' && (msg.attachment.content as any)?.type === 'image') return true;
+      const mimeType = (msg.attachment as any).mimeType || '';
       if (mimeType.startsWith('image/')) return true;
     }
   }
@@ -1081,15 +1083,56 @@ function replaceImagesInHistory(messages: Message[], lastFinalAssistantIndex: nu
       };
     }
     if (msg.type === 'attachment' && msg.attachment) {
-      const mimeType = msg.attachment.mimeType || '';
-      if (mimeType.startsWith('image/')) {
-        return {
-          ...msg,
-          attachment: {
+      let replaced = false;
+      let newAttachment = { ...msg.attachment };
+      
+      if (msg.attachment.type === 'image') {
+        newAttachment = {
+          type: 'file',
+          filename: (msg.attachment as any).filename || 'image.png',
+          content: {
+            type: 'text',
+            file: {
+              filePath: (msg.attachment as any).filename || 'image.png',
+              content: '[Image Attachment (processed)]',
+              numLines: 1,
+              startLine: 1,
+              totalLines: 1
+            }
+          }
+        } as any;
+        replaced = true;
+      } else if (msg.attachment.type === 'file' && (msg.attachment.content as any)?.type === 'image') {
+        newAttachment = {
+          ...msg.attachment,
+          content: {
+            type: 'text',
+            file: {
+              filePath: msg.attachment.filename || 'image.png',
+              content: '[Image Attachment (processed)]',
+              numLines: 1,
+              startLine: 1,
+              totalLines: 1
+            }
+          }
+        } as any;
+        replaced = true;
+      } else {
+        const mimeType = (msg.attachment as any).mimeType || '';
+        if (mimeType.startsWith('image/')) {
+          newAttachment = {
             ...msg.attachment,
             mimeType: 'text/plain',
             content: '[Image Attachment (processed)]',
-          },
+          } as any;
+          replaced = true;
+        }
+      }
+      
+      if (replaced) {
+        return {
+          ...msg,
+          attachment: newAttachment,
         };
       }
     }
@@ -1112,7 +1155,7 @@ async function* queryModel(
   const imageRec = settings.imageRecognition
   const isImageRecEnabled =
     process.env.IMAGE_RECOGNITION_ENABLED === 'true' ||
-    (imageRec && imageRec.enabled !== false && imageRec.autoSwitch !== false)
+    imageRec?.enabled !== false
 
   if (isImageRecEnabled) {
     const lastFinalAssistantIndex = getLastFinalAssistantMessageIndex(messages)
