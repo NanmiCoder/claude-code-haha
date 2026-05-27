@@ -94,6 +94,33 @@ import { jsonParse, jsonStringify } from './slowOperations.js'
 import type { ContentReplacementRecord } from './toolResultStorage.js'
 import { validateUuid } from './uuid.js'
 
+/**
+ * JSON.stringify replacer that sanitizes strings before they enter
+ * the JSONL session log. Replaces null bytes and other control
+ * characters (except \n, \r, \t) with safe Unicode escape text.
+ *
+ * Root cause: `cat /usr/bin/foo` dumps ELF binary → null bytes in
+ * Bash tool stdout → breaks JSONL parser on resume.
+ *
+ * Performance: replacer runs during stringify traversal, no extra
+ * allocation or deep copy needed.
+ */
+const CONTROL_CHAR_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f]/g;
+
+function sanitizeJsonlReplacer(
+  _key: string,
+  value: unknown,
+): unknown {
+  if (typeof value === 'string' && CONTROL_CHAR_RE.test(value)) {
+    CONTROL_CHAR_RE.lastIndex = 0; // reset for reuse
+    return value.replace(CONTROL_CHAR_RE, (match) => {
+      const code = match.charCodeAt(0);
+      return `[U+${code.toString(16).padStart(4, '0')}]`;
+    });
+  }
+  return value;
+}
+
 // Cache MACRO.VERSION at module level to work around bun --define bug in async contexts
 // See: https://github.com/oven-sh/bun/issues/26168
 const VERSION = typeof MACRO !== 'undefined' ? MACRO.VERSION : 'unknown'
@@ -671,7 +698,7 @@ class Project {
       const resolvers: Array<() => void> = []
 
       for (const { entry, resolve } of batch) {
-        const line = jsonStringify(entry) + '\n'
+        const line = jsonStringify(entry, sanitizeJsonlReplacer) + '\n'
 
         if (content.length + line.length >= this.MAX_CHUNK_BYTES) {
           // Flush chunk and resolve its entries before starting a new one
@@ -2603,7 +2630,7 @@ function appendEntryToFile(
   entry: Record<string, unknown>,
 ): void {
   const fs = getFsImplementation()
-  const line = jsonStringify(entry) + '\n'
+  const line = jsonStringify(entry, sanitizeJsonlReplacer) + '\n'
   try {
     fs.appendFileSync(fullPath, line, { mode: 0o600 })
   } catch {

@@ -1751,11 +1751,13 @@ export function stripCallerFieldFromAssistantMessage(
     return message
   }
 
+  // Guard: content may not be an array
+  const contentArr = Array.isArray(message.message?.content) ? message.message.content : []
   return {
     ...message,
     message: {
       ...message.message,
-      content: message.message.content.map(block => {
+      content: contentArr.map(block => {
         if (block.type !== 'tool_use') {
           return block
         }
@@ -2204,11 +2206,15 @@ export function normalizeMessagesForAPI(
           // like 'caller' from tool_use blocks, as these are only valid with the
           // tool search beta header
           const toolSearchEnabled = isToolSearchEnabledOptimistic()
+          // Guard: content may not be an array (e.g. error response from LiteLLM proxy)
+          const contentBlocks = Array.isArray(message.message?.content)
+            ? message.message.content
+            : []
           const normalizedMessage: AssistantMessage = {
             ...message,
             message: {
               ...message.message,
-              content: message.message.content.map(block => {
+              content: contentBlocks.map(block => {
                 if (block.type === 'tool_use') {
                   const tool = tools.find(t => toolMatchesName(t, block.name))
                   const normalizedInput = tool
