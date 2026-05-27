@@ -37,6 +37,11 @@ const WEB_SEARCH_MODES = new Set<WebSearchMode>([
 
 const unsupportedNativeModels = new Set<string>()
 
+// Third-party Anthropic-compatible providers whose model IDs don't contain
+// "claude" but do support the web_search_20250305 server tool (e.g. DeepSeek,
+// Kimi, Zhipu GLM). Add model patterns here to enable native web search.
+const thirdPartyNativeSearchModelPatterns = [/^deepseek-/]
+
 export function isLikelyClaudeModel(model: string | undefined): boolean {
   if (!model) {
     return false
@@ -177,7 +182,10 @@ export function makeWebSearchUnavailableOutput(
 
 function canUseAnthropicNativeWebSearch(model: string | undefined): boolean {
   const key = normalizeModelKey(model)
-  return isLikelyClaudeModel(model) && (!key || !unsupportedNativeModels.has(key))
+  if (!key || unsupportedNativeModels.has(key)) {
+    return false
+  }
+  return isLikelyClaudeModel(model) || thirdPartyNativeSearchModelPatterns.some(p => p.test(key))
 }
 
 function normalizeModelKey(model: string | undefined): string | null {
