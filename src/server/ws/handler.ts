@@ -365,7 +365,7 @@ async function handleUserMessage(
     },
   })
 
-  const sent = conversationService.sendMessage(
+  const sent = await conversationService.sendMessage(
     sessionId,
     message.content,
     message.attachments

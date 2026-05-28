@@ -32,6 +32,11 @@ import { sanitizePath } from '../../utils/path.js'
 import { getProcessEnvWithTerminalShellEnvironment } from '../../utils/terminalShellEnvironment.js'
 import { attributionHeaderEnvForModel } from './attributionHeaderPolicy.js'
 import { buildNetworkEnvironment, loadNetworkSettings } from './networkSettings.js'
+import { logError } from '../../utils/log.js'
+import {
+  createImageMetadataText,
+  maybeResizeAndDownsampleImageBuffer,
+} from '../../utils/imageResizer.js'
 
 const MAX_CAPTURED_PROCESS_LINES = 80
 const MAX_CAPTURED_SDK_MESSAGES = 40
@@ -46,6 +51,14 @@ type AttachmentRef = {
   data?: string
   mimeType?: string
   isDirectory?: boolean
+}
+
+type UserContentBlock = Record<string, unknown>
+
+type MaterializedAttachments = {
+  pathPrefix: string
+  imageBlocks: UserContentBlock[]
+  imageMetadataTexts: string[]
 }
 
 type SessionProcess = {
@@ -393,16 +406,17 @@ export class ConversationService {
     return this.sessions.get(sessionId)?.initMessage ?? null
   }
 
-  sendMessage(
+  async sendMessage(
     sessionId: string,
     content: string,
     attachments?: AttachmentRef[],
-  ): boolean {
+  ): Promise<boolean> {
+    const userContent = await this.buildUserContent(content, sessionId, attachments)
     return this.sendSdkMessage(sessionId, {
       type: 'user',
       message: {
         role: 'user',
-        content: this.buildUserContent(content, sessionId, attachments),
+        content: userContent,
       },
       parent_tool_use_id: null,
       session_id: '',
@@ -1424,26 +1438,43 @@ export class ConversationService {
     })
   }
 
-  private buildUserContent(
+  private async buildUserContent(
     content: string,
     sessionId: string,
     attachments?: AttachmentRef[],
-  ): Array<Record<string, unknown>> {
-    const prefix = this.materializeAttachments(sessionId, attachments)
+  ): Promise<UserContentBlock[]> {
+    const materialized = await this.materializeAttachments(sessionId, attachments)
     const trimmed = content.trim()
-    const text = prefix
-      ? `${prefix}${trimmed || 'Please analyze the attached files.'}`.trim()
+    const text = materialized.pathPrefix
+      ? `${materialized.pathPrefix}${trimmed || 'Please analyze the attached files.'}`.trim()
       : trimmed
 
-    return [{ type: 'text', text }]
+    const blocks: UserContentBlock[] = text
+      ? [{ type: 'text', text }]
+      : materialized.imageBlocks.length > 0
+        ? [{ type: 'text', text: 'Please analyze the attached image.' }]
+        : []
+
+    blocks.push(...materialized.imageBlocks)
+    for (const metadataText of materialized.imageMetadataTexts) {
+      blocks.push({ type: 'text', text: metadataText })
+    }
+
+    return blocks.length > 0 ? blocks : [{ type: 'text', text: '' }]
   }
 
-  private materializeAttachments(
+  private async materializeAttachments(
     sessionId: string,
     attachments?: AttachmentRef[],
-  ): string {
+  ): Promise<MaterializedAttachments> {
+    const empty = (): MaterializedAttachments => ({
+      pathPrefix: '',
+      imageBlocks: [],
+      imageMetadataTexts: [],
+    })
+
     if (!attachments || attachments.length === 0) {
-      return ''
+      return empty()
     }
 
     const uploadDir = path.join(
@@ -1451,10 +1482,20 @@ export class ConversationService {
       'uploads',
       sessionId,
     )
-    fs.mkdirSync(uploadDir, { recursive: true })
 
     const savedPaths: string[] = []
+    const imageBlocks: UserContentBlock[] = []
+    const imageMetadataTexts: string[] = []
     for (const attachment of attachments) {
+      if (this.shouldInlineImageAttachment(attachment)) {
+        const image = await this.materializeImageAttachment(attachment, uploadDir)
+        if (image) {
+          imageBlocks.push(image.block)
+          if (image.metadataText) imageMetadataTexts.push(image.metadataText)
+          continue
+        }
+      }
+
       if (attachment.path) {
         savedPaths.push(attachment.path)
         continue
@@ -1462,37 +1503,155 @@ export class ConversationService {
 
       if (!attachment.data) continue
 
-      const payload = this.parseAttachmentData(attachment.data)
-      if (!payload) continue
+      const parsed = this.parseAttachmentData(attachment.data)
+      if (!parsed) continue
 
-      const ext = this.getAttachmentExtension(attachment)
+      const ext = this.getAttachmentExtension({
+        ...attachment,
+        mimeType: attachment.mimeType ?? parsed.mimeType,
+      })
       const fileName = this.sanitizeAttachmentName(attachment.name, attachment.type, ext)
-      const outPath = path.join(uploadDir, `${crypto.randomUUID()}-${fileName}`)
-      fs.writeFileSync(outPath, payload)
+      const outPath = this.writeUploadAttachment(uploadDir, fileName, parsed.payload)
       savedPaths.push(outPath)
     }
 
-    if (savedPaths.length === 0) {
-      return ''
+    return {
+      pathPrefix: savedPaths.length > 0
+        ? savedPaths.map((filePath) => `@"${filePath}"`).join(' ') + ' '
+        : '',
+      imageBlocks,
+      imageMetadataTexts,
     }
-
-    return savedPaths.map((filePath) => `@"${filePath}"`).join(' ') + ' '
   }
 
-  private parseAttachmentData(data: string): Buffer | null {
-    const match = data.match(/^data:.*?;base64,(.*)$/)
-    const encoded = match ? match[1] : data
+  private parseAttachmentData(data: string): { payload: Buffer; mimeType?: string } | null {
+    const match = data.match(/^data:([^;,]+)?;base64,(.*)$/)
+    const encoded = match ? match[2] : data
 
     try {
-      return Buffer.from(encoded, 'base64')
+      return {
+        payload: Buffer.from(encoded ?? '', 'base64'),
+        mimeType: match?.[1],
+      }
     } catch {
       return null
     }
   }
 
+  private async materializeImageAttachment(
+    attachment: AttachmentRef,
+    uploadDir: string,
+  ): Promise<{ block: UserContentBlock; metadataText?: string } | null> {
+    const source = this.readImageAttachmentPayload(attachment)
+    if (!source) {
+      return null
+    }
+
+    try {
+      const resized = await maybeResizeAndDownsampleImageBuffer(
+        source.payload,
+        source.payload.length,
+        source.ext,
+      )
+      const normalizedExt = this.normalizeImageExtension(resized.mediaType)
+      const storedName = this.replaceFileExtension(
+        this.sanitizeAttachmentName(attachment.name, attachment.type, normalizedExt),
+        normalizedExt,
+      )
+      const sourcePath = source.sourcePath ?? this.writeUploadAttachment(
+        uploadDir,
+        storedName,
+        resized.buffer,
+      )
+      const metadataText = resized.dimensions
+        ? createImageMetadataText(resized.dimensions, sourcePath)
+        : sourcePath
+          ? `[Image source: ${sourcePath}]`
+          : undefined
+
+      return {
+        block: {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: `image/${normalizedExt}`,
+            data: resized.buffer.toString('base64'),
+          },
+        },
+        metadataText: metadataText ?? undefined,
+      }
+    } catch (error) {
+      logError(error)
+      console.warn(
+        `[ConversationService] Failed to inline image attachment ${attachment.name ?? '<unnamed>'}; falling back to file path`,
+      )
+      return null
+    }
+  }
+
+  private readImageAttachmentPayload(
+    attachment: AttachmentRef,
+  ): { payload: Buffer; ext: string; sourcePath?: string } | null {
+    if (attachment.data) {
+      const parsed = this.parseAttachmentData(attachment.data)
+      if (!parsed) return null
+      return {
+        payload: parsed.payload,
+        ext: this.getAttachmentExtension({
+          ...attachment,
+          mimeType: attachment.mimeType ?? parsed.mimeType,
+        }),
+      }
+    }
+
+    if (!attachment.path || attachment.isDirectory) {
+      return null
+    }
+
+    try {
+      return {
+        payload: fs.readFileSync(attachment.path),
+        ext: this.getAttachmentExtension(attachment),
+        sourcePath: attachment.path,
+      }
+    } catch (error) {
+      logError(error)
+      return null
+    }
+  }
+
+  private shouldInlineImageAttachment(attachment: AttachmentRef): boolean {
+    if (attachment.isDirectory) return false
+    if (attachment.type === 'image') return true
+    if (attachment.mimeType?.startsWith('image/')) return true
+    const candidate = attachment.path ?? attachment.name ?? ''
+    return /\.(png|jpe?g|gif|webp)$/i.test(candidate)
+  }
+
+  private writeUploadAttachment(uploadDir: string, fileName: string, payload: Buffer): string {
+    fs.mkdirSync(uploadDir, { recursive: true })
+    const outPath = path.join(uploadDir, `${crypto.randomUUID()}-${fileName}`)
+    fs.writeFileSync(outPath, payload)
+    return outPath
+  }
+
+  private normalizeImageExtension(ext: string): string {
+    const clean = ext.split('/').pop()?.split('+')[0]?.toLowerCase() || 'png'
+    return clean === 'jpg' ? 'jpeg' : clean
+  }
+
+  private replaceFileExtension(fileName: string, ext: string): string {
+    const cleanExt = this.normalizeImageExtension(ext)
+    const base = fileName.replace(/\.[a-z0-9]+$/i, '')
+    return `${base}.${cleanExt}`
+  }
+
   private getAttachmentExtension(attachment: AttachmentRef): string {
     const byName = attachment.name?.match(/\.([a-z0-9]+)$/i)?.[1]
     if (byName) return byName
+
+    const byPath = attachment.path?.match(/\.([a-z0-9]+)$/i)?.[1]
+    if (byPath) return byPath
 
     const byMime = attachment.mimeType?.split('/')[1]?.split('+')[0]
     if (byMime) return byMime
