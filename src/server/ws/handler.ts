@@ -80,6 +80,37 @@ const prewarmedSessions = new Set<string>()
 const prewarmIdleTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const DEFAULT_PREWARM_IDLE_TIMEOUT_MS = 5 * 60_000
 
+// --- Memory leak prevention: cap module-level Maps and periodically evict stale entries ---
+const MAX_SESSION_RUNTIME_STATES = 500
+const STALE_SESSION_EVICT_INTERVAL_MS = 60_000
+
+function evictStaleSessionRuntimeState() {
+  for (const sessionId of sessionStreamStates.keys()) {
+    // Only evict if ALL of these are true:
+    // 1. No active WebSocket connections
+    // 2. No active CLI subprocess
+    // 3. No pending cleanup timer (still in grace period after disconnect)
+    if (
+      !activeSessions.has(sessionId) &&
+      !conversationService.isSessionActive(sessionId) &&
+      !sessionCleanupTimers.has(sessionId)
+    ) {
+      cleanupSessionRuntimeState(sessionId)
+    }
+  }
+
+  // Hard cap: if still over limit, evict oldest entries (Map insertion order)
+  while (sessionStreamStates.size > MAX_SESSION_RUNTIME_STATES) {
+    const oldest = sessionStreamStates.keys().next().value
+    if (oldest === undefined) break
+    cleanupSessionRuntimeState(oldest)
+  }
+}
+
+const staleEvictTimer = setInterval(evictStaleSessionRuntimeState, STALE_SESSION_EVICT_INTERVAL_MS)
+// Allow the process to exit without waiting for the timer
+if (staleEvictTimer.unref) staleEvictTimer.unref()
+
 async function sendRepositoryStartupStatus(
   ws: ServerWebSocket<WebSocketData>,
   sessionId: string,
