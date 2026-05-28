@@ -111,6 +111,8 @@ export class ConversationStartupError extends Error {
 export class ConversationService {
   private sessions = new Map<string, SessionProcess>()
   private deletedSessions = new Set<string>()
+  private deletedSessionTimestamps = new Map<string, number>()
+  private static readonly DELETED_SESSION_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
   private providerService = new ProviderService()
 
   private buildSessionCliArgs(
@@ -735,7 +737,9 @@ export class ConversationService {
 
   markSessionDeleted(sessionId: string): void {
     this.deletedSessions.add(sessionId)
+    this.deletedSessionTimestamps.set(sessionId, Date.now())
     this.stopSession(sessionId)
+    this.pruneOldDeletedSessions()
   }
 
   markSessionsDeleted(sessionIds: string[]): void {
@@ -746,6 +750,7 @@ export class ConversationService {
 
   unmarkSessionDeleted(sessionId: string): void {
     this.deletedSessions.delete(sessionId)
+    this.deletedSessionTimestamps.delete(sessionId)
   }
 
   unmarkSessionsDeleted(sessionIds: string[]): void {
@@ -754,8 +759,22 @@ export class ConversationService {
     }
   }
 
+  private pruneOldDeletedSessions(): void {
+    const now = Date.now()
+    for (const [id, ts] of this.deletedSessionTimestamps) {
+      if (now - ts > ConversationService.DELETED_SESSION_TTL_MS) {
+        this.deletedSessions.delete(id)
+        this.deletedSessionTimestamps.delete(id)
+      }
+    }
+  }
+
   getActiveSessions(): string[] {
     return Array.from(this.sessions.keys())
+  }
+
+  isSessionActive(sessionId: string): boolean {
+    return this.sessions.has(sessionId)
   }
 
   private async readProcessOutputStream(

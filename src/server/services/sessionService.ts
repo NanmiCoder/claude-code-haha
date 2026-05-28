@@ -219,6 +219,36 @@ type PersistedWorktreeSession = {
 
 type ContentBlock = Record<string, unknown>
 
+// In-memory metadata cache to avoid re-reading JSONL files on every listSessions call.
+// Each entry is keyed by the JSONL file path and stores the lightweight metadata
+// needed for the session list, plus the file mtime used for staleness checks.
+type CachedSessionMeta = {
+  id: string
+  title: string
+  createdAt: string
+  modifiedAt: string
+  messageCount: number
+  projectPath: string
+  projectRoot: string | null
+  workDir: string | null
+  workDirExists: boolean
+}
+const sessionMetaCache = new Map<string, { meta: CachedSessionMeta; mtimeMs: number }>()
+const SESSION_META_CACHE_TTL_MS = 30_000
+let sessionMetaCacheTimestamp = 0
+
+function isSessionMetaCacheValid(): boolean {
+  return (
+    sessionMetaCache.size > 0 &&
+    Date.now() - sessionMetaCacheTimestamp < SESSION_META_CACHE_TTL_MS
+  )
+}
+
+function invalidateSessionMetaCache(): void {
+  sessionMetaCache.clear()
+  sessionMetaCacheTimestamp = 0
+}
+
 const USER_INTERRUPTION_TEXTS = new Set([
   '[Request interrupted by user]',
   '[Request interrupted by user for tool use]',
@@ -1278,6 +1308,8 @@ export class SessionService {
 
   /**
    * List all sessions, optionally filtered by project path.
+   * Uses an in-memory metadata cache (30s TTL) to avoid re-reading JSONL files
+   * on every call. Cache is invalidated when sessions are created/deleted/renamed.
    */
   async listSessions(options?: {
     project?: string
@@ -1285,12 +1317,16 @@ export class SessionService {
     offset?: number
   }): Promise<{ sessions: SessionListItem[]; total: number }> {
     const sessionFiles = await this.discoverSessionFiles(options?.project)
+
+    // Check if we can reuse the cache. The cache stores per-file metadata keyed
+    // by absolute file path. We rebuild it when the cache is empty, expired, or
+    // when a file's mtime has changed since the last cache fill.
+    const useCache = isSessionMetaCacheValid()
+
     const filesWithStats = (await Promise.all(sessionFiles.map(async (sessionFile) => {
       try {
-        return {
-          ...sessionFile,
-          stat: await fs.stat(sessionFile.filePath),
-        }
+        const stat = await fs.stat(sessionFile.filePath)
+        return { ...sessionFile, stat }
       } catch {
         return null
       }
@@ -1303,22 +1339,32 @@ export class SessionService {
     const limit = options?.limit ?? 50
     const paginatedFiles = filesWithStats.slice(offset, offset + limit)
 
-    // Build session list items with metadata from file stats & first entries
-    const items = (await Promise.all(paginatedFiles.map(async ({ filePath, projectDir, sessionId, stat }) => {
+    // Build session list items, using cache where possible
+    const items: SessionListItem[] = []
+
+    for (const { filePath, projectDir, sessionId, stat } of paginatedFiles) {
       try {
+        const cached = sessionMetaCache.get(filePath)
+        const mtimeMs = stat.mtimeMs
+
+        if (useCache && cached && cached.mtimeMs === mtimeMs) {
+          // Cache hit and file hasn't changed — use cached metadata
+          items.push(cached.meta)
+          continue
+        }
+
+        // Cache miss — parse JSONL to extract metadata
         const entries = await this.readJsonlFile(filePath)
         const workDir = this.resolveWorkDirFromEntries(entries, projectDir)
         const projectRoot = await this.resolveProjectRootFromEntries(entries, workDir, projectDir)
         const workDirExists = await this.pathExists(workDir)
 
-        // Count transcript messages only (user + assistant)
         const messageCount = entries.filter(
           (e) => (e.type === 'user' || e.type === 'assistant') && e.message?.role
         ).length
 
         const title = this.extractTitle(entries)
 
-        // Find the earliest timestamp from entries, fallback to file birthtime
         let createdAt = stat.birthtime.toISOString()
         for (const e of entries) {
           if (e.timestamp) {
@@ -1327,7 +1373,7 @@ export class SessionService {
           }
         }
 
-        return {
+        const meta: CachedSessionMeta = {
           id: sessionId,
           title,
           createdAt,
@@ -1338,11 +1384,16 @@ export class SessionService {
           workDir,
           workDirExists,
         }
+
+        // Update cache entry
+        sessionMetaCache.set(filePath, { meta, mtimeMs })
+        sessionMetaCacheTimestamp = Date.now()
+
+        items.push(meta)
       } catch {
         // Skip unreadable files
-        return null
       }
-    }))).filter((item): item is SessionListItem => item !== null)
+    }
 
     return { sessions: items, total }
   }
@@ -1468,6 +1519,7 @@ export class SessionService {
     }
 
     await fs.writeFile(filePath, JSON.stringify(initialEntry) + '\n' + JSON.stringify(metaEntry) + '\n', 'utf-8')
+    invalidateSessionMetaCache()
 
     return { sessionId, workDir: absWorkDir }
   }
@@ -1482,6 +1534,7 @@ export class SessionService {
     }
 
     await fs.unlink(found.filePath)
+    invalidateSessionMetaCache()
   }
 
   async deleteSessions(sessionIds: string[]): Promise<DeleteSessionsResult> {
@@ -1514,6 +1567,7 @@ export class SessionService {
       }
     }
 
+    invalidateSessionMetaCache()
     return { successes, failures }
   }
 
@@ -1537,6 +1591,7 @@ export class SessionService {
     }
 
     await this.appendJsonlEntry(found.filePath, entry)
+    invalidateSessionMetaCache()
   }
 
   /**
@@ -1551,6 +1606,7 @@ export class SessionService {
       aiTitle: title,
       timestamp: new Date().toISOString(),
     })
+    invalidateSessionMetaCache()
   }
 
   async getCustomTitle(sessionId: string): Promise<string | null> {
@@ -1627,6 +1683,7 @@ export class SessionService {
     const found = await this.findSessionFile(sessionId)
     if (!found) return
     await fs.unlink(found.filePath)
+    invalidateSessionMetaCache()
   }
 
   async clearSessionTranscript(sessionId: string, fallbackWorkDir?: string): Promise<void> {
@@ -1674,6 +1731,7 @@ export class SessionService {
       `${JSON.stringify(initialEntry)}\n${JSON.stringify(metaEntry)}\n`,
       'utf-8',
     )
+    invalidateSessionMetaCache()
   }
 
   async appendSessionMetadata(
@@ -1718,6 +1776,7 @@ export class SessionService {
         timestamp: new Date().toISOString(),
       })
     }
+    invalidateSessionMetaCache()
   }
 
   async deletePlaceholderSessionFiles(
@@ -1749,6 +1808,7 @@ export class SessionService {
       await fs.rm(filePath, { force: true })
       removed += 1
     }
+    if (removed > 0) invalidateSessionMetaCache()
     return removed
   }
 
@@ -1802,6 +1862,7 @@ export class SessionService {
         ? filteredEntries.map((entry) => JSON.stringify(entry)).join('\n') + '\n'
         : ''
     await fs.writeFile(found.filePath, content, 'utf-8')
+    invalidateSessionMetaCache()
 
     return {
       removedCount: removedMessageIds.length,
