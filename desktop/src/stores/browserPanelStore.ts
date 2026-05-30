@@ -40,12 +40,12 @@ const withNav = (s: BrowserSessionState): BrowserSessionState => ({
 export const useBrowserPanelStore = create<BrowserPanelState>((set) => ({
   bySession: {},
   open: (sessionId, url) => set((st) => ({
-    bySession: { ...st.bySession, [sessionId]: empty(url) },
+    bySession: { ...st.bySession, [sessionId]: { ...empty(url), loading: true } },
   })),
   navigate: (sessionId, url) => set((st) => {
     const cur = st.bySession[sessionId] ?? empty(url)
     const history = [...cur.history.slice(0, cur.historyIndex + 1), url]
-    return { bySession: { ...st.bySession, [sessionId]: withNav({ ...cur, isOpen: true, history, historyIndex: history.length - 1 }) } }
+    return { bySession: { ...st.bySession, [sessionId]: withNav({ ...cur, isOpen: true, loading: true, history, historyIndex: history.length - 1 }) } }
   }),
   goBack: (sessionId) => set((st) => {
     const cur = st.bySession[sessionId]; if (!cur || cur.historyIndex <= 0) return st

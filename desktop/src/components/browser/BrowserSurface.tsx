@@ -44,6 +44,17 @@ export function BrowserSurface({ sessionId }: { sessionId: string }) {
 
   useEffect(() => () => { previewBridge.setVisible(false) }, [])
 
+  // 兜底：navigated/ready 依赖注入脚本，若外站 CSP 拦截则永不回灌。loading 变 true 后 ~15s 强制收尾。
+  const isLoading = session?.loading ?? false
+  const currentUrl = session?.url
+  useEffect(() => {
+    if (!isLoading) return
+    const timer = window.setTimeout(() => {
+      useBrowserPanelStore.getState().setLoading(sessionId, false)
+    }, 15000)
+    return () => window.clearTimeout(timer)
+  }, [isLoading, currentUrl, sessionId])
+
   if (!session) return null
 
   return (
@@ -52,10 +63,11 @@ export function BrowserSurface({ sessionId }: { sessionId: string }) {
         url={session.url}
         canGoBack={session.canGoBack}
         canGoForward={session.canGoForward}
+        loading={session.loading}
         onNavigate={(url) => { store.navigate(sessionId, url); previewBridge.navigate(url) }}
-        onBack={() => { store.goBack(sessionId); previewBridge.navigate(useBrowserPanelStore.getState().bySession[sessionId]!.url) }}
-        onForward={() => { store.goForward(sessionId); previewBridge.navigate(useBrowserPanelStore.getState().bySession[sessionId]!.url) }}
-        onReload={() => previewBridge.navigate(session.url)}
+        onBack={() => { store.goBack(sessionId); store.setLoading(sessionId, true); previewBridge.navigate(useBrowserPanelStore.getState().bySession[sessionId]!.url) }}
+        onForward={() => { store.goForward(sessionId); store.setLoading(sessionId, true); previewBridge.navigate(useBrowserPanelStore.getState().bySession[sessionId]!.url) }}
+        onReload={() => { store.setLoading(sessionId, true); previewBridge.navigate(session.url) }}
       />
       <div className="flex items-center gap-1 border-b px-2 py-1">
         <button

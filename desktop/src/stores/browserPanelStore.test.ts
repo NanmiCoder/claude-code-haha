@@ -49,12 +49,37 @@ describe('browserPanelStore', () => {
     expect(useBrowserPanelStore.getState().bySession['s1']!.pickerActive).toBe(true)
   })
 
-  it('setNavigated updates url/title without growing history', () => {
+  it('open starts a session in the loading state', () => {
+    useBrowserPanelStore.getState().open('s1', 'http://localhost/a')
+    expect(useBrowserPanelStore.getState().bySession['s1']!.loading).toBe(true)
+  })
+
+  it('navigate flips loading back on', () => {
+    const st = useBrowserPanelStore.getState()
+    st.open('s1', 'http://localhost/a')
+    st.setReady('s1') // simulate the page finishing the first load
+    expect(useBrowserPanelStore.getState().bySession['s1']!.loading).toBe(false)
+    st.navigate('s1', 'http://localhost/b')
+    expect(useBrowserPanelStore.getState().bySession['s1']!.loading).toBe(true)
+  })
+
+  it('setNavigated clears loading and updates url/title without growing history', () => {
     const st = useBrowserPanelStore.getState()
     st.open('s1', 'http://x/a')
+    expect(useBrowserPanelStore.getState().bySession['s1']!.loading).toBe(true)
     st.setNavigated('s1', 'http://x/b', 'B')
     const s = useBrowserPanelStore.getState().bySession['s1']!
     expect(s.url).toBe('http://x/b')
     expect(s.title).toBe('B')
+    expect(s.loading).toBe(false)
+    expect(s.history).toEqual(['http://x/a'])
+  })
+
+  it('setReady clears loading', () => {
+    const st = useBrowserPanelStore.getState()
+    st.open('s1', 'http://x/a')
+    expect(useBrowserPanelStore.getState().bySession['s1']!.loading).toBe(true)
+    st.setReady('s1')
+    expect(useBrowserPanelStore.getState().bySession['s1']!.loading).toBe(false)
   })
 })

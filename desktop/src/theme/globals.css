@@ -1281,3 +1281,32 @@ button, input, textarea, select, a, [role="button"] {
 @keyframes progress-fill {
   from { width: 0%; }
 }
+
+/* Indeterminate (browser-style) loading bar: a segment that slides across the track */
+@keyframes progress-indeterminate {
+  0% { left: -40%; right: 100%; }
+  60% { left: 100%; right: -40%; }
+  100% { left: 100%; right: -40%; }
+}
+.progress-indeterminate-track {
+  position: relative;
+  overflow: hidden;
+}
+.progress-indeterminate-track::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  right: 100%;
+  background: var(--color-primary);
+  animation: progress-indeterminate 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-indeterminate-track::before {
+    animation: none;
+    left: 0;
+    right: 0;
+    opacity: 0.5;
+  }
+}

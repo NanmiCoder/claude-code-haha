@@ -61,4 +61,43 @@ describe('BrowserSurface', () => {
     expect(useBrowserPanelStore.getState().bySession['s1']!.pickerActive).toBe(false)
     expect(bridge.eval).toHaveBeenLastCalledWith(expect.stringContaining('exit-picker'))
   })
+
+  it('renders the loading indicator while the session is loading (open starts loading)', () => {
+    useBrowserPanelStore.getState().open('s1', 'http://localhost:5173/')
+    render(<BrowserSurface sessionId="s1" />)
+    expect(screen.getByTestId('browser-loading-bar')).toBeInTheDocument()
+    expect(screen.getByLabelText('刷新')).toHaveAttribute('aria-busy', 'true')
+  })
+
+  it('hides the loading indicator once the page is ready', () => {
+    useBrowserPanelStore.getState().open('s1', 'http://localhost:5173/')
+    useBrowserPanelStore.getState().setReady('s1')
+    render(<BrowserSurface sessionId="s1" />)
+    expect(screen.queryByTestId('browser-loading-bar')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('刷新')).toHaveAttribute('aria-busy', 'false')
+  })
+
+  it('reload flips the session back into loading and shows the indicator', () => {
+    useBrowserPanelStore.getState().open('s1', 'http://localhost:5173/')
+    useBrowserPanelStore.getState().setReady('s1')
+    render(<BrowserSurface sessionId="s1" />)
+    expect(screen.queryByTestId('browser-loading-bar')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('刷新'))
+    expect(useBrowserPanelStore.getState().bySession['s1']!.loading).toBe(true)
+    expect(bridge.navigate).toHaveBeenCalledWith('http://localhost:5173/')
+    expect(screen.getByTestId('browser-loading-bar')).toBeInTheDocument()
+  })
+
+  it('forces loading off after the timeout fallback elapses', () => {
+    vi.useFakeTimers()
+    try {
+      useBrowserPanelStore.getState().open('s1', 'http://localhost:5173/')
+      render(<BrowserSurface sessionId="s1" />)
+      expect(useBrowserPanelStore.getState().bySession['s1']!.loading).toBe(true)
+      vi.advanceTimersByTime(15000)
+      expect(useBrowserPanelStore.getState().bySession['s1']!.loading).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

@@ -34,4 +34,16 @@ describe('BrowserAddressBar', () => {
     fireEvent.click(screen.getByLabelText('后退'))
     expect(onBack).toHaveBeenCalled()
   })
+
+  it('shows the loading progress bar and a busy reload button while loading', () => {
+    render(<BrowserAddressBar {...baseProps} loading />)
+    expect(screen.getByTestId('browser-loading-bar')).toBeInTheDocument()
+    expect(screen.getByLabelText('刷新')).toHaveAttribute('aria-busy', 'true')
+  })
+
+  it('hides the loading progress bar when not loading', () => {
+    render(<BrowserAddressBar {...baseProps} loading={false} />)
+    expect(screen.queryByTestId('browser-loading-bar')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('刷新')).toHaveAttribute('aria-busy', 'false')
+  })
 })
