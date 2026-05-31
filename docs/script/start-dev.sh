@@ -11,7 +11,7 @@ SERVER_PID=$!
 sleep 2
 
 echo "==> 启动桌面端前端 (Vite dev server)"
-( cd desktop && bun run dev ) &
+( cd desktop && VITE_DESKTOP_SERVER_URL="http://127.0.0.1:${SERVER_PORT}" bun run dev ) &
 DESKTOP_PID=$!
 
 cleanup() {
