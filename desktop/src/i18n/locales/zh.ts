@@ -901,6 +901,7 @@ export const zh: Record<TranslationKey, string> = {
   'settings.general.responseLangTitle': '回复语言',
   'settings.general.responseLangDescription': '指定 Claude 始终以某种语言回复。',
   'settings.general.responseLangDefault': '默认（英语）',
+  'settings.general.plantumlJarDescription': '设置 plantuml.jar 路径后，Markdown 中的 PlantUML 代码块将渲染为图表。留空则展示为代码块。',
   'settings.general.effortTitle': '推理强度',
   'settings.general.effortDescription': '控制模型使用的计算量。',
   'settings.general.effort.low': '低',

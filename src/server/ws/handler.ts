@@ -9,6 +9,8 @@
 import type { ServerWebSocket } from 'bun'
 import type { ClientMessage, ServerMessage } from './events.js'
 import * as os from 'node:os'
+import { watch, type FSWatcher } from 'node:fs'
+import { join } from 'node:path'
 import {
   ConversationStartupError,
   conversationService,
@@ -124,6 +126,47 @@ const clientOutputCallbacks = new Map<
   }
 >()
 
+// File watchers per session — pushes file_changed messages for real‑time tree refresh
+const fileWatchers = new Map<string, FSWatcher>()
+const fileWatcherTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function startFileWatcherForSession(sessionId: string, workDir: string): void {
+  stopFileWatcherForSession(sessionId)
+  try {
+    const w = watch(workDir, { recursive: true }, (_eventType, filename) => {
+      if (!filename) return
+      if (filename.includes('node_modules') || filename.startsWith('.git/')) return
+      const fullPath = join(workDir, filename)
+      // 200ms debounce
+      const existing = fileWatcherTimers.get(sessionId)
+      if (existing) clearTimeout(existing)
+      fileWatcherTimers.set(
+        sessionId,
+        setTimeout(() => {
+          fileWatcherTimers.delete(sessionId)
+          sendToSession(sessionId, { type: 'file_changed', sessionId, path: fullPath })
+        }, 200),
+      )
+    })
+    fileWatchers.set(sessionId, w)
+  } catch {
+    // watcher startup failure is non-fatal
+  }
+}
+
+function stopFileWatcherForSession(sessionId: string): void {
+  const w = fileWatchers.get(sessionId)
+  if (w) {
+    try { w.close() } catch { /* ignore */ }
+    fileWatchers.delete(sessionId)
+  }
+  const t = fileWatcherTimers.get(sessionId)
+  if (t) {
+    clearTimeout(t)
+    fileWatcherTimers.delete(sessionId)
+  }
+}
+
 export const handleWebSocket = {
   open(ws: ServerWebSocket<WebSocketData>) {
     const { sessionId, channel, sdkToken } = ws.data
@@ -155,6 +198,11 @@ export const handleWebSocket = {
     } else {
       bindClientSessionOutput(sessionId, ws)
     }
+
+    // Start file watcher for real-time tree updates
+    void resolveSessionWorkDir(sessionId).then((workDir) => {
+      startFileWatcherForSession(sessionId, workDir)
+    })
 
     const msg: ServerMessage = { type: 'connected', sessionId }
     ws.send(JSON.stringify(msg))
@@ -238,6 +286,10 @@ export const handleWebSocket = {
       return
     }
     removeClientOutputCallback(ws)
+    computerUseApprovalService.cancelSession(sessionId)
+    activeSessions.delete(sessionId)
+    stopFileWatcherForSession(sessionId)
+    conversationService.clearOutputCallbacks(sessionId)
 
     if (hasActiveClients(sessionId)) {
       return

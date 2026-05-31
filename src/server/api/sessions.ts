@@ -264,6 +264,7 @@ async function handleSessionWorkspaceRoute(
       return await runWorkspaceRequest(() => workspaceService.readTree(
         sessionId,
         url.searchParams.get('path') || '',
+        url.searchParams.get('showHidden') === 'true',
       ))
     case 'file':
       return await runWorkspaceRequest(() => workspaceService.readFile(

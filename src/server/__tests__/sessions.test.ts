@@ -2681,8 +2681,8 @@ describe('Sessions API', () => {
       path: '',
     })
     expect(treeBody.entries).toEqual([
-      { name: 'src', path: 'src', isDirectory: true },
-      { name: 'tracked.txt', path: 'tracked.txt', isDirectory: false },
+      { name: 'src', path: 'src', isDirectory: true, isSymlink: false },
+      { name: 'tracked.txt', path: 'tracked.txt', isDirectory: false, isSymlink: false },
     ])
 
     const fileRes = await fetch(
@@ -2810,10 +2810,10 @@ describe('Sessions API', () => {
     }
     expect(treeBody).toMatchObject({ state: 'ok', path: '' })
     expect(treeBody.entries).toEqual([
-      { name: 'assets', path: 'assets', isDirectory: true },
-      { name: 'notes', path: 'notes', isDirectory: true },
-      { name: 'src', path: 'src', isDirectory: true },
-      { name: 'README.md', path: 'README.md', isDirectory: false },
+      { name: 'assets', path: 'assets', isDirectory: true, isSymlink: false },
+      { name: 'notes', path: 'notes', isDirectory: true, isSymlink: false },
+      { name: 'src', path: 'src', isDirectory: true, isSymlink: false },
+      { name: 'README.md', path: 'README.md', isDirectory: false, isSymlink: false },
     ])
 
     const srcTreeRes = await fetch(
@@ -2823,7 +2823,7 @@ describe('Sessions API', () => {
     expect(await srcTreeRes.json()).toMatchObject({
       state: 'ok',
       path: 'src',
-      entries: [{ name: 'app.ts', path: 'src/app.ts', isDirectory: false }],
+      entries: [{ name: 'app.ts', path: 'src/app.ts', isDirectory: false, isSymlink: false }],
     })
 
     const fileRes = await fetch(

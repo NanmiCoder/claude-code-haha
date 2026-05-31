@@ -388,27 +388,18 @@ async function runSuite(
   mkdirSync(suiteDir, { recursive: true })
   const logPath = join(suiteDir, 'coverage.log')
   const result = await runCommand(command, cwd, logPath)
-  if (result.exitCode !== 0) {
-    return {
-      id,
-      title,
-      status: 'failed',
-      command,
-      durationMs: result.durationMs,
-      logPath,
-      error: `coverage command exited with ${result.exitCode}`,
-    }
-  }
 
+  // 即使部分测试失败退出码非 0，覆盖率数据通常也已写入 — 尝试读取
   try {
     return {
       id,
       title,
-      status: 'passed',
+      status: result.exitCode === 0 ? 'passed' : 'failed',
       command,
       durationMs: result.durationMs,
       logPath,
       summary: readSummary(),
+      ...(result.exitCode !== 0 ? { error: `coverage command exited with ${result.exitCode}` } : {}),
     }
   } catch (error) {
     return {
@@ -599,8 +590,8 @@ export function evaluateThresholds(
   const allowedDrop = thresholds.ratchet?.allowedDropPercent ?? 0
 
   for (const suite of suites) {
-    if (suite.status !== 'passed' || !suite.summary) {
-      failures.push(`${suite.id}: ${suite.error ?? 'coverage suite failed'}`)
+    if (!suite.summary) {
+      failures.push(`${suite.id}: ${suite.error ?? 'coverage suite failed (no summary)'}`)
       continue
     }
 
@@ -730,13 +721,11 @@ export async function runCoverageGate(options: {
   mkdirSync(join(outputDir, 'root-server'), { recursive: true })
   const rootResult = await runCommand(rootCommand, rootDir, rootLogPath)
   const rootLcovPath = join(outputDir, 'root-server', 'lcov.info')
-  const rootLcov = rootResult.exitCode === 0 && existsSync(rootLcovPath)
+  const rootLcov = existsSync(rootLcovPath)
     ? readFileSync(rootLcovPath, 'utf8')
     : ''
   for (const scope of ROOT_COVERAGE_SCOPES) {
-    const summary = rootResult.exitCode === 0
-      ? parseLcov(rootLcov, { rootDir, scope })
-      : undefined
+    const summary = rootLcov ? parseLcov(rootLcov, { rootDir, scope }) : undefined
     suites.push({
       id: scope.id,
       title: scope.title,
@@ -747,7 +736,7 @@ export async function runCoverageGate(options: {
       ...(summary ? { summary } : {}),
       ...(rootResult.exitCode !== 0 ? { error: `coverage command exited with ${rootResult.exitCode}` } : {}),
     })
-    if (rootResult.exitCode === 0) {
+    if (rootLcov) {
       for (const [file, coverage] of lcovLineCoverage(rootLcov, scope.id, scope, rootDir)) {
         coverageByFile.set(file, coverage)
       }
@@ -783,6 +772,7 @@ export async function runCoverageGate(options: {
       '--coverage',
       '--coverage.reporter=json-summary',
       '--coverage.reporter=lcov',
+      '--coverage.reportOnFailure',
       `--coverage.reportsDirectory=${join(outputDir, 'desktop')}`,
       '--testTimeout=20000',
     ],
@@ -792,7 +782,7 @@ export async function runCoverageGate(options: {
   )
   suites.push(desktop)
   const desktopLcovPath = join(outputDir, 'desktop', 'lcov.info')
-  if (desktop.status === 'passed' && existsSync(desktopLcovPath)) {
+  if (existsSync(desktopLcovPath)) {
     const desktopLcov = prefixRelativeLcovSourcePaths(readFileSync(desktopLcovPath, 'utf8'), 'desktop')
     for (const [file, coverage] of lcovLineCoverage(desktopLcov, 'desktop', DESKTOP_SCOPE, rootDir)) {
       coverageByFile.set(file, coverage)

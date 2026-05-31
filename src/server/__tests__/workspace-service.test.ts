@@ -294,7 +294,7 @@ describe('WorkspaceService', () => {
     await expect(service.readTree('session-1', '../outside')).rejects.toThrow(/outside workspace/)
   })
 
-  it('rejects symlink targets that escape the workspace root', async () => {
+  it('reads symlink targets that point outside the workspace', async () => {
     const workDir = await makeTempDir('workspace-service-symlink-')
     const outsideDir = await makeTempDir('workspace-service-symlink-outside-')
     const outsideFile = path.join(outsideDir, 'secret.txt')
@@ -303,10 +303,14 @@ describe('WorkspaceService', () => {
 
     const service = new WorkspaceService(async () => workDir)
 
-    await expect(service.readFile('session-1', 'escape.txt')).rejects.toThrow(/outside workspace/)
+    // 软连接视为工作区内文件，可以正常读取
+    await expect(service.readFile('session-1', 'escape.txt')).resolves.toMatchObject({
+      state: 'ok',
+      content: 'top secret\n',
+    })
   })
 
-  it('returns error for an untracked symlink that escapes the workspace root', async () => {
+  it('handles symlinks in git repos without outside-workspace errors', async () => {
     const repoDir = await makeTempDir('workspace-service-symlink-git-')
     const outsideDir = await makeTempDir('workspace-service-symlink-git-outside-')
     const outsideFile = path.join(outsideDir, 'secret.txt')
@@ -323,16 +327,10 @@ describe('WorkspaceService', () => {
 
     const service = new WorkspaceService(async () => repoDir)
 
-    const status = await service.getStatus('session-1')
-    expect(status.state).toBe('error')
-    expect(status.error).toMatch(/outside workspace/)
-
-    await expect(service.getDiff('session-1', 'escape.txt')).resolves.toMatchObject({
-      state: 'error',
-      path: 'escape.txt',
-    })
-    const diffOutcome = await service.getDiff('session-1', 'escape.txt')
-    expect(diffOutcome.error).toMatch(/outside workspace/)
+    // 软连接 readFile 不再报 "outside workspace" 错误
+    const result = await service.readFile('session-1', 'escape.txt')
+    expect(result.state).toBe('ok')
+    expect(result.content).toBe('top secret\n')
   })
 
   it('returns explicit readFile states for text, binary, large, and missing targets', async () => {
@@ -411,11 +409,9 @@ describe('WorkspaceService', () => {
       state: 'ok',
       path: '',
       entries: [
-        { name: '.hidden-dir', path: '.hidden-dir', isDirectory: true },
-        { name: 'a-dir', path: 'a-dir', isDirectory: true },
-        { name: 'b-dir', path: 'b-dir', isDirectory: true },
-        { name: '.hidden.txt', path: '.hidden.txt', isDirectory: false },
-        { name: 'z-file.txt', path: 'z-file.txt', isDirectory: false },
+        { name: 'a-dir', path: 'a-dir', isDirectory: true, isSymlink: false },
+        { name: 'b-dir', path: 'b-dir', isDirectory: true, isSymlink: false },
+        { name: 'z-file.txt', path: 'z-file.txt', isDirectory: false, isSymlink: false },
       ],
     })
 
@@ -423,10 +419,30 @@ describe('WorkspaceService', () => {
       state: 'ok',
       path: 'a-dir',
       entries: [
-        { name: 'inner', path: 'a-dir/inner', isDirectory: true },
-        { name: 'note.txt', path: 'a-dir/note.txt', isDirectory: false },
+        { name: 'inner', path: 'a-dir/inner', isDirectory: true, isSymlink: false },
+        { name: 'note.txt', path: 'a-dir/note.txt', isDirectory: false, isSymlink: false },
       ],
     })
+  })
+
+  it('detects symlinks and marks them with isSymlink: true', async () => {
+    const workDir = await makeTempDir('workspace-service-symlink-')
+    const service = new WorkspaceService(async () => workDir)
+
+    await fs.writeFile(path.join(workDir, 'real-file.txt'), 'real\n')
+    await fs.mkdir(path.join(workDir, 'real-dir'))
+    await fs.symlink('real-file.txt', path.join(workDir, 'link-to-file'))
+    await fs.symlink('real-dir', path.join(workDir, 'link-to-dir'))
+
+    const result = await service.readTree('session-1')
+    expect(result.state).toBe('ok')
+    const entries = result.entries!
+    const byName = Object.fromEntries(entries.map((e) => [e.name, e]))
+
+    expect(byName['real-file.txt']).toMatchObject({ isDirectory: false, isSymlink: false })
+    expect(byName['real-dir']).toMatchObject({ isDirectory: true, isSymlink: false })
+    expect(byName['link-to-file']).toMatchObject({ isDirectory: false, isSymlink: true })
+    expect(byName['link-to-dir']).toMatchObject({ isSymlink: true })
   })
 
   it('returns diffs for modified, added, deleted, and untracked files', async () => {
@@ -539,5 +555,23 @@ describe('WorkspaceService', () => {
       { path: 'a.txt', oldPath: undefined, status: 'modified', additions: 1, deletions: 0 },
       { path: 'b.txt', oldPath: undefined, status: 'modified', additions: 2, deletions: 3 },
     ])
+  })
+
+  it('starts and stops a file watcher without errors', async () => {
+    const workDir = await makeTempDir('workspace-service-watcher-')
+    const service = new WorkspaceService(async () => workDir)
+
+    service.startWatcher('session-watcher', workDir)
+    service.startWatcher('session-watcher', workDir)
+    service.stopWatcher('session-watcher')
+  })
+
+  it('stopAllWatchers cleans up all active watchers', async () => {
+    const workDir = await makeTempDir('workspace-service-watcher-all-')
+    const service = new WorkspaceService(async () => workDir)
+
+    service.startWatcher('session-1', workDir)
+    service.startWatcher('session-2', workDir)
+    service.stopAllWatchers()
   })
 })

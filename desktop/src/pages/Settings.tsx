@@ -9,7 +9,7 @@ import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { Input } from '../components/shared/Input'
 import { Button } from '../components/shared/Button'
 import { Dropdown } from '../components/shared/Dropdown'
-import type { ThemeMode, UpdateProxyMode, NetworkProxyMode, WebSearchMode, AppMode, ChatSendBehavior } from '../types/settings'
+import type { ThemeMode, UpdateProxyMode, NetworkProxyMode, WebSearchMode, AppMode, ChatSendBehavior, EffortLevel } from '../types/settings'
 import type { Locale } from '../i18n'
 import type { SavedProvider, UpdateProviderInput, ProviderTestResult, ModelMapping, ApiFormat, ProviderAuthStrategy } from '../types/provider'
 import type { ProviderPreset } from '../types/providerPreset'
@@ -1452,6 +1452,10 @@ function GeneralSettings() {
     appModeRequiresRestart,
     fetchAppMode,
     setAppMode: setAppModeAction,
+    effortLevel,
+    setEffort,
+    plantumlJarPath,
+    setPlantumlJarPath,
     uiZoom,
     setUiZoom,
   } = useSettingsStore()
@@ -1473,6 +1477,12 @@ function GeneralSettings() {
   const [isUiZoomDragging, setIsUiZoomDragging] = useState(false)
   const isUiZoomDraggingRef = useRef(false)
   const addToast = useUIStore((s) => s.addToast)
+  const EFFORT_LABELS: Record<EffortLevel, string> = {
+    low: t('settings.general.effort.low'),
+    medium: t('settings.general.effort.medium'),
+    high: t('settings.general.effort.high'),
+    max: t('settings.general.effort.max'),
+  }
   const webSearchDirty = JSON.stringify(webSearchDraft) !== JSON.stringify(webSearch)
   const uiZoomPercent = Math.round(uiZoomDraft * 100)
   const uiZoomRangeProgress = `${Math.round(((uiZoomDraft - UI_ZOOM_MIN) / (UI_ZOOM_MAX - UI_ZOOM_MIN)) * 1000) / 10}%`
@@ -1953,6 +1963,37 @@ function GeneralSettings() {
           </button>
         }
       />
+
+      {/* PlantUML jar path */}
+      <h2 className="text-base font-semibold text-[var(--color-text-primary)] mb-1 mt-6">PlantUML</h2>
+      <p className="text-sm text-[var(--color-text-tertiary)] mb-3">{t('settings.general.plantumlJarDescription')}</p>
+      <input
+        type="text"
+        value={plantumlJarPath}
+        onChange={(e) => void setPlantumlJarPath(e.target.value)}
+        placeholder="/path/to/plantuml.jar"
+        className="mb-8 block w-full h-10 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-text-primary)] outline-none transition-colors hover:border-[var(--color-border-focus)] focus-visible:border-[var(--color-border-focus)] focus-visible:shadow-[var(--shadow-focus-ring)] placeholder:text-[var(--color-text-tertiary)]"
+      />
+
+      {/* Effort Level */}
+      <h2 className="text-base font-semibold text-[var(--color-text-primary)] mb-1">{t('settings.general.effortTitle')}</h2>
+      <p className="text-sm text-[var(--color-text-tertiary)] mb-3">{t('settings.general.effortDescription')}</p>
+      <div className="flex gap-2">
+        {(['low', 'medium', 'high', 'max'] as EffortLevel[]).map((level) => (
+          <button
+            key={level}
+            onClick={() => setEffort(level)}
+            className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all ${
+              effortLevel === level
+                ? 'bg-[var(--color-brand)] text-white border-[var(--color-brand)]'
+                : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]'
+            }`}
+          >
+            {EFFORT_LABELS[level]}
+          </button>
+        ))}
+      </div>
+
 
       <div className="mt-8">
         <h2 className="text-base font-semibold text-[var(--color-text-primary)] mb-1">{t('settings.general.thinkingTitle')}</h2>

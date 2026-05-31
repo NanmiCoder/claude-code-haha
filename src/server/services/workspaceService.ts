@@ -1,4 +1,5 @@
 import * as fs from 'node:fs/promises'
+import chokidar from 'chokidar'
 import { execFile as execFileCallback } from 'node:child_process'
 import * as path from 'node:path'
 import { promisify } from 'node:util'
@@ -102,6 +103,7 @@ export type WorkspaceTreeEntry = {
   name: string
   path: string
   isDirectory: boolean
+  isSymlink: boolean
 }
 
 export type WorkspaceTreeResult = {
@@ -230,6 +232,8 @@ export function parseStatus(code: string): WorkspaceFileStatus {
 }
 
 export class WorkspaceService {
+  private readonly watchers = new Map<string, chokidar.FSWatcher>()
+
   constructor(
     private readonly resolveSessionWorkDir: (
       sessionId: string,
@@ -423,8 +427,10 @@ export class WorkspaceService {
       }
     }
 
-    const language = this.detectLanguage(resolvedPath.absolutePath)
-    const imageMimeType = this.detectImageMimeType(resolvedPath.absolutePath)
+    // 软连接：解析目标路径以正确检测文件类型（如 .md 扩展名在目标路径上）
+    const displayPath = await this.resolveSymlinkIfNeeded(resolvedPath.absolutePath)
+    const language = this.detectLanguage(displayPath)
+    const imageMimeType = this.detectImageMimeType(displayPath)
 
     let content: Buffer
     try {
@@ -489,6 +495,7 @@ export class WorkspaceService {
   async readTree(
     sessionId: string,
     treePath = '',
+    showHidden = false,
   ): Promise<WorkspaceTreeResult> {
     const resolvedPath = await this.resolveWorkspacePath(sessionId, treePath)
 
@@ -520,29 +527,83 @@ export class WorkspaceService {
         ),
       }
     }
+    // 隐藏文件逻辑：
+    // showHidden=false（眼睛关闭）：过滤全部 . 开头文件
+    // showHidden=true （眼睛打开）：只过滤 .git
+    const hiddenSet = showHidden
+      ? new Set(['.git'])
+      : null // null 表示按 . 前缀过滤
+
     const visibleEntries = entries
       .filter((entry) => !(entry.isDirectory() && isVcsMetadataDirectoryName(entry.name)))
+      .filter((entry) => {
+        if (hiddenSet) return !hiddenSet.has(entry.name) // 眼睛打开：只过滤 .git
+        return !entry.name.startsWith('.') // 眼睛关闭：过滤全部 . 开头
+      })
       .sort((a, b) => {
         if (a.isDirectory() !== b.isDirectory()) {
           return a.isDirectory() ? -1 : 1
         }
         return a.name.localeCompare(b.name)
       })
-      .map((entry) => ({
-        name: entry.name,
-        path: this.normalizeRelativePath(
-          path.relative(
-            resolvedPath.workspaceRoot,
-            path.join(resolvedPath.absolutePath, entry.name),
+      .map((entry) => {
+        const isSym = entry.isSymbolicLink()
+        // macOS 下 Dirent.isDirectory() 对指向目录的 symlink 返回 false
+        // 此处先标记，后续异步 stat 修正
+        return {
+          name: entry.name,
+          fullPath: path.join(resolvedPath.absolutePath, entry.name),
+          isDirectory: entry.isDirectory(),
+          isSymlink: isSym,
+        }
+      })
+
+    // 修正 symlink 的 isDirectory（stat 跟踪到目标）
+    const resolvedEntries: WorkspaceTreeEntry[] = []
+    for (const e of visibleEntries) {
+      if (e.isSymlink) {
+        try {
+          const s = await fs.stat(e.fullPath)
+          resolvedEntries.push({
+            name: e.name,
+            path: this.normalizeRelativePath(
+              path.relative(resolvedPath.workspaceRoot, e.fullPath),
+            ),
+            isDirectory: s.isDirectory(),
+            isSymlink: true,
+          })
+        } catch {
+          resolvedEntries.push({
+            name: e.name,
+            path: this.normalizeRelativePath(
+              path.relative(resolvedPath.workspaceRoot, e.fullPath),
+            ),
+            isDirectory: false,
+            isSymlink: true,
+          })
+        }
+      } else {
+        resolvedEntries.push({
+          name: e.name,
+          path: this.normalizeRelativePath(
+            path.relative(resolvedPath.workspaceRoot, e.fullPath),
           ),
-        ),
-        isDirectory: entry.isDirectory(),
-      }))
+          isDirectory: e.isDirectory,
+          isSymlink: false,
+        })
+      }
+    }
+
+    // 修正 symlink 目录的排序（stat 后才确定 isDirectory）
+    resolvedEntries.sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
 
     return {
       state: 'ok',
       path: resolvedPath.relativePath,
-      entries: visibleEntries,
+      entries: resolvedEntries,
     }
   }
 
@@ -1062,11 +1123,15 @@ export class WorkspaceService {
       throw new Error(`Path is outside workspace: ${requestedPath}`)
     }
 
-    const canonicalTargetPath = await this.resolveCanonicalTargetPath(
-      workspaceRoot.canonicalWorkspaceRoot,
-      absolutePath,
-      requestedPath,
-    )
+    // 软连接及其子路径：跳过 canonical 解析，避免目标路径逃逸到工作区外
+    const hasSymlink = await this.pathHasSymlinkComponent(absolutePath)
+    const canonicalTargetPath = hasSymlink
+      ? absolutePath
+      : await this.resolveCanonicalTargetPath(
+          workspaceRoot.canonicalWorkspaceRoot,
+          absolutePath,
+          requestedPath,
+        )
 
     return {
       absolutePath,
@@ -1156,6 +1221,25 @@ export class WorkspaceService {
     return isSameOrInsidePathForPlatform(targetPath, rootPath)
   }
 
+  private async pathHasSymlinkComponent(absolutePath: string): Promise<boolean> {
+    let current = absolutePath
+    for (;;) {
+      try {
+        const lst = await fs.lstat(current)
+        if (lst.isSymbolicLink()) return true
+      } catch (error) {
+        const errCode = (error as NodeJS.ErrnoException)?.code as string | undefined
+        if (errCode && errCode !== 'ENOENT' && errCode !== 'ENOTDIR') {
+          return false
+        }
+      }
+      const parent = path.dirname(current)
+      if (parent === current) break
+      current = parent
+    }
+    return false
+  }
+
   private normalizeRelativePath(filePath: string): string {
     if (!filePath || filePath === '.') return ''
     return filePath.split(path.sep).join('/')
@@ -1222,6 +1306,17 @@ export class WorkspaceService {
     canonicalTargetPath: string,
   ): string {
     return this.normalizeRelativePath(path.relative(repoRoot, canonicalTargetPath))
+  }
+
+  /** 若路径为软连接则解析到目标路径，否则返回原路径 */
+  private async resolveSymlinkIfNeeded(filePath: string): Promise<string> {
+    try {
+      const lst = await fs.lstat(filePath)
+      if (lst.isSymbolicLink()) {
+        return await fs.realpath(filePath)
+      }
+    } catch { /* ignore */ }
+    return filePath
   }
 
   private detectLanguage(filePath: string): string {
@@ -1658,6 +1753,63 @@ export class WorkspaceService {
     const err = error as NodeJS.ErrnoException
     const code = err.code ? `${err.code}: ` : ''
     return `${prefix} (${targetPath}): ${code}${err.message || 'unknown error'}`
+  }
+
+  startWatcher(sessionId: string, workDir: string): void {
+    this.stopWatcher(sessionId)
+
+    try {
+      const w = chokidar.watch(workDir, {
+        ignored: /(^|[\/\\])(\.git|node_modules)([\/\\]|$)/,
+        ignoreInitial: true,
+      })
+      w.on('all', (_eventType, filename) => {
+        if (!filename) return
+
+        const fullPath = path.join(workDir, filename)
+        // 防抖发送 — 使用 setTimeout + pending 标记
+        if (this._watcherTimers == null) {
+          ;(this as any)._watcherTimers = new Map<string, ReturnType<typeof setTimeout>>()
+        }
+        const timers: Map<string, ReturnType<typeof setTimeout>> = (this as any)._watcherTimers
+        const existing = timers.get(sessionId)
+        if (existing) clearTimeout(existing)
+        timers.set(
+          sessionId,
+          setTimeout(() => {
+            timers.delete(sessionId)
+            const { sendToSession } = require('../ws/handler.js')
+            sendToSession(sessionId, {
+              type: 'file_changed',
+              sessionId,
+              path: fullPath,
+            })
+          }, 200),
+        )
+      })
+      this.watchers.set(sessionId, w)
+    } catch {
+      // 如果 watch 启动失败（如目录不存在），静默忽略
+    }
+  }
+
+  stopWatcher(sessionId: string): void {
+    const w = this.watchers.get(sessionId)
+    if (w) {
+      try { w.close() } catch { /* ignore */ }
+      this.watchers.delete(sessionId)
+    }
+    const timers: Map<string, ReturnType<typeof setTimeout>> | undefined = (this as any)._watcherTimers
+    if (timers) {
+      const t = timers.get(sessionId)
+      if (t) { clearTimeout(t); timers.delete(sessionId) }
+    }
+  }
+
+  stopAllWatchers(): void {
+    for (const [sessionId] of this.watchers) {
+      this.stopWatcher(sessionId)
+    }
   }
 
   private formatGitError(

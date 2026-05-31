@@ -7,6 +7,7 @@ import { marked, type Tokens } from 'marked'
 import { CodeViewer } from '../chat/CodeViewer'
 import { MermaidRenderer } from '../chat/MermaidRenderer'
 import { copyTextToClipboard } from '../chat/clipboard'
+import { PlantUMLRenderer } from '../chat/PlantUMLRenderer'
 
 type Props = {
   content: string
@@ -34,11 +35,13 @@ type CodePart = { type: 'code'; block: CodeBlock }
 type MarkdownPart = HtmlPart | CodePart
 
 const MERMAID_LANGUAGE = 'mermaid'
+const PLANTUML_LANGUAGE = 'plantuml'
 const PLAINTEXT_LANGUAGES = new Set(['', 'text', 'plaintext', 'plain'])
 const MERMAID_DIAGRAM_START = /^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|journey|gantt|pie|gitGraph|mindmap|timeline|requirementDiagram|quadrantChart|xychart-beta|sankey-beta|block-beta|packet-beta|architecture|kanban)\b/i
 const CODE_FENCE_START = /^ {0,3}(`{3,}|~{3,})/
 const MATH_RENDER_CACHE_LIMIT = 200
 const mathRenderCache = new Map<string, string>()
+const PLANTUML_DIAGRAM_START = /^@startuml\b/i
 
 function normalizeCodeLanguage(language: string | undefined): string | undefined {
   const normalized = language?.trim().split(/\s+/)[0]?.toLowerCase()
@@ -80,6 +83,20 @@ function MermaidStreamingPlaceholder() {
       </div>
     </div>
   )
+}
+
+function shouldRenderAsPlantUML(block: CodeBlock): boolean {
+  const normalizedLanguage = normalizeCodeLanguage(block.language)
+
+  if (normalizedLanguage === PLANTUML_LANGUAGE) {
+    return true
+  }
+
+  if (!PLAINTEXT_LANGUAGES.has(normalizedLanguage ?? '')) {
+    return false
+  }
+
+  return PLANTUML_DIAGRAM_START.test(block.code.trim())
 }
 
 const renderer = new marked.Renderer()
@@ -268,8 +285,8 @@ function renderMath(block: MathBlock): string {
 
 function enhanceMarkdownHtml(html: string, mathBlocks: MathBlock[]): string {
   const cleanHtml = DOMPurify.sanitize(html, {
-    ADD_TAGS: ['use'],
-    ADD_ATTR: ['xlink:href'],
+    ADD_TAGS: ['use', 'annotation'],
+    ADD_ATTR: ['xlink:href', 'style', 'width', 'height', 'fill', 'transform', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'd', 'viewBox', 'xmlns'],
   })
 
   const needsDomEnhancement = mathBlocks.length > 0 || /<(?:a|table)\b/i.test(cleanHtml)
@@ -309,6 +326,71 @@ function enhanceMarkdownHtml(html: string, mathBlocks: MathBlock[]): string {
   })
 
   return container.innerHTML
+}
+
+// LaTeX 公式占位符（Kiro spec 方式：预处理阶段渲染），避免 marked 转义公式内的特殊字符
+// 以下为备用 KaTeX 预处理渲染管线，与 extractMath + enhanceMarkdownHtml 的 DOM 方式等效
+const BLOCK_MATH_PLACEHOLDER = '___KATEX_BLOCK___'
+const INLINE_MATH_PLACEHOLDER = '___KATEX_INLINE___'
+
+export function stripCodeFences(content: string): { result: string; fences: string[] } {
+  const fences: string[] = []
+  // 用占位符替换代码块，避免公式匹配受代码块内容干扰
+  const result = content.replace(/```[\s\S]*?```/g, (match) => {
+    fences.push(match)
+    return `__FENCE_${fences.length - 1}__`
+  })
+  return { result, fences }
+}
+
+export function restoreFences(content: string, fences: string[]): string {
+  return content.replace(/__FENCE_(\d+)__/g, (_, i) => fences[Number(i)] ?? '')
+}
+
+export function renderMathFormulas(content: string): string {
+  // 标记数学公式区域 — 但不能匹配代码块内的内容
+  const { result: safeContent, fences } = stripCodeFences(content)
+
+  // 存储渲染后的 LaTeX 公式
+  const formulas: string[] = []
+
+  // 预处理：保护代码块中的 $
+  // 先匹配 $$...$$ 块级公式
+  let processed = safeContent.replace(/\$\$([\s\S]*?)\$\$/g, (_match, tex: string) => {
+    const id = formulas.length
+    try {
+      const html = katex.renderToString(tex.trim(), { displayMode: true, throwOnError: false })
+      formulas.push(html)
+    } catch {
+      formulas.push(`<code>${DOMPurify.sanitize(tex.trim())}</code>`)
+    }
+    return `${BLOCK_MATH_PLACEHOLDER}${id}`
+  })
+
+  // 再匹配 $...$ 行内公式（不匹配 $$ 也不匹配代码块）
+  processed = processed.replace(/(?<!\$)\$(?!\$)([^$\n]+?)\$(?!\$)/g, (_match, tex: string) => {
+    const id = formulas.length
+    try {
+      const html = katex.renderToString(tex.trim(), { displayMode: false, throwOnError: false })
+      formulas.push(html)
+    } catch {
+      formulas.push(`<code>${DOMPurify.sanitize(tex.trim())}</code>`)
+    }
+    return `${INLINE_MATH_PLACEHOLDER}${id}`
+  })
+
+  // 恢复代码块
+  let result = restoreFences(processed, fences)
+
+  // 替换占位符为实际 HTML
+  result = result.replace(new RegExp(`${BLOCK_MATH_PLACEHOLDER}(\\d+)`, 'g'), (_, i) => {
+    return `<span class="katex-block">${formulas[Number(i)] ?? ''}</span>`
+  })
+  result = result.replace(new RegExp(`${INLINE_MATH_PLACEHOLDER}(\\d+)`, 'g'), (_, i) => {
+    return `<span class="katex-inline">${formulas[Number(i)] ?? ''}</span>`
+  })
+
+  return result
 }
 
 function parseMarkdown(content: string): { html: string; codeBlocks: CodeBlock[]; mathBlocks: MathBlock[] } {
@@ -452,7 +534,11 @@ const COMPACT_PROSE_CLASSES = `
   prose-li:my-0.5 prose-li:text-xs prose-li:leading-5 prose-li:text-[var(--color-text-secondary)]
   prose-table:text-xs
   [&_.md-math-display]:my-2 [&_.md-math-display]:py-1 [&_.md-math-display_.katex]:text-[1.04em]
-  [&_.md-table-wrap]:my-2`
+  [&_.md-table-wrap]:my-2
+  [&_.katex-block]:block [&_.katex-block]:my-3 [&_.katex-block]:overflow-x-auto
+  [&_.katex-inline]:inline [&_.katex-inline]:align-middle
+  [&_.katex-html]:[&_.tag]:hidden
+`
 
 function getProseClasses(variant: 'default' | 'document' | 'compact', className?: string) {
   return [
@@ -552,6 +638,8 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({ content, varian
           ) : (
             <MermaidRenderer key={part.block.id} code={part.block.code} />
           )
+        ) : shouldRenderAsPlantUML(part.block) ? (
+          <PlantUMLRenderer key={part.block.id} code={part.block.code} />
         ) : (
           <div key={part.block.id} className="my-4">
             <CodeViewer

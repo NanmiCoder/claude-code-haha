@@ -71,6 +71,7 @@ runtime/__pycache__
 
 # IDE
 .idea
+.vscode/
 
 # Codex logs
 .codex-logs/
@@ -78,3 +79,7 @@ runtime/__pycache__
 # Local AI assistant artifacts (graph, notes)
 CLAUDE.md
 graphify-out/
+
+# claude code 
+.specstory/
+tests/doc/

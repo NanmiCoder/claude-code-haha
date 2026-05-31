@@ -12,6 +12,7 @@ import { useChatStore } from '../stores/chatStore'
 import { useCLITaskStore } from '../stores/cliTaskStore'
 import { useTeamStore } from '../stores/teamStore'
 import { useWorkspacePanelStore } from '../stores/workspacePanelStore'
+import { wsManager } from '../api/websocket'
 import {
   TERMINAL_PANEL_DEFAULT_HEIGHT,
   TERMINAL_PANEL_MAX_HEIGHT,
@@ -300,6 +301,18 @@ export function ActiveSession() {
       connectToSession(activeTabId)
     }
   }, [activeTabId, isMemberSession, connectToSession])
+
+  // 监听服务端推送的文件变化，自动刷新文件树和预览
+  useEffect(() => {
+    if (!activeTabId) return
+    const handleFileChanged = useWorkspacePanelStore.getState().handleFileChanged
+    const unsub = wsManager.onMessage(activeTabId, (msg) => {
+      if (msg.type === 'file_changed' && msg.sessionId === activeTabId) {
+        void handleFileChanged(activeTabId, msg.path)
+      }
+    })
+    return unsub
+  }, [activeTabId])
 
   useEffect(() => {
     if (!activeTabId || isMemberSession) return

@@ -253,15 +253,15 @@ describe('workspacePanelStore', () => {
       state: 'ok',
       path: '',
       entries: [
-        { name: 'src', path: 'src', isDirectory: true },
-        { name: 'README.md', path: 'README.md', isDirectory: false },
+        { name: 'src', path: 'src', isDirectory: true, isSymlink: false },
+        { name: 'README.md', path: 'README.md', isDirectory: false, isSymlink: false },
       ],
     })
 
     await useWorkspacePanelStore.getState().toggleTreeNode('session-tree', '')
 
     expect(mocks.getWorkspaceTreeMock).toHaveBeenCalledTimes(1)
-    expect(mocks.getWorkspaceTreeMock).toHaveBeenCalledWith('session-tree', '')
+    expect(mocks.getWorkspaceTreeMock).toHaveBeenCalledWith('session-tree', '', false)
     expect(useWorkspacePanelStore.getState().expandedPathsBySession['session-tree']).toEqual([''])
     expect(useWorkspacePanelStore.getState().treeBySessionPath['session-tree']?.['']).toMatchObject({
       entries: [{ path: 'src' }, { path: 'README.md' }],
@@ -276,8 +276,8 @@ describe('workspacePanelStore', () => {
   })
 
   it('ignores stale tree responses for the same session path', async () => {
-    const first = deferred<{ state: 'ok'; path: string; entries: Array<{ name: string; path: string; isDirectory: boolean }> }>()
-    const second = deferred<{ state: 'ok'; path: string; entries: Array<{ name: string; path: string; isDirectory: boolean }> }>()
+    const first = deferred<{ state: 'ok'; path: string; entries: Array<{ name: string; path: string; isDirectory: boolean; isSymlink: boolean }> }>()
+    const second = deferred<{ state: 'ok'; path: string; entries: Array<{ name: string; path: string; isDirectory: boolean; isSymlink: boolean }> }>()
 
     mocks.getWorkspaceTreeMock
       .mockReturnValueOnce(first.promise)
@@ -289,19 +289,19 @@ describe('workspacePanelStore', () => {
     second.resolve({
       state: 'ok',
       path: 'src',
-      entries: [{ name: 'new.ts', path: 'src/new.ts', isDirectory: false }],
+      entries: [{ name: 'new.ts', path: 'src/new.ts', isDirectory: false, isSymlink: false }],
     })
     await secondLoad
 
     first.resolve({
       state: 'ok',
       path: 'src',
-      entries: [{ name: 'old.ts', path: 'src/old.ts', isDirectory: false }],
+      entries: [{ name: 'old.ts', path: 'src/old.ts', isDirectory: false, isSymlink: false }],
     })
     await firstLoad
 
     expect(useWorkspacePanelStore.getState().treeBySessionPath['session-tree-race']?.src?.entries).toEqual([
-      { name: 'new.ts', path: 'src/new.ts', isDirectory: false },
+      { name: 'new.ts', path: 'src/new.ts', isDirectory: false, isSymlink: false },
     ])
   })
 

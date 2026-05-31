@@ -92,6 +92,7 @@ export type ServerMessage =
   | { type: 'team_deleted'; teamName: string }
   | { type: 'task_update'; taskId: string; status: string; progress?: string }
   | { type: 'session_title_updated'; sessionId: string; title: string }
+  | { type: 'file_changed'; sessionId: string; path: string }
 
 export type TokenUsage = {
   input_tokens: number

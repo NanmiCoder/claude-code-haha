@@ -377,17 +377,23 @@ function ToolbarIconButton({
   icon,
   label,
   onClick,
+  active,
 }: {
   icon: string
   label: string
   onClick: () => void
+  active?: boolean
 }) {
   return (
     <button
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand)]/35"
+      className={`inline-flex h-7 w-7 items-center justify-center rounded-[7px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand)]/35 ${
+        active
+          ? 'bg-[var(--color-brand)]/15 text-[var(--color-brand)]'
+          : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]'
+      }`}
     >
       <span className="material-symbols-outlined text-[16px]">{icon}</span>
     </button>
@@ -829,6 +835,9 @@ function TreeNode({
       >
         <FileTypeBadge name={entry.name} subtle={!isActive} />
         <span className="min-w-0 truncate text-[14px] font-medium text-[var(--color-text-primary)]">{entry.name}</span>
+        {entry.isSymlink && (
+          <span className="material-symbols-outlined flex-shrink-0 text-[13px] text-[var(--color-text-tertiary)]" title="symlink">link</span>
+        )}
       </button>
     )
   }
@@ -847,6 +856,9 @@ function TreeNode({
           {isVisuallyExpanded ? 'expand_more' : 'chevron_right'}
         </span>
         <span className="min-w-0 truncate text-[15px] font-medium text-[var(--color-text-primary)]">{entry.name}</span>
+        {entry.isSymlink && (
+          <span className="material-symbols-outlined flex-shrink-0 text-[13px] text-[var(--color-text-tertiary)]" title="symlink">link</span>
+        )}
       </button>
 
       {isVisuallyExpanded && (
@@ -936,8 +948,11 @@ export function WorkspacePanel({ sessionId, embedded = false }: WorkspacePanelPr
     useShallow((state) => getSessionScopedRecord(state.errors.treeBySessionPath, sessionId)),
   )
   const setActiveView = useWorkspacePanelStore((state) => state.setActiveView)
+  const showHiddenFiles = useWorkspacePanelStore((state) => state.showHiddenFiles)
+  const toggleShowHiddenFiles = useWorkspacePanelStore((state) => state.toggleShowHiddenFiles)
   const loadStatus = useWorkspacePanelStore((state) => state.loadStatus)
   const loadTree = useWorkspacePanelStore((state) => state.loadTree)
+  const invalidateExpandedTreeCache = useWorkspacePanelStore((state) => state.invalidateExpandedTreeCache)
   const toggleTreeNode = useWorkspacePanelStore((state) => state.toggleTreeNode)
   const openPreview = useWorkspacePanelStore((state) => state.openPreview)
   const closePreview = useWorkspacePanelStore((state) => state.closePreview)
@@ -996,7 +1011,11 @@ export function WorkspacePanel({ sessionId, embedded = false }: WorkspacePanelPr
     const shouldRefreshAfterCompletedTurn = completedTurn && chatState === 'idle'
     if ((!shouldRefreshOnOpen && !shouldRefreshAfterCompletedTurn) || statusLoading) return
     void loadStatus(sessionId)
-  }, [chatState, isOpen, loadStatus, sessionId, statusLoading])
+    if (shouldRefreshAfterCompletedTurn && activeView === 'all') {
+      invalidateExpandedTreeCache(sessionId)
+      void loadTree(sessionId, '')
+    }
+  }, [chatState, isOpen, loadStatus, loadTree, invalidateExpandedTreeCache, activeView, sessionId, statusLoading])
 
   useEffect(() => {
     if (!isOpen || activeView !== 'all' || rootTree || rootTreeLoading || rootTreeError) return
@@ -1023,7 +1042,15 @@ export function WorkspacePanel({ sessionId, embedded = false }: WorkspacePanelPr
   const handleRefresh = () => {
     void loadStatus(sessionId)
     if (activeView === 'all') {
-      void loadTree(sessionId, '')
+      // 先清缓存再批量加载，避免逐个渲染导致闪烁
+      invalidateExpandedTreeCache(sessionId)
+      void loadTree(sessionId, '').then(() =>
+        Promise.all(expandedPaths.map((p) => loadTree(sessionId, p))),
+      )
+    }
+    // Refresh all open preview tabs so file content is up-to-date
+    for (const tab of previewTabs) {
+      void openPreview(sessionId, tab.path, tab.kind)
     }
   }
 
@@ -1234,8 +1261,16 @@ export function WorkspacePanel({ sessionId, embedded = false }: WorkspacePanelPr
           ))}
           <button
             type="button"
+            onClick={() => void openPreview(sessionId, activePreviewTab.path, activePreviewTab.kind)}
+            aria-label="Refresh preview"
+            className="ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] text-[14px] text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
+          >
+            <span className="material-symbols-outlined text-[15px]">refresh</span>
+          </button>
+          <button
+            type="button"
             onClick={() => addWorkspacePathToChat(activePreviewTab.path)}
-            className="ml-auto inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-[11px] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
+            className="inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-[11px] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[14px]">person_add</span>
             <span>{t('workspace.addToChat')}</span>
@@ -1455,6 +1490,16 @@ export function WorkspacePanel({ sessionId, embedded = false }: WorkspacePanelPr
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1">
+            <ToolbarIconButton
+              icon={showHiddenFiles ? 'visibility' : 'visibility_off'}
+              label={showHiddenFiles ? 'Hide Hidden' : 'Show Hidden'}
+              onClick={() => {
+                toggleShowHiddenFiles()
+                invalidateExpandedTreeCache(sessionId)
+                void loadTree(sessionId, '')
+              }}
+              active={showHiddenFiles}
+            />
             <ToolbarIconButton
               icon="refresh"
               label={t('workspace.refresh')}

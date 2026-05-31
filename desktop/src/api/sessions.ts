@@ -260,6 +260,7 @@ export type WorkspaceTreeEntry = {
   name: string
   path: string
   isDirectory: boolean
+  isSymlink: boolean
 }
 
 export type WorkspaceTreeResult = {
@@ -296,10 +297,16 @@ function buildWorkspacePath(
   sessionId: string,
   resource: 'status' | 'tree' | 'file' | 'diff',
   workspacePath?: string,
+  extraParams?: Record<string, string>,
 ) {
   const query = new URLSearchParams()
   if (typeof workspacePath === 'string' && workspacePath.length > 0) {
     query.set('path', workspacePath)
+  }
+  if (extraParams) {
+    for (const [key, value] of Object.entries(extraParams)) {
+      if (value) query.set(key, value)
+    }
   }
 
   const qs = query.toString()
@@ -379,8 +386,10 @@ export const sessionsApi = {
     return api.get<WorkspaceStatusResult>(buildWorkspacePath(sessionId, 'status'))
   },
 
-  getWorkspaceTree(sessionId: string, workspacePath = '') {
-    return api.get<WorkspaceTreeResult>(buildWorkspacePath(sessionId, 'tree', workspacePath))
+  getWorkspaceTree(sessionId: string, workspacePath = '', showHidden = false) {
+    return api.get<WorkspaceTreeResult>(
+      buildWorkspacePath(sessionId, 'tree', workspacePath, showHidden ? { showHidden: 'true' } : undefined),
+    )
   },
 
   getWorkspaceFile(sessionId: string, workspacePath: string) {

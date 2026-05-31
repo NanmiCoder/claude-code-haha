@@ -58,6 +58,7 @@ type WorkspacePanelStore = {
   panelBySession: Record<string, WorkspacePanelSessionState | undefined>
   modeBySession: Record<string, WorkbenchMode | undefined>
   width: number
+  showHiddenFiles: boolean
   statusBySession: Record<string, WorkspaceStatusResult | undefined>
   expandedPathsBySession: Record<string, string[] | undefined>
   treeBySessionPath: Record<string, Record<string, WorkspaceTreeResult | undefined> | undefined>
@@ -75,14 +76,17 @@ type WorkspacePanelStore = {
   togglePanel: (sessionId: string) => void
   setWidth: (width: number) => void
   setActiveView: (sessionId: string, view: WorkspacePanelView) => void
+  toggleShowHiddenFiles: () => void
   loadStatus: (sessionId: string) => Promise<void>
-  loadTree: (sessionId: string, path?: string) => Promise<void>
+  loadTree: (sessionId: string, path?: string, options?: { showHidden?: boolean }) => Promise<void>
   toggleTreeNode: (sessionId: string, path: string) => Promise<void>
   openPreview: (sessionId: string, path: string, kind: WorkspacePreviewKind) => Promise<void>
   closePreview: (sessionId: string, tabId: string) => void
   closePreviewTabs: (sessionId: string, tabId: string, scope: WorkspacePreviewCloseScope) => void
   clearSession: (sessionId: string) => void
   resetSessionUi: (sessionId: string) => void
+  invalidateExpandedTreeCache: (sessionId: string) => void
+  handleFileChanged: (sessionId: string, filePath: string) => Promise<void>
 }
 
 const DEFAULT_PANEL_STATE: WorkspacePanelSessionState = {
@@ -95,6 +99,7 @@ const DEFAULT_WORKBENCH_MODE: WorkbenchMode = 'workspace'
 const statusRequestIds = new Map<string, number>()
 const treeRequestIds = new Map<string, number>()
 const previewRequestIds = new Map<string, number>()
+const fileChangeTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 function nextRequestId(store: Map<string, number>, key: string) {
   const requestId = (store.get(key) ?? 0) + 1
@@ -190,6 +195,7 @@ export const useWorkspacePanelStore = create<WorkspacePanelStore>((set, get) => 
   panelBySession: {},
   modeBySession: {},
   width: WORKSPACE_PANEL_DEFAULT_WIDTH,
+  showHiddenFiles: true,
   statusBySession: {},
   expandedPathsBySession: {},
   treeBySessionPath: {},
@@ -349,7 +355,8 @@ export const useWorkspacePanelStore = create<WorkspacePanelStore>((set, get) => 
     }
   },
 
-  loadTree: async (sessionId, path = '') => {
+  loadTree: async (sessionId, path = '', options) => {
+    const showHidden = options?.showHidden ?? get().showHiddenFiles
     const treeKey = makeTreeKey(sessionId, path)
     const requestId = nextRequestId(treeRequestIds, treeKey)
 
@@ -371,7 +378,7 @@ export const useWorkspacePanelStore = create<WorkspacePanelStore>((set, get) => 
     }))
 
     try {
-      const result = await sessionsApi.getWorkspaceTree(sessionId, path)
+      const result = await sessionsApi.getWorkspaceTree(sessionId, path, showHidden)
       if (!isLatestRequest(treeRequestIds, treeKey, requestId)) return
 
       set((state) => ({
@@ -446,6 +453,10 @@ export const useWorkspacePanelStore = create<WorkspacePanelStore>((set, get) => 
     }
   },
 
+  toggleShowHiddenFiles: () => {
+    set((state) => ({ showHiddenFiles: !state.showHiddenFiles }))
+  },
+
   openPreview: async (sessionId, path, kind) => {
     // Ensure the workspace panel is visible — openPreview is now triggered from places
     // where the panel may be closed (e.g. the chat "打开方式" menu / turn-changes card),
@@ -455,32 +466,28 @@ export const useWorkspacePanelStore = create<WorkspacePanelStore>((set, get) => 
     get().setMode(sessionId, 'workspace')
     const tabId = getWorkspacePreviewTabId(path, kind)
     const requestKey = makePreviewKey(sessionId, tabId)
+    const requestId = nextRequestId(previewRequestIds, requestKey)
     const existing = get().previewTabsBySession[sessionId]?.find((tab) => tab.id === tabId)
 
-    if (existing) {
+    if (!existing) {
+      const baseTab: WorkspacePreviewTab = {
+        id: tabId,
+        path,
+        kind,
+        title: getPathTitle(path),
+        state: 'loading',
+      }
+
       set((state) => ({
-        activePreviewTabIdBySession: {
-          ...state.activePreviewTabIdBySession,
-          [sessionId]: tabId,
+        previewTabsBySession: {
+          ...state.previewTabsBySession,
+          [sessionId]: [...(state.previewTabsBySession[sessionId] ?? []), baseTab],
         },
       }))
-      return
     }
 
-    const requestId = nextRequestId(previewRequestIds, requestKey)
-    const baseTab: WorkspacePreviewTab = {
-      id: tabId,
-      path,
-      kind,
-      title: getPathTitle(path),
-      state: 'loading',
-    }
-
+    // Set active tab and mark loading (regardless of whether tab existed)
     set((state) => ({
-      previewTabsBySession: {
-        ...state.previewTabsBySession,
-        [sessionId]: [...(state.previewTabsBySession[sessionId] ?? []), baseTab],
-      },
       activePreviewTabIdBySession: {
         ...state.activePreviewTabIdBySession,
         [sessionId]: tabId,
@@ -501,66 +508,19 @@ export const useWorkspacePanelStore = create<WorkspacePanelStore>((set, get) => 
       },
     }))
 
-    try {
-      if (kind === 'diff') {
-        const result = await sessionsApi.getWorkspaceDiff(sessionId, path)
-        if (!isLatestRequest(previewRequestIds, requestKey, requestId)) return
-        if (!get().previewTabsBySession[sessionId]?.some((tab) => tab.id === tabId)) return
-
-        set((state) => {
-          const tabs = state.previewTabsBySession[sessionId] ?? []
-          return {
-            previewTabsBySession: {
-              ...state.previewTabsBySession,
-              [sessionId]: upsertPreviewTab(tabs, tabId, (current) => ({
-                ...current,
-                diff: result.diff ?? '',
-                content: undefined,
-                language: undefined,
-                size: undefined,
-                state: result.state,
-                error: result.error,
-              })),
-            },
-            loading: {
-              ...state.loading,
-              previewByTabId: {
-                ...state.loading.previewByTabId,
-                [requestKey]: false,
-              },
-            },
-            errors: {
-              ...state.errors,
-              previewByTabId: {
-                ...state.errors.previewByTabId,
-                [requestKey]: result.error ?? null,
-              },
-            },
-          }
-        })
-        return
-      }
-
-      const result = await sessionsApi.getWorkspaceFile(sessionId, path)
-      if (!isLatestRequest(previewRequestIds, requestKey, requestId)) return
-      if (!get().previewTabsBySession[sessionId]?.some((tab) => tab.id === tabId)) return
-
+    // Shared fetch-and-upsert logic
+    const applyResult = <T extends { state?: string; error?: string }>(
+      result: T,
+      updater: (current: WorkspacePreviewTab) => Partial<WorkspacePreviewTab>,
+    ) => {
       set((state) => {
         const tabs = state.previewTabsBySession[sessionId] ?? []
         return {
           previewTabsBySession: {
             ...state.previewTabsBySession,
             [sessionId]: upsertPreviewTab(tabs, tabId, (current) => ({
-                ...current,
-                content: result.content,
-                dataUrl: result.dataUrl,
-                mimeType: result.mimeType,
-                previewType: result.previewType ?? 'text',
-                diff: undefined,
-                language: result.language,
-              size: result.size,
-              state: result.state,
-              error: result.error,
+              ...current,
+              ...updater(current),
             })),
           },
           loading: {
@@ -579,20 +539,51 @@ export const useWorkspacePanelStore = create<WorkspacePanelStore>((set, get) => 
           },
         }
       })
+    }
+
+    try {
+      if (kind === 'diff') {
+        const result = await sessionsApi.getWorkspaceDiff(sessionId, path)
+        if (!isLatestRequest(previewRequestIds, requestKey, requestId)) return
+        if (!get().previewTabsBySession[sessionId]?.some((tab) => tab.id === tabId)) return
+        applyResult(result, () => ({
+          diff: result.diff ?? '',
+          content: undefined,
+          language: undefined,
+          size: undefined,
+          state: result.state,
+          error: result.error,
+        }))
+        return
+      }
+
+      const result = await sessionsApi.getWorkspaceFile(sessionId, path)
+      if (!isLatestRequest(previewRequestIds, requestKey, requestId)) return
+      if (!get().previewTabsBySession[sessionId]?.some((tab) => tab.id === tabId)) return
+      applyResult(result, () => ({
+        content: result.content,
+        dataUrl: result.dataUrl,
+        mimeType: result.mimeType,
+        previewType: result.previewType ?? 'text',
+        diff: undefined,
+        language: result.language,
+        size: result.size,
+        state: result.state,
+        error: result.error,
+      }))
     } catch (error) {
       if (!isLatestRequest(previewRequestIds, requestKey, requestId)) return
       if (!get().previewTabsBySession[sessionId]?.some((tab) => tab.id === tabId)) return
 
+      const message = error instanceof Error ? error.message : 'Failed to load workspace preview'
       set((state) => {
         const tabs = state.previewTabsBySession[sessionId] ?? []
-        const message = error instanceof Error ? error.message : 'Failed to load workspace preview'
-
         return {
           previewTabsBySession: {
             ...state.previewTabsBySession,
             [sessionId]: upsertPreviewTab(tabs, tabId, (current) => ({
               ...current,
-              state: 'error',
+              state: 'error' as const,
               error: message,
             })),
           },
@@ -614,6 +605,7 @@ export const useWorkspacePanelStore = create<WorkspacePanelStore>((set, get) => 
       })
     }
   },
+
 
   closePreview: (sessionId, tabId) => {
     get().closePreviewTabs(sessionId, tabId, 'current')
@@ -704,6 +696,54 @@ export const useWorkspacePanelStore = create<WorkspacePanelStore>((set, get) => 
         },
       }
     })
+  },
+
+  invalidateExpandedTreeCache: (sessionId) => {
+    set((state) => {
+      const expanded = new Set(state.expandedPathsBySession[sessionId] ?? [])
+      if (expanded.size === 0) return state
+      const sessionTree = state.treeBySessionPath[sessionId]
+      if (!sessionTree) return state
+      const cleaned: Record<string, WorkspaceTreeResult | undefined> = {}
+      for (const key of Object.keys(sessionTree)) {
+        if (key === '' || !expanded.has(key)) {
+          cleaned[key] = sessionTree[key]
+        }
+      }
+      return {
+        treeBySessionPath: {
+          ...state.treeBySessionPath,
+          [sessionId]: Object.keys(cleaned).length > 0 ? cleaned : undefined,
+        },
+      }
+    })
+  },
+
+  handleFileChanged: async (sessionId, filePath) => {
+    const parentDir = filePath.substring(0, filePath.lastIndexOf('/')) || ''
+
+    // 防抖：合并 200ms 内的同 session 变化
+    const existing = fileChangeTimers.get(sessionId)
+    if (existing) clearTimeout(existing)
+    fileChangeTimers.set(
+      sessionId,
+      setTimeout(async () => {
+        fileChangeTimers.delete(sessionId)
+
+        const expanded = get().expandedPathsBySession[sessionId] ?? []
+        if (parentDir === '' || expanded.includes(parentDir)) {
+          await get().loadTree(sessionId, parentDir)
+        }
+
+        const tabs = get().previewTabsBySession[sessionId] ?? []
+        const fileTabId = getWorkspacePreviewTabId(filePath, 'file')
+        const diffTabId = getWorkspacePreviewTabId(filePath, 'diff')
+        const matchingTab = tabs.find((t) => t.id === fileTabId || t.id === diffTabId)
+        if (matchingTab) {
+          await get().openPreview(sessionId, filePath, matchingTab.kind)
+        }
+      }, 200),
+    )
   },
 
   clearSession: (sessionId) => {
