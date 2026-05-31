@@ -887,3 +887,26 @@ describe('Activity Stats API', () => {
     expect(res.status).toBe(400)
   })
 })
+
+// ── PlantUML Render API ──────────────────────────────────────────────────
+
+describe('PlantUML Render API', () => {
+  it('POST plantuml/render returns valid response', async () => {
+    const { req, url, segments } = makeRequest('POST', '/api/settings/plantuml/render', {
+      code: '@startuml\nAlice -> Bob\n@enduml',
+    })
+    const res = await handleSettingsApi(req, url, segments)
+
+    expect(res.status).toBe(200)
+    const body = await res.json() as { svg: string | null; error?: string }
+    // svg 可能为 null（未配置 jar）或为有效 SVG 字符串
+    expect(typeof body.svg === 'string' || body.svg === null).toBe(true)
+  })
+
+  it('rejects non-POST methods for plantuml render', async () => {
+    const { req, url, segments } = makeRequest('GET', '/api/settings/plantuml/render')
+    const res = await handleSettingsApi(req, url, segments)
+
+    expect(res.status).toBe(405)
+  })
+})

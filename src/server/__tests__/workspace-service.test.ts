@@ -556,4 +556,22 @@ describe('WorkspaceService', () => {
       { path: 'b.txt', oldPath: undefined, status: 'modified', additions: 2, deletions: 3 },
     ])
   })
+
+  it('starts and stops a file watcher without errors', async () => {
+    const workDir = await makeTempDir('workspace-service-watcher-')
+    const service = new WorkspaceService(async () => workDir)
+
+    service.startWatcher('session-watcher', workDir)
+    service.startWatcher('session-watcher', workDir)
+    service.stopWatcher('session-watcher')
+  })
+
+  it('stopAllWatchers cleans up all active watchers', async () => {
+    const workDir = await makeTempDir('workspace-service-watcher-all-')
+    const service = new WorkspaceService(async () => workDir)
+
+    service.startWatcher('session-1', workDir)
+    service.startWatcher('session-2', workDir)
+    service.stopAllWatchers()
+  })
 })
