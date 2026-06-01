@@ -21,6 +21,7 @@ import {
   OPENAI_OFFICIAL_PROVIDER,
   isOpenAIOfficialProviderId,
 } from './openaiOfficialProvider.js'
+import { normalizeModelStringForAPI } from '../../utils/model/model.js'
 import { hahaOpenAIOAuthService } from './hahaOpenAIOAuthService.js'
 import {
   CURRENT_PROVIDER_INDEX_SCHEMA_VERSION,
@@ -477,9 +478,10 @@ export class ProviderService {
     authStrategy: ProviderAuthStrategy,
     networkSettings: NetworkSettings,
   ): Promise<ProviderTestStepResult> {
+    const normalizedModelId = normalizeModelStringForAPI(modelId)
     const start = Date.now()
     try {
-      const { url, headers, body } = buildDirectTestRequest(base, apiKey, modelId, format, authStrategy)
+      const { url, headers, body } = buildDirectTestRequest(base, apiKey, normalizedModelId, format, authStrategy)
       const proxyOptions = getProxyFetchOptions({ proxyUrl: getManualNetworkProxyUrl(networkSettings) })
       const response = await fetch(url, {
         method: 'POST',
@@ -497,22 +499,22 @@ export class ProviderService {
         if (resBody?.error && typeof resBody.error === 'object') {
           error = ((resBody.error as Record<string, unknown>).message as string) || error
         }
-        return { success: false, latencyMs, error, modelUsed: modelId, httpStatus: response.status }
+        return { success: false, latencyMs, error, modelUsed: normalizedModelId, httpStatus: response.status }
       }
 
       // Validate response structure
       const valid = validateResponseBody(resBody, format)
       if (!valid.ok) {
-        return { success: false, latencyMs, error: valid.error, modelUsed: modelId, httpStatus: response.status }
+        return { success: false, latencyMs, error: valid.error, modelUsed: normalizedModelId, httpStatus: response.status }
       }
 
-      return { success: true, latencyMs, modelUsed: valid.model || modelId, httpStatus: response.status }
+      return { success: true, latencyMs, modelUsed: valid.model || normalizedModelId, httpStatus: response.status }
     } catch (err: unknown) {
       const latencyMs = Date.now() - start
       if (err instanceof DOMException && err.name === 'TimeoutError') {
-        return { success: false, latencyMs, error: `Request timed out (${Math.round(networkSettings.aiRequestTimeoutMs / 1000)}s)`, modelUsed: modelId }
+        return { success: false, latencyMs, error: `Request timed out (${Math.round(networkSettings.aiRequestTimeoutMs / 1000)}s)`, modelUsed: normalizedModelId }
       }
-      return { success: false, latencyMs, error: err instanceof Error ? err.message : String(err), modelUsed: modelId }
+      return { success: false, latencyMs, error: err instanceof Error ? err.message : String(err), modelUsed: normalizedModelId }
     }
   }
 
@@ -524,11 +526,12 @@ export class ProviderService {
     format: 'openai_chat' | 'openai_responses',
     networkSettings: NetworkSettings,
   ): Promise<ProviderTestStepResult> {
+    const normalizedModelId = normalizeModelStringForAPI(modelId)
     const start = Date.now()
     try {
       // Build an Anthropic Messages API request (same shape as what CLI sends)
       const anthropicReq: AnthropicRequest = {
-        model: modelId,
+        model: normalizedModelId,
         max_tokens: 64,
         messages: [{ role: 'user', content: 'Say "ok" and nothing else.' }],
       }
@@ -557,31 +560,31 @@ export class ProviderService {
       if (!response.ok) {
         const latencyMs = Date.now() - start
         const errText = await response.text().catch(() => '')
-        return { success: false, latencyMs, modelUsed: modelId, httpStatus: response.status,
+        return { success: false, latencyMs, modelUsed: normalizedModelId, httpStatus: response.status,
           error: `Upstream HTTP ${response.status}: ${errText.slice(0, 200)}` }
       }
 
       // Transform response back to Anthropic format
       const responseBody = await response.json()
       const anthropicRes = format === 'openai_chat'
-        ? openaiChatToAnthropic(responseBody, modelId)
-        : openaiResponsesToAnthropic(responseBody, modelId)
+        ? openaiChatToAnthropic(responseBody, normalizedModelId)
+        : openaiResponsesToAnthropic(responseBody, normalizedModelId)
 
       const latencyMs = Date.now() - start
 
       // Validate the final Anthropic response
       if (anthropicRes.type !== 'message' || !Array.isArray(anthropicRes.content)) {
-        return { success: false, latencyMs, modelUsed: modelId,
+        return { success: false, latencyMs, modelUsed: normalizedModelId,
           error: 'Proxy transform produced invalid Anthropic response' }
       }
 
-      return { success: true, latencyMs, modelUsed: anthropicRes.model || modelId, httpStatus: response.status }
+      return { success: true, latencyMs, modelUsed: anthropicRes.model || normalizedModelId, httpStatus: response.status }
     } catch (err: unknown) {
       const latencyMs = Date.now() - start
       if (err instanceof DOMException && err.name === 'TimeoutError') {
-        return { success: false, latencyMs, error: `Proxy pipeline timed out (${Math.round(networkSettings.aiRequestTimeoutMs / 1000)}s)`, modelUsed: modelId }
+        return { success: false, latencyMs, error: `Proxy pipeline timed out (${Math.round(networkSettings.aiRequestTimeoutMs / 1000)}s)`, modelUsed: normalizedModelId }
       }
-      return { success: false, latencyMs, error: err instanceof Error ? err.message : String(err), modelUsed: modelId }
+      return { success: false, latencyMs, error: err instanceof Error ? err.message : String(err), modelUsed: normalizedModelId }
     }
   }
 }

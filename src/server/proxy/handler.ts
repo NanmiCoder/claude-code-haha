@@ -19,6 +19,7 @@ import { openaiResponsesToAnthropic } from './transform/openaiResponsesToAnthrop
 import { openaiChatStreamToAnthropic } from './streaming/openaiChatStreamToAnthropic.js'
 import { openaiResponsesStreamToAnthropic } from './streaming/openaiResponsesStreamToAnthropic.js'
 import type { AnthropicRequest } from './transform/types.js'
+import { normalizeModelStringForAPI } from '../../utils/model/model.js'
 import { getProxyFetchOptions } from '../../utils/proxy.js'
 import { getManualNetworkProxyUrl, loadNetworkSettings } from '../services/networkSettings.js'
 
@@ -128,6 +129,9 @@ export async function handleProxyRequest(req: Request, url: URL): Promise<Respon
   }
 
   body = ensureClaudeCodeAttribution(body)
+  // Strip [1m]/[2m] suffix before forwarding to third-party APIs —
+  // third-party providers don't understand the context-window suffix convention.
+  body.model = normalizeModelStringForAPI(body.model)
 
   const isStream = body.stream === true
   const baseUrl = config.baseUrl.replace(/\/+$/, '')

@@ -14,6 +14,7 @@ import {
 } from '../constants/toolLimits.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
 import { logEvent } from '../services/analytics/index.js'
+import { roughTokenCountEstimation } from '../services/tokenEstimation.js'
 import { sanitizeToolNameForAnalytics } from '../services/analytics/metadata.js'
 import type { Message } from '../types/message.js'
 import { logForDebugging } from './debug.js'
@@ -331,6 +332,55 @@ async function maybePersistLargeToolResult(
   })
 
   return { ...toolResultBlock, content: message }
+}
+
+/**
+ * Truncate tool result content to fit within a token budget.
+ *
+ * Uses rough character-based estimation (char/4) for speed. For CJK content
+ * this is conservative (undercounts tokens per char), but provides better
+ * accuracy than pure char-based truncation for mixed-language content.
+ *
+ * The truncation preserves newline boundaries when possible, and appends
+ * a marker so the model knows content was truncated.
+ *
+ * @param content - The content to potentially truncate
+ * @param maxTokens - Maximum allowed tokens before truncation
+ * @returns truncated content and whether truncation occurred
+ */
+export function truncateToolResultByTokens(
+  content: string,
+  maxTokens: number,
+): { truncated: string; wasTruncated: boolean; estimatedTokens: number } {
+  const estimatedTokens = roughTokenCountEstimation(content)
+  if (estimatedTokens <= maxTokens || content.length <= maxTokens) {
+    return { truncated: content, wasTruncated: false, estimatedTokens }
+  }
+
+  // Approximation: each token ~4 chars on average
+  const charBudget = maxTokens * BYTES_PER_TOKEN
+  let truncated = content.slice(0, charBudget)
+
+  // Try to find a clean boundary (newline) near the cut point to avoid
+  // splitting mid-line or mid-word
+  const lastNewline = truncated.lastIndexOf('\n')
+  if (lastNewline > charBudget * 0.7) {
+    truncated = truncated.slice(0, lastNewline)
+  }
+
+  // tool_result_content_block_start already wraps each block; this marker
+  // replaces bulky output with a compact signal the model can act on.
+  // Wording mirrors the per-tool persist message so the model already
+  // knows what to expect when it just *couldn't* fit in context.
+  truncated +=
+    `\n\n[Content truncated from ~${formatFileSize(content.length)} to fit ` +
+    `within ~${maxTokens.toLocaleString()} tokens. Full output may be available in the session tool-results directory.]`
+
+  return {
+    truncated,
+    wasTruncated: true,
+    estimatedTokens: roughTokenCountEstimation(truncated),
+  }
 }
 
 /**
