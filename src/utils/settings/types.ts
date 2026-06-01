@@ -1087,6 +1087,15 @@ export const SettingsSchema = lazySchema(() =>
             'Useful for enterprise administrators to add organization-specific context ' +
             '(e.g., "All plugins from our internal marketplace are vetted and approved.").',
         ),
+      imageRecognition: z
+        .object({
+          enabled: z.boolean().optional(),
+          omniModel: z.string().optional(),
+          autoSwitch: z.boolean().optional(),
+          switchBackDelay: z.number().optional(),
+        })
+        .optional()
+        .describe('Image recognition configuration for auto-switching models'),
     })
     .passthrough(),
 )

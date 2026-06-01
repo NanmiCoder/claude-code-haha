@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   BetaContentBlock,
   BetaContentBlockParam,
   BetaImageBlockParam,
@@ -88,6 +88,7 @@ import {
   getSmallFastModel,
   isNonCustomOpusModel,
 } from "../../utils/model/model.js";
+import { getSettings_DEPRECATED } from "../../utils/settings/settings.js";
 import {
   asSystemPrompt,
   type SystemPrompt,
@@ -1017,6 +1018,128 @@ export function stripExcessMediaItems(
   }) as (UserMessage | AssistantMessage)[];
 }
 
+function getLastFinalAssistantMessageIndex(messages: Message[]): number {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg?.type === 'assistant') {
+      const content = msg.message?.content;
+      const hasToolUse = Array.isArray(content) && content.some(block => block.type === 'tool_use');
+      if (!hasToolUse) {
+        return i;
+      }
+    }
+  }
+  return -1;
+}
+
+function hasImageInRawMessages(messages: Message[], lastFinalAssistantIndex: number): boolean {
+  const currentTurn = messages.slice(lastFinalAssistantIndex + 1);
+  for (const msg of currentTurn) {
+    if (msg.type === 'user' && msg.message && Array.isArray(msg.message.content)) {
+      for (const block of msg.message.content) {
+        if (block.type === 'image') return true;
+        if (block.type === 'tool_result' && Array.isArray(block.content)) {
+          if (block.content.some((nested: any) => nested.type === 'image')) return true;
+        }
+      }
+    }
+    if (msg.type === 'attachment' && msg.attachment) {
+      if (msg.attachment.type === 'image') return true;
+      if (msg.attachment.type === 'file' && (msg.attachment.content as any)?.type === 'image') return true;
+      const mimeType = (msg.attachment as any).mimeType || '';
+      if (mimeType.startsWith('image/')) return true;
+    }
+  }
+  return false;
+}
+
+function replaceImagesInHistory(messages: Message[], lastFinalAssistantIndex: number): Message[] {
+  return messages.map((msg, index) => {
+    if (index > lastFinalAssistantIndex) {
+      return msg;
+    }
+    if (msg.type === 'user' && msg.message && Array.isArray(msg.message.content)) {
+      const newContent = msg.message.content.map(block => {
+        if (block.type === 'image') {
+          return { type: 'text', text: `[Image: ${block.source?.type || 'processed'}]` };
+        }
+        if (block.type === 'tool_result' && Array.isArray(block.content)) {
+          const newToolContent = block.content.map(nested => {
+            if (nested.type === 'image') {
+              return { type: 'text', text: '[Image (processed)]' };
+            }
+            return nested;
+          });
+          return { ...block, content: newToolContent };
+        }
+        return block;
+      });
+      return {
+        ...msg,
+        message: {
+          ...msg.message,
+          content: newContent,
+        },
+      };
+    }
+    if (msg.type === 'attachment' && msg.attachment) {
+      let replaced = false;
+      let newAttachment = { ...msg.attachment };
+      
+      if (msg.attachment.type === 'image') {
+        newAttachment = {
+          type: 'file',
+          filename: (msg.attachment as any).filename || 'image.png',
+          content: {
+            type: 'text',
+            file: {
+              filePath: (msg.attachment as any).filename || 'image.png',
+              content: '[Image Attachment (processed)]',
+              numLines: 1,
+              startLine: 1,
+              totalLines: 1
+            }
+          }
+        } as any;
+        replaced = true;
+      } else if (msg.attachment.type === 'file' && (msg.attachment.content as any)?.type === 'image') {
+        newAttachment = {
+          ...msg.attachment,
+          content: {
+            type: 'text',
+            file: {
+              filePath: msg.attachment.filename || 'image.png',
+              content: '[Image Attachment (processed)]',
+              numLines: 1,
+              startLine: 1,
+              totalLines: 1
+            }
+          }
+        } as any;
+        replaced = true;
+      } else {
+        const mimeType = (msg.attachment as any).mimeType || '';
+        if (mimeType.startsWith('image/')) {
+          newAttachment = {
+            ...msg.attachment,
+            mimeType: 'text/plain',
+            content: '[Image Attachment (processed)]',
+          } as any;
+          replaced = true;
+        }
+      }
+      
+      if (replaced) {
+        return {
+          ...msg,
+          attachment: newAttachment,
+        };
+      }
+    }
+    return msg;
+  });
+}
+
 async function* queryModel(
   messages: Message[],
   systemPrompt: SystemPrompt,
@@ -1028,6 +1151,30 @@ async function* queryModel(
   StreamEvent | AssistantMessage | SystemAPIErrorMessage,
   void
 > {
+  const settings = getSettings_DEPRECATED() || {}
+  const imageRec = settings.imageRecognition
+  const isImageRecEnabled =
+    process.env.IMAGE_RECOGNITION_ENABLED === 'true' ||
+    imageRec?.enabled !== false
+
+  if (isImageRecEnabled) {
+    const lastFinalAssistantIndex = getLastFinalAssistantMessageIndex(messages)
+    const currentTurnHasImage = hasImageInRawMessages(messages, lastFinalAssistantIndex)
+    
+    if (currentTurnHasImage) {
+      const omniModel =
+        imageRec?.omniModel ||
+        process.env.IMAGE_RECOGNITION_MODEL ||
+        'mimo-v2-omni'
+      
+      logForDebugging(`[ImageRecognition] Image detected in current turn. Auto-switching model from ${options.model} to ${omniModel}`)
+      options.model = omniModel
+    } else {
+      // Replace images in history with placeholders to avoid errors on non-multimodal model (mimo-v2.5-pro)
+      messages = replaceImagesInHistory(messages, lastFinalAssistantIndex)
+    }
+  }
+
   if (getAPIProvider() === "azureOpenAI") {
     try {
       const systemText = systemPrompt.join("\n");

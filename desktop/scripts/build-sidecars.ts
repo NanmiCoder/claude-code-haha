@@ -138,7 +138,7 @@ async function compileExecutable({
       'react-devtools-core',
     ],
     compile: {
-      target: bunTarget,
+      target: bunTarget === 'bun-windows-x64' ? undefined : bunTarget,
       outfile: outfileBase,
       autoloadTsconfig: true,
       autoloadPackageJson: true,
