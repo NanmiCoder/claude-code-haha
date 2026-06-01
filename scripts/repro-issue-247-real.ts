@@ -8,7 +8,7 @@ type ServerMsg = {
   [key: string]: unknown
 }
 
-const modelId = process.env.REPRO_MODEL_ID || 'MiniMax-M2.7-highspeed'
+const modelId = process.env.REPRO_MODEL_ID || 'MiniMax-M3'
 const port = Number(process.env.REPRO_SERVER_PORT || 19747)
 const baseUrl = `http://127.0.0.1:${port}`
 const wsUrl = `ws://127.0.0.1:${port}`

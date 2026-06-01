@@ -11,10 +11,10 @@ import * as os from 'os'
 import { ProviderService } from '../services/providerService.js'
 
 const MODEL_MAPPING = {
-  main: 'MiniMax-M2.7-highspeed',
-  haiku: 'MiniMax-M2.7-highspeed',
-  sonnet: 'MiniMax-M2.7-highspeed',
-  opus: 'MiniMax-M2.7-highspeed',
+  main: 'MiniMax-M3',
+  haiku: 'MiniMax-M3',
+  sonnet: 'MiniMax-M3',
+  opus: 'MiniMax-M3',
 }
 
 describe('Real Provider Configs', () => {
@@ -68,8 +68,9 @@ describe('Real Provider Configs', () => {
     expect((settings.env as Record<string, string>).ANTHROPIC_BASE_URL).toBe('https://api.minimaxi.com/anthropic')
     expect((settings.env as Record<string, string>).ANTHROPIC_AUTH_TOKEN).toBe('sk-fake-test-key-for-testing-only')
     expect((settings.env as Record<string, string>).ANTHROPIC_API_KEY).toBe('')
-    expect((settings.env as Record<string, string>).ANTHROPIC_MODEL).toBe('MiniMax-M2.7-highspeed')
+    expect((settings.env as Record<string, string>).ANTHROPIC_MODEL).toBe('MiniMax-M3')
     expect(JSON.parse((settings.env as Record<string, string>).CLAUDE_CODE_MODEL_CONTEXT_WINDOWS)).toMatchObject({
+      'MiniMax-M3': 204800,
       'MiniMax-M2.7': 204800,
       'MiniMax-M2.7-highspeed': 204800,
     })
@@ -107,6 +108,7 @@ describe('Real Provider Configs', () => {
     let settings = await readCcHahaSettings()
     expect((settings.env as Record<string, string>).ANTHROPIC_BASE_URL).toBe('https://api.minimaxi.com/anthropic')
     expect(JSON.parse((settings.env as Record<string, string>).CLAUDE_CODE_MODEL_CONTEXT_WINDOWS)).toMatchObject({
+      'MiniMax-M3': 204800,
       'MiniMax-M2.7': 204800,
       'MiniMax-M2.7-highspeed': 204800,
     })
@@ -204,14 +206,14 @@ describe('Real Provider Configs', () => {
     const result = await service.testProviderConfig({
       baseUrl: 'https://api.minimaxi.com/anthropic',
       apiKey: 'sk-fake-test-key',
-      modelId: 'MiniMax-M2.7-highspeed',
+      modelId: 'MiniMax-M3',
       authStrategy: 'auth_token',
     })
 
     // testProviderConfig 返回 { connectivity: { ... }, proxy?: { ... } }
     expect(result.connectivity).toBeDefined()
     expect(result.connectivity.latencyMs).toBeGreaterThanOrEqual(0)
-    expect(result.connectivity.modelUsed).toBe('MiniMax-M2.7-highspeed')
+    expect(result.connectivity.modelUsed).toBe('MiniMax-M3')
 
     console.log('🔌 MiniMax 连通性测试结果:')
     console.log('   success:', result.connectivity.success)

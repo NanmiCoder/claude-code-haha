@@ -33,10 +33,10 @@ ANTHROPIC_AUTH_TOKEN=sk-xxx       # Bearer token via Authorization header
 ANTHROPIC_BASE_URL=https://api.minimaxi.com/anthropic
 
 # Model configuration
-ANTHROPIC_MODEL=MiniMax-M2.7-highspeed
-ANTHROPIC_DEFAULT_SONNET_MODEL=MiniMax-M2.7-highspeed
+ANTHROPIC_MODEL=MiniMax-M3
+ANTHROPIC_DEFAULT_SONNET_MODEL=MiniMax-M3
 ANTHROPIC_DEFAULT_HAIKU_MODEL=MiniMax-M2.7-highspeed
-ANTHROPIC_DEFAULT_OPUS_MODEL=MiniMax-M2.7-highspeed
+ANTHROPIC_DEFAULT_OPUS_MODEL=MiniMax-M3
 
 # Timeout in milliseconds
 API_TIMEOUT_MS=3000000
@@ -53,7 +53,7 @@ CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
   "env": {
     "ANTHROPIC_AUTH_TOKEN": "sk-xxx",
     "ANTHROPIC_BASE_URL": "https://api.minimaxi.com/anthropic",
-    "ANTHROPIC_MODEL": "MiniMax-M2.7-highspeed"
+    "ANTHROPIC_MODEL": "MiniMax-M3"
   }
 }
 ```

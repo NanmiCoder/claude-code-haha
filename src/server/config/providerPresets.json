@@ -98,23 +98,19 @@
     "baseUrl": "https://api.minimaxi.com/anthropic",
     "apiFormat": "anthropic",
     "defaultModels": {
-      "main": "MiniMax-M2.7",
-      "haiku": "MiniMax-M2.7",
-      "sonnet": "MiniMax-M2.7",
-      "opus": "MiniMax-M2.7"
+      "main": "MiniMax-M3",
+      "haiku": "MiniMax-M3",
+      "sonnet": "MiniMax-M3",
+      "opus": "MiniMax-M3"
     },
     "needsApiKey": true,
     "websiteUrl": "https://platform.minimaxi.com",
     "apiKeyUrl": "https://platform.minimaxi.com/subscribe/token-plan?code=1TG2Cseab2&source=link",
     "authStrategy": "auth_token",
     "modelContextWindows": {
+      "MiniMax-M3": 204800,
       "MiniMax-M2.7": 204800,
-      "MiniMax-M2.7-highspeed": 204800,
-      "MiniMax-M2.5": 204800,
-      "MiniMax-M2.5-highspeed": 204800,
-      "MiniMax-M2.1": 204800,
-      "MiniMax-M2.1-highspeed": 204800,
-      "MiniMax-M2": 204800
+      "MiniMax-M2.7-highspeed": 204800
     }
   },
   {
