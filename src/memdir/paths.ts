@@ -67,9 +67,7 @@ export function isAutoMemoryEnabled(): boolean {
  * directly in an `if` condition.
  */
 export function isExtractModeActive(): boolean {
-  if (!getFeatureValue_CACHED_MAY_BE_STALE('tengu_passport_quail', false)) {
-    return false
-  }
+  if (!isAutoMemoryEnabled()) return false
   return (
     !getIsNonInteractiveSession() ||
     getFeatureValue_CACHED_MAY_BE_STALE('tengu_slate_thimble', false)

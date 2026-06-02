@@ -22,10 +22,8 @@ export function initBundledSkills(): void {
   require('./simplify.js').registerSimplifySkill()
   require('./batch.js').registerBatchSkill()
   require('./stuck.js').registerStuckSkill()
-  if (feature('KAIROS') || feature('KAIROS_DREAM')) {
-    const { registerDreamSkill } = require('./dream.js')
-    registerDreamSkill()
-  }
+  const { registerDreamSkill } = require('./dream.js')
+  registerDreamSkill()
   if (feature('REVIEW_ARTIFACT')) {
     const { registerHunterSkill } = require('./hunter.js')
     registerHunterSkill()
